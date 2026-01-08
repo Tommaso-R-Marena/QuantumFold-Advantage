@@ -5,8 +5,6 @@ on:
     branches: [ main ]
     tags:
       - 'v*'
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 env:
@@ -25,8 +23,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
+      - name: Free disk space
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+          # Remove unnecessary packages
+          sudo apt-get clean
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          docker system prune -af --volumes
+          echo "Disk space after cleanup:"
+          df -h
+      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:latest
+            network=host
       
       - name: Log in to GitHub Container Registry
         if: github.event_name != 'pull_request'
@@ -43,9 +59,6 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
       
@@ -57,9 +70,13 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=min
+          no-cache: false
       
-      - name: Image digest
-        run: echo ${{ steps.build-and-push.outputs.digest }}
+      - name: Cleanup after build
+        if: always()
+        run: |
+          docker system prune -af --volumes
+          df -h

@@ -51,7 +51,9 @@ htmlcov/
 .nox/
 
 # Documentation
-docs/_build/
+docs/
+README.md
+LICENSE
 
 # Data (exclude large files)
 data/
@@ -74,6 +76,7 @@ checkpoints/
 
 # Jupyter
 .ipynb_checkpoints/
+examples/
 *.ipynb
 
 # Docker
@@ -84,7 +87,15 @@ docker-compose*.yml
 # CI/CD
 .github/
 
+# Scripts (not needed in container)
+scripts/
+
+# Tests (not needed in production)
+tests/
+
+# API (optional, uncomment if not using API)
+# api/
+
 # Misc
-README.md
-LICENSE
 .gitattributes
+*.md

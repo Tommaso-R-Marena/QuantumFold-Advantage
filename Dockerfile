@@ -1,8 +1,7 @@
 # QuantumFold-Advantage Docker Image
-# Multi-stage build for optimized image size
+# Optimized for size and build speed
 
-# Stage 1: Base image with dependencies
-FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04 AS base
+FROM python:3.10-slim AS base
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -11,16 +10,12 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    python3.10 \
-    python3-pip \
+# Install minimal system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
-    wget \
-    curl \
     build-essential \
-    libhdf5-dev \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # Upgrade pip
 RUN python3 -m pip install --upgrade pip setuptools wheel
@@ -33,8 +28,10 @@ WORKDIR /build
 # Copy requirements
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --user --no-warn-script-location -r requirements.txt
+# Install Python dependencies to user directory
+RUN pip install --user --no-warn-script-location \
+    numpy scipy torch pennylane matplotlib pandas scikit-learn \
+    && pip cache purge
 
 # Stage 3: Production image
 FROM base AS production
@@ -48,23 +45,24 @@ RUN useradd -m -u 1000 quantumfold && \
 COPY --from=builder --chown=quantumfold:quantumfold /root/.local /home/quantumfold/.local
 
 # Set up Python path
-ENV PATH=/home/quantumfold/.local/bin:$PATH \
-    PYTHONPATH=/app:$PYTHONPATH
+ENV PATH=/home/quantumfold/.local/bin:$PATH
+ENV PYTHONPATH=/app:$PYTHONPATH
 
 WORKDIR /app
 
-# Copy application code
-COPY --chown=quantumfold:quantumfold . .
+# Copy only essential application code
+COPY --chown=quantumfold:quantumfold src/ ./src/
+COPY --chown=quantumfold:quantumfold *.py ./
 
 # Switch to non-root user
 USER quantumfold
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python3 -c "import torch; import pennylane; print('OK')" || exit 1
+    CMD python3 -c "import torch; print('OK')" || exit 1
 
 # Default command
-CMD ["python3", "run_demo.py"]
+CMD ["python3", "--version"]
 
 # Labels
 LABEL maintainer="Tommaso R. Marena" \
