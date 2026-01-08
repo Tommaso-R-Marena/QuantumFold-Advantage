@@ -1,0 +1,153 @@
+version: '3.8'
+
+services:
+  # Main QuantumFold application
+  quantumfold:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: quantumfold-advantage:latest
+    container_name: quantumfold-app
+    runtime: nvidia  # Enable GPU support
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./data:/data:ro
+      - ./outputs:/outputs:rw
+      - ./checkpoints:/checkpoints:ro
+    command: python3 run_demo.py
+    restart: unless-stopped
+
+  # Training service
+  train:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: quantumfold-advantage:latest
+    container_name: quantumfold-train
+    runtime: nvidia
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./data:/data:ro
+      - ./checkpoints:/checkpoints:rw
+      - ./logs:/app/logs:rw
+    command: >
+      python3 src/train.py
+        --data_dir /data/train
+        --val_dir /data/validation
+        --output_dir /checkpoints
+        --epochs 50
+        --batch_size 4
+        --use_quantum
+    restart: "no"
+
+  # Evaluation service
+  evaluate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: quantumfold-advantage:latest
+    container_name: quantumfold-eval
+    runtime: nvidia
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./data:/data:ro
+      - ./checkpoints:/checkpoints:ro
+      - ./outputs:/outputs:rw
+    command: >
+      python3 scripts/evaluate_model.py
+        --checkpoint /checkpoints/best_model.pt
+        --data_dir /data/validation
+        --output /outputs/evaluation_results.json
+    restart: "no"
+
+  # Benchmark service
+  benchmark:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: quantumfold-advantage:latest
+    container_name: quantumfold-benchmark
+    runtime: nvidia
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./data:/data:ro
+      - ./checkpoints:/checkpoints:ro
+      - ./outputs:/outputs:rw
+    command: >
+      python3 scripts/run_benchmark.py
+        --test_set /data/casp15_test.json
+        --model_checkpoint /checkpoints/best_model.pt
+        --output_dir /outputs/benchmarks
+    restart: "no"
+
+  # Jupyter notebook server
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: quantumfold-advantage:latest
+    container_name: quantumfold-jupyter
+    runtime: nvidia
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - JUPYTER_ENABLE_LAB=yes
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./:/app:rw
+      - ./data:/data:ro
+      - ./checkpoints:/checkpoints:ro
+    command: >
+      jupyter lab
+        --ip=0.0.0.0
+        --port=8888
+        --no-browser
+        --allow-root
+        --NotebookApp.token='quantumfold'
+    restart: unless-stopped
+
+  # API server (to be implemented)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: quantumfold-advantage:latest
+    container_name: quantumfold-api
+    runtime: nvidia
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./checkpoints:/checkpoints:ro
+      - ./outputs:/outputs:rw
+    command: >
+      python3 api/server.py
+        --host 0.0.0.0
+        --port 8000
+        --checkpoint /checkpoints/best_model.pt
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  default:
+    name: quantumfold-network
