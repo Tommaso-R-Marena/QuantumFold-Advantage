@@ -44,7 +44,7 @@ RUN useradd -m -u 1000 quantumfold && \
 # Copy Python packages from builder
 COPY --from=builder --chown=quantumfold:quantumfold /root/.local /home/quantumfold/.local
 
-# Set up Python path (define PYTHONPATH before use)
+# Set up Python path
 ENV PATH=/home/quantumfold/.local/bin:$PATH \
     PYTHONPATH=/app
 
@@ -52,7 +52,6 @@ WORKDIR /app
 
 # Copy only essential application code
 COPY --chown=quantumfold:quantumfold src/ ./src/
-COPY --chown=quantumfold:quantumfold *.py ./ 2>/dev/null || true
 
 # Switch to non-root user
 USER quantumfold
