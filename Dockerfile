@@ -28,10 +28,15 @@ WORKDIR /build
 # Copy requirements
 COPY requirements.txt .
 
-# Install Python dependencies to user directory
-# Note: PIP_NO_CACHE_DIR=1 disables cache, so no need to purge
+# Install CPU-only PyTorch first (much smaller, no CUDA packages)
+# This saves ~3GB by avoiding nvidia-* packages
 RUN pip install --user --no-warn-script-location \
-    numpy scipy torch pennylane matplotlib pandas scikit-learn biopython requests tqdm psutil pytest
+    torch --index-url https://download.pytorch.org/whl/cpu
+
+# Install other dependencies
+RUN pip install --user --no-warn-script-location \
+    numpy scipy pennylane matplotlib pandas scikit-learn \
+    biopython requests tqdm psutil pytest
 
 # Stage 3: Production image
 FROM base AS production
