@@ -1,406 +1,411 @@
-"""Benchmarking suite for comparing against AlphaFold-3 and baseline methods.
+"""Benchmarking utilities for comparing QuantumFold with AlphaFold-3.
 
-Implements comprehensive evaluation metrics and comparison protocols.
+This module provides comprehensive evaluation metrics and comparison tools
+for assessing protein structure prediction quality.
 """
 
 import numpy as np
 import torch
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Union
 from dataclasses import dataclass
 import time
 import json
 from pathlib import Path
 
+try:
+    from Bio.PDB import PDBParser, Superimposer
+    from Bio.PDB.Polypeptide import three_to_one
+except ImportError:
+    print("Warning: Biopython not installed. Install with: pip install biopython")
+
 
 @dataclass
-class BenchmarkResult:
-    """Container for benchmark results."""
-    model_name: str
-    tm_score: float
-    rmsd: float
-    gdt_ts: float
-    gdt_ha: float
-    lddt: float
-    inference_time: float
-    memory_usage: float
-    protein_id: str
-    sequence_length: int
-
-
 class StructureMetrics:
-    """Compute protein structure quality metrics."""
+    """Container for protein structure evaluation metrics."""
+    rmsd: float  # Root mean square deviation (Å)
+    tm_score: float  # Template modeling score
+    gdt_ts: float  # Global distance test - total score
+    gdt_ha: float  # Global distance test - high accuracy
+    lddt: float  # Local distance difference test
+    clash_score: float  # Steric clash score
     
-    @staticmethod
-    def rmsd(pred_coords: np.ndarray, 
-             true_coords: np.ndarray,
-             align: bool = True) -> float:
-        """Calculate Root Mean Square Deviation.
+    def to_dict(self) -> Dict[str, float]:
+        return {
+            'rmsd': self.rmsd,
+            'tm_score': self.tm_score,
+            'gdt_ts': self.gdt_ts,
+            'gdt_ha': self.gdt_ha,
+            'lddt': self.lddt,
+            'clash_score': self.clash_score
+        }
+
+
+class ProteinStructureEvaluator:
+    """Evaluator for protein structure prediction quality.
+    
+    Implements multiple metrics used in CASP and structure prediction
+    competitions to provide comprehensive assessment.
+    """
+    
+    def __init__(self, distance_thresholds: Optional[List[float]] = None):
+        """
+        Args:
+            distance_thresholds: Distance cutoffs for GDT calculation (Å)
+        """
+        self.distance_thresholds = distance_thresholds or [1.0, 2.0, 4.0, 8.0]
+    
+    def calculate_rmsd(
+        self,
+        coords_pred: np.ndarray,
+        coords_true: np.ndarray,
+        align: bool = True
+    ) -> float:
+        """Calculate RMSD between predicted and true coordinates.
         
         Args:
-            pred_coords: Predicted coordinates [N, 3]
-            true_coords: True coordinates [N, 3]
+            coords_pred: Predicted coordinates (N, 3)
+            coords_true: True coordinates (N, 3)
             align: Whether to align structures first
             
         Returns:
             RMSD value in Angstroms
         """
-        assert pred_coords.shape == true_coords.shape
-        
         if align:
-            pred_coords = StructureMetrics._align_structures(
-                pred_coords, true_coords
-            )
+            coords_pred = self._align_structures(coords_pred, coords_true)
         
-        diff = pred_coords - true_coords
+        diff = coords_pred - coords_true
         rmsd = np.sqrt(np.mean(np.sum(diff ** 2, axis=1)))
-        
         return float(rmsd)
     
-    @staticmethod
-    def _align_structures(mobile: np.ndarray, 
-                         target: np.ndarray) -> np.ndarray:
-        """Align structures using Kabsch algorithm."""
-        # Center structures
-        mobile_center = mobile.mean(axis=0)
-        target_center = target.mean(axis=0)
+    def calculate_tm_score(
+        self,
+        coords_pred: np.ndarray,
+        coords_true: np.ndarray,
+        sequence_length: Optional[int] = None
+    ) -> float:
+        """Calculate TM-score for structure comparison.
         
-        mobile_centered = mobile - mobile_center
-        target_centered = target - target_center
-        
-        # Compute rotation matrix
-        H = mobile_centered.T @ target_centered
-        U, S, Vt = np.linalg.svd(H)
-        
-        # Ensure right-handed coordinate system
-        d = np.linalg.det(Vt.T @ U.T)
-        if d < 0:
-            Vt[-1, :] *= -1
-        
-        R = Vt.T @ U.T
-        
-        # Apply transformation
-        mobile_aligned = mobile_centered @ R + target_center
-        
-        return mobile_aligned
-    
-    @staticmethod
-    def tm_score(pred_coords: np.ndarray,
-                 true_coords: np.ndarray,
-                 sequence_length: Optional[int] = None) -> float:
-        """Calculate TM-score (Template Modeling score).
-        
-        TM-score is a more robust metric than RMSD, normalized by protein length.
-        Range: [0, 1], where >0.5 indicates similar fold, >0.6 indicates same fold.
+        TM-score is length-independent and ranges from 0 to 1,
+        where >0.5 indicates similar fold and >0.6 indicates same topology.
         
         Args:
-            pred_coords: Predicted coordinates [N, 3]
-            true_coords: True coordinates [N, 3]
-            sequence_length: Length for normalization (default: N)
+            coords_pred: Predicted coordinates (N, 3)
+            coords_true: True coordinates (N, 3)
+            sequence_length: Length of protein sequence (defaults to N)
             
         Returns:
             TM-score value
         """
         if sequence_length is None:
-            sequence_length = len(pred_coords)
+            sequence_length = len(coords_true)
         
         # Align structures
-        pred_aligned = StructureMetrics._align_structures(pred_coords, true_coords)
-        
-        # Calculate distances
-        distances = np.sqrt(np.sum((pred_aligned - true_coords) ** 2, axis=1))
+        coords_pred_aligned = self._align_structures(coords_pred, coords_true)
         
         # TM-score normalization factor
         d0 = 1.24 * (sequence_length - 15) ** (1/3) - 1.8
+        d0 = max(d0, 0.5)  # Minimum d0 value
         
-        # Calculate TM-score
-        tm = np.mean(1.0 / (1.0 + (distances / d0) ** 2))
+        # Calculate distances
+        distances = np.sqrt(np.sum((coords_pred_aligned - coords_true) ** 2, axis=1))
         
-        return float(tm)
+        # TM-score formula
+        tm_score = np.mean(1.0 / (1.0 + (distances / d0) ** 2))
+        
+        return float(tm_score)
     
-    @staticmethod
-    def gdt_ts(pred_coords: np.ndarray,
-               true_coords: np.ndarray) -> float:
-        """Calculate GDT_TS (Global Distance Test - Total Score).
+    def calculate_gdt(
+        self,
+        coords_pred: np.ndarray,
+        coords_true: np.ndarray,
+        thresholds: Optional[List[float]] = None
+    ) -> Tuple[float, float]:
+        """Calculate GDT_TS and GDT_HA scores.
         
-        Average of percentages of residues within distance thresholds.
-        Thresholds: 1Å, 2Å, 4Å, 8Å
+        Global Distance Test measures the percentage of residues within
+        distance thresholds after optimal superposition.
         
         Args:
-            pred_coords: Predicted coordinates [N, 3]
-            true_coords: True coordinates [N, 3]
+            coords_pred: Predicted coordinates (N, 3)
+            coords_true: True coordinates (N, 3)
+            thresholds: Distance thresholds in Angstroms
             
         Returns:
-            GDT_TS score [0, 100]
+            Tuple of (GDT_TS, GDT_HA) scores (0-100 scale)
         """
-        pred_aligned = StructureMetrics._align_structures(pred_coords, true_coords)
-        distances = np.sqrt(np.sum((pred_aligned - true_coords) ** 2, axis=1))
+        if thresholds is None:
+            thresholds = self.distance_thresholds
         
-        thresholds = [1.0, 2.0, 4.0, 8.0]
+        # Align structures
+        coords_pred_aligned = self._align_structures(coords_pred, coords_true)
+        
+        # Calculate distances
+        distances = np.sqrt(np.sum((coords_pred_aligned - coords_true) ** 2, axis=1))
+        
+        # Calculate percentage under each threshold
         percentages = []
-        
         for threshold in thresholds:
             pct = 100.0 * np.mean(distances < threshold)
             percentages.append(pct)
         
+        # GDT_TS: average of 1, 2, 4, 8 Å thresholds
         gdt_ts = np.mean(percentages)
-        return float(gdt_ts)
-    
-    @staticmethod
-    def gdt_ha(pred_coords: np.ndarray,
-               true_coords: np.ndarray) -> float:
-        """Calculate GDT_HA (Global Distance Test - High Accuracy).
         
-        Similar to GDT_TS but with stricter thresholds.
-        Thresholds: 0.5Å, 1Å, 2Å, 4Å
-        """
-        pred_aligned = StructureMetrics._align_structures(pred_coords, true_coords)
-        distances = np.sqrt(np.sum((pred_aligned - true_coords) ** 2, axis=1))
-        
-        thresholds = [0.5, 1.0, 2.0, 4.0]
-        percentages = []
-        
-        for threshold in thresholds:
+        # GDT_HA: average of 0.5, 1, 2, 4 Å thresholds
+        ha_thresholds = [0.5, 1.0, 2.0, 4.0]
+        ha_percentages = []
+        for threshold in ha_thresholds:
             pct = 100.0 * np.mean(distances < threshold)
-            percentages.append(pct)
+            ha_percentages.append(pct)
+        gdt_ha = np.mean(ha_percentages)
         
-        gdt_ha = np.mean(percentages)
-        return float(gdt_ha)
+        return float(gdt_ts), float(gdt_ha)
     
-    @staticmethod
-    def lddt(pred_coords: np.ndarray,
-             true_coords: np.ndarray,
-             cutoff: float = 15.0) -> float:
-        """Calculate lDDT (local Distance Difference Test).
+    def calculate_lddt(
+        self,
+        coords_pred: np.ndarray,
+        coords_true: np.ndarray,
+        cutoff: float = 15.0,
+        thresholds: Optional[List[float]] = None
+    ) -> float:
+        """Calculate Local Distance Difference Test (lDDT) score.
         
-        Measures local structure quality by comparing distances
-        between nearby residues.
+        lDDT measures local structure quality by examining distance
+        differences between nearby residues.
         
         Args:
-            pred_coords: Predicted coordinates [N, 3]
-            true_coords: True coordinates [N, 3]
+            coords_pred: Predicted coordinates (N, 3)
+            coords_true: True coordinates (N, 3)
             cutoff: Distance cutoff for considering residue pairs
+            thresholds: Difference thresholds for scoring
             
         Returns:
-            lDDT score [0, 1]
+            lDDT score (0-1 scale)
         """
-        n_residues = len(pred_coords)
+        if thresholds is None:
+            thresholds = [0.5, 1.0, 2.0, 4.0]
         
-        # Calculate distance matrices
-        pred_dists = np.linalg.norm(
-            pred_coords[:, None, :] - pred_coords[None, :, :], axis=2
-        )
-        true_dists = np.linalg.norm(
-            true_coords[:, None, :] - true_coords[None, :, :], axis=2
-        )
+        n_residues = len(coords_true)
         
-        # Consider only pairs within cutoff in true structure
-        mask = (true_dists < cutoff) & (true_dists > 0)
+        # Calculate all pairwise distances
+        dist_true = np.sqrt(np.sum((coords_true[:, None, :] - coords_true[None, :, :]) ** 2, axis=2))
+        dist_pred = np.sqrt(np.sum((coords_pred[:, None, :] - coords_pred[None, :, :]) ** 2, axis=2))
+        
+        # Only consider pairs within cutoff in true structure
+        mask = (dist_true < cutoff) & (dist_true > 0)  # Exclude self-distances
         
         if not np.any(mask):
             return 0.0
         
         # Calculate distance differences
-        dist_diffs = np.abs(pred_dists[mask] - true_dists[mask])
+        dist_diff = np.abs(dist_true - dist_pred)
         
-        # Count preserved distances at different thresholds
-        thresholds = [0.5, 1.0, 2.0, 4.0]
-        preserved = [np.mean(dist_diffs < t) for t in thresholds]
+        # Score each pair
+        scores = []
+        for threshold in thresholds:
+            preserved = (dist_diff[mask] < threshold).astype(float)
+            scores.append(np.mean(preserved))
         
-        lddt_score = np.mean(preserved)
-        return float(lddt_score)
-
-
-class ProteinBenchmark:
-    """Main benchmarking suite for protein structure prediction."""
+        # Average over thresholds
+        lddt = np.mean(scores)
+        
+        return float(lddt)
     
-    def __init__(self, output_dir: str = "benchmarks"):
+    def calculate_clash_score(
+        self,
+        coords: np.ndarray,
+        clash_threshold: float = 2.0
+    ) -> float:
+        """Calculate steric clash score.
+        
+        Args:
+            coords: Atomic coordinates (N, 3)
+            clash_threshold: Minimum allowed distance between non-bonded atoms (Å)
+            
+        Returns:
+            Clash score (number of clashes per 100 residues)
+        """
+        n_atoms = len(coords)
+        
+        # Calculate all pairwise distances
+        distances = np.sqrt(np.sum((coords[:, None, :] - coords[None, :, :]) ** 2, axis=2))
+        
+        # Count clashes (excluding neighbors and self)
+        clash_mask = (distances < clash_threshold) & (distances > 0)
+        # Exclude adjacent residues (assuming sequential atoms)
+        for i in range(n_atoms):
+            if i > 0:
+                clash_mask[i, i-1] = False
+            if i < n_atoms - 1:
+                clash_mask[i, i+1] = False
+        
+        n_clashes = np.sum(clash_mask) // 2  # Divide by 2 to avoid double counting
+        
+        # Normalize by number of residues
+        clash_score = (n_clashes / n_atoms) * 100
+        
+        return float(clash_score)
+    
+    def evaluate_structure(
+        self,
+        coords_pred: np.ndarray,
+        coords_true: np.ndarray,
+        sequence_length: Optional[int] = None
+    ) -> StructureMetrics:
+        """Comprehensive evaluation of predicted structure.
+        
+        Args:
+            coords_pred: Predicted coordinates
+            coords_true: True coordinates
+            sequence_length: Protein sequence length
+            
+        Returns:
+            StructureMetrics object with all scores
+        """
+        rmsd = self.calculate_rmsd(coords_pred, coords_true)
+        tm_score = self.calculate_tm_score(coords_pred, coords_true, sequence_length)
+        gdt_ts, gdt_ha = self.calculate_gdt(coords_pred, coords_true)
+        lddt = self.calculate_lddt(coords_pred, coords_true)
+        clash_score = self.calculate_clash_score(coords_pred)
+        
+        return StructureMetrics(
+            rmsd=rmsd,
+            tm_score=tm_score,
+            gdt_ts=gdt_ts,
+            gdt_ha=gdt_ha,
+            lddt=lddt,
+            clash_score=clash_score
+        )
+    
+    def _align_structures(
+        self,
+        coords_mobile: np.ndarray,
+        coords_target: np.ndarray
+    ) -> np.ndarray:
+        """Align mobile coordinates to target using Kabsch algorithm.
+        
+        Args:
+            coords_mobile: Coordinates to align
+            coords_target: Reference coordinates
+            
+        Returns:
+            Aligned mobile coordinates
+        """
+        # Center both coordinate sets
+        mobile_center = coords_mobile.mean(axis=0)
+        target_center = coords_target.mean(axis=0)
+        
+        coords_mobile_centered = coords_mobile - mobile_center
+        coords_target_centered = coords_target - target_center
+        
+        # Calculate rotation matrix using Kabsch algorithm
+        correlation_matrix = coords_mobile_centered.T @ coords_target_centered
+        U, _, Vt = np.linalg.svd(correlation_matrix)
+        
+        # Handle reflection case
+        if np.linalg.det(U @ Vt) < 0:
+            Vt[-1, :] *= -1
+        
+        rotation_matrix = U @ Vt
+        
+        # Apply transformation
+        coords_aligned = (coords_mobile_centered @ rotation_matrix.T) + target_center
+        
+        return coords_aligned
+
+
+class BenchmarkComparison:
+    """Compare QuantumFold predictions with AlphaFold-3 and other baselines."""
+    
+    def __init__(self, output_dir: str = "benchmark_results"):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True, parents=True)
-        self.metrics = StructureMetrics()
-        self.results: List[BenchmarkResult] = []
+        self.evaluator = ProteinStructureEvaluator()
+        self.results = []
     
-    def evaluate_model(self,
-                      model: torch.nn.Module,
-                      test_data: List[Tuple[torch.Tensor, np.ndarray, str]],
-                      model_name: str = "QuantumFold",
-                      device: str = "cuda") -> List[BenchmarkResult]:
-        """Evaluate model on test dataset.
+    def compare_predictions(
+        self,
+        protein_id: str,
+        coords_true: np.ndarray,
+        coords_quantumfold: np.ndarray,
+        coords_alphafold: Optional[np.ndarray] = None,
+        coords_baseline: Optional[np.ndarray] = None,
+        sequence_length: Optional[int] = None
+    ) -> Dict[str, StructureMetrics]:
+        """Compare multiple prediction methods.
         
         Args:
-            model: PyTorch model to evaluate
-            test_data: List of (features, true_coords, protein_id)
-            model_name: Name for results
-            device: Device for inference
+            protein_id: Identifier for the protein
+            coords_true: Ground truth coordinates
+            coords_quantumfold: QuantumFold predictions
+            coords_alphafold: AlphaFold-3 predictions (optional)
+            coords_baseline: Classical baseline predictions (optional)
+            sequence_length: Sequence length for TM-score
             
         Returns:
-            List of benchmark results
+            Dictionary mapping method names to metrics
         """
-        model.eval()
-        model.to(device)
-        results = []
+        comparison = {}
         
-        with torch.no_grad():
-            for features, true_coords, protein_id in test_data:
-                # Measure inference time and memory
-                start_time = time.time()
-                
-                if torch.cuda.is_available():
-                    torch.cuda.reset_peak_memory_stats()
-                
-                # Inference
-                features = features.unsqueeze(0).to(device)
-                pred_coords = model(features)
-                pred_coords = pred_coords.squeeze(0).cpu().numpy()
-                
-                inference_time = time.time() - start_time
-                
-                if torch.cuda.is_available():
-                    memory_usage = torch.cuda.max_memory_allocated() / 1e9
-                else:
-                    memory_usage = 0.0
-                
-                # Calculate metrics
-                seq_len = len(true_coords)
-                
-                result = BenchmarkResult(
-                    model_name=model_name,
-                    tm_score=self.metrics.tm_score(pred_coords, true_coords),
-                    rmsd=self.metrics.rmsd(pred_coords, true_coords),
-                    gdt_ts=self.metrics.gdt_ts(pred_coords, true_coords),
-                    gdt_ha=self.metrics.gdt_ha(pred_coords, true_coords),
-                    lddt=self.metrics.lddt(pred_coords, true_coords),
-                    inference_time=inference_time,
-                    memory_usage=memory_usage,
-                    protein_id=protein_id,
-                    sequence_length=seq_len
-                )
-                
-                results.append(result)
-                self.results.append(result)
+        # Evaluate QuantumFold
+        comparison['QuantumFold'] = self.evaluator.evaluate_structure(
+            coords_quantumfold, coords_true, sequence_length
+        )
         
-        return results
-    
-    def compare_with_alphafold3(self,
-                               alphafold_predictions: Dict[str, np.ndarray],
-                               ground_truth: Dict[str, np.ndarray]) -> Dict:
-        """Compare results with AlphaFold-3 predictions.
+        # Evaluate AlphaFold-3 if provided
+        if coords_alphafold is not None:
+            comparison['AlphaFold-3'] = self.evaluator.evaluate_structure(
+                coords_alphafold, coords_true, sequence_length
+            )
         
-        Args:
-            alphafold_predictions: Dict mapping protein_id to AF3 predictions
-            ground_truth: Dict mapping protein_id to true structures
-            
-        Returns:
-            Comparison statistics
-        """
-        comparison = {
-            'quantumfold': {'tm_scores': [], 'rmsds': []},
-            'alphafold3': {'tm_scores': [], 'rmsds': []}
+        # Evaluate baseline if provided
+        if coords_baseline is not None:
+            comparison['Baseline'] = self.evaluator.evaluate_structure(
+                coords_baseline, coords_true, sequence_length
+            )
+        
+        # Store results
+        result_entry = {
+            'protein_id': protein_id,
+            'timestamp': time.time(),
+            'comparison': {k: v.to_dict() for k, v in comparison.items()}
         }
+        self.results.append(result_entry)
         
-        for result in self.results:
-            pid = result.protein_id
-            
-            if pid in alphafold_predictions and pid in ground_truth:
-                # QuantumFold scores
-                comparison['quantumfold']['tm_scores'].append(result.tm_score)
-                comparison['quantumfold']['rmsds'].append(result.rmsd)
-                
-                # AlphaFold-3 scores
-                af3_pred = alphafold_predictions[pid]
-                true_coords = ground_truth[pid]
-                
-                af3_tm = self.metrics.tm_score(af3_pred, true_coords)
-                af3_rmsd = self.metrics.rmsd(af3_pred, true_coords)
-                
-                comparison['alphafold3']['tm_scores'].append(af3_tm)
-                comparison['alphafold3']['rmsds'].append(af3_rmsd)
-        
-        # Calculate statistics
-        stats = {
-            'quantumfold_mean_tm': np.mean(comparison['quantumfold']['tm_scores']),
-            'alphafold3_mean_tm': np.mean(comparison['alphafold3']['tm_scores']),
-            'quantumfold_mean_rmsd': np.mean(comparison['quantumfold']['rmsds']),
-            'alphafold3_mean_rmsd': np.mean(comparison['alphafold3']['rmsds']),
-            'tm_improvement': np.mean(comparison['quantumfold']['tm_scores']) - 
-                            np.mean(comparison['alphafold3']['tm_scores']),
-            'n_proteins': len(comparison['quantumfold']['tm_scores'])
-        }
-        
-        return stats
+        return comparison
     
-    def save_results(self, filename: str = "benchmark_results.json"):
-        """Save benchmark results to file."""
-        output_file = self.output_dir / filename
+    def save_results(self, filename: Optional[str] = None):
+        """Save benchmark results to JSON file."""
+        if filename is None:
+            filename = f"benchmark_{int(time.time())}.json"
         
-        results_dict = [
-            {
-                'model_name': r.model_name,
-                'protein_id': r.protein_id,
-                'sequence_length': r.sequence_length,
-                'tm_score': r.tm_score,
-                'rmsd': r.rmsd,
-                'gdt_ts': r.gdt_ts,
-                'gdt_ha': r.gdt_ha,
-                'lddt': r.lddt,
-                'inference_time': r.inference_time,
-                'memory_usage': r.memory_usage
-            }
-            for r in self.results
-        ]
+        output_path = self.output_dir / filename
+        with open(output_path, 'w') as f:
+            json.dump(self.results, f, indent=2)
         
-        with open(output_file, 'w') as f:
-            json.dump(results_dict, f, indent=2)
-        
-        print(f"Results saved to {output_file}")
+        print(f"Results saved to {output_path}")
     
-    def generate_report(self) -> str:
-        """Generate human-readable benchmark report."""
+    def print_summary(self):
+        """Print summary statistics of benchmark results."""
         if not self.results:
-            return "No results to report."
+            print("No results to summarize.")
+            return
         
-        report = ["=" * 60]
-        report.append("QUANTUMFOLD BENCHMARK REPORT")
-        report.append("=" * 60)
-        report.append("")
+        methods = list(self.results[0]['comparison'].keys())
+        metrics = ['rmsd', 'tm_score', 'gdt_ts', 'gdt_ha', 'lddt']
         
-        # Overall statistics
-        tm_scores = [r.tm_score for r in self.results]
-        rmsds = [r.rmsd for r in self.results]
-        gdt_ts_scores = [r.gdt_ts for r in self.results]
+        print("\n" + "="*80)
+        print("BENCHMARK SUMMARY")
+        print("="*80)
+        print(f"Number of proteins evaluated: {len(self.results)}\n")
         
-        report.append(f"Total proteins evaluated: {len(self.results)}")
-        report.append("")
-        report.append("Overall Metrics:")
-        report.append(f"  TM-score:  {np.mean(tm_scores):.4f} ± {np.std(tm_scores):.4f}")
-        report.append(f"  RMSD:      {np.mean(rmsds):.4f} ± {np.std(rmsds):.4f} Å")
-        report.append(f"  GDT_TS:    {np.mean(gdt_ts_scores):.2f} ± {np.std(gdt_ts_scores):.2f}")
-        report.append("")
+        for metric in metrics:
+            print(f"\n{metric.upper()}:")
+            print("-" * 60)
+            for method in methods:
+                values = [r['comparison'][method][metric] for r in self.results]
+                mean_val = np.mean(values)
+                std_val = np.std(values)
+                print(f"  {method:20s}: {mean_val:8.4f} ± {std_val:6.4f}")
         
-        # Performance statistics
-        times = [r.inference_time for r in self.results]
-        memories = [r.memory_usage for r in self.results]
-        
-        report.append("Performance:")
-        report.append(f"  Inference time: {np.mean(times):.3f} ± {np.std(times):.3f} s")
-        report.append(f"  Memory usage:   {np.mean(memories):.2f} ± {np.std(memories):.2f} GB")
-        report.append("")
-        
-        # Best and worst predictions
-        best_idx = np.argmax(tm_scores)
-        worst_idx = np.argmin(tm_scores)
-        
-        report.append("Best prediction:")
-        best = self.results[best_idx]
-        report.append(f"  Protein: {best.protein_id}")
-        report.append(f"  TM-score: {best.tm_score:.4f}")
-        report.append("")
-        
-        report.append("Worst prediction:")
-        worst = self.results[worst_idx]
-        report.append(f"  Protein: {worst.protein_id}")
-        report.append(f"  TM-score: {worst.tm_score:.4f}")
-        report.append("")
-        
-        report.append("=" * 60)
-        
-        return "\n".join(report)
+        print("\n" + "="*80)
