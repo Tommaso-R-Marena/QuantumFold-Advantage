@@ -29,9 +29,9 @@ WORKDIR /build
 COPY requirements.txt .
 
 # Install Python dependencies to user directory
+# Note: PIP_NO_CACHE_DIR=1 disables cache, so no need to purge
 RUN pip install --user --no-warn-script-location \
-    numpy scipy torch pennylane matplotlib pandas scikit-learn \
-    && pip cache purge
+    numpy scipy torch pennylane matplotlib pandas scikit-learn biopython requests tqdm psutil pytest
 
 # Stage 3: Production image
 FROM base AS production
@@ -44,15 +44,15 @@ RUN useradd -m -u 1000 quantumfold && \
 # Copy Python packages from builder
 COPY --from=builder --chown=quantumfold:quantumfold /root/.local /home/quantumfold/.local
 
-# Set up Python path
-ENV PATH=/home/quantumfold/.local/bin:$PATH
-ENV PYTHONPATH=/app:$PYTHONPATH
+# Set up Python path (define PYTHONPATH before use)
+ENV PATH=/home/quantumfold/.local/bin:$PATH \
+    PYTHONPATH=/app
 
 WORKDIR /app
 
 # Copy only essential application code
 COPY --chown=quantumfold:quantumfold src/ ./src/
-COPY --chown=quantumfold:quantumfold *.py ./
+COPY --chown=quantumfold:quantumfold *.py ./ 2>/dev/null || true
 
 # Switch to non-root user
 USER quantumfold
