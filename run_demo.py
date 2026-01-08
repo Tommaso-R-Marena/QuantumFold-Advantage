@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+"""Q
 QuantumFold-Advantage Main Entrypoint
 
 Runs the full pipeline: fetch data → train model → evaluate → visualize.
