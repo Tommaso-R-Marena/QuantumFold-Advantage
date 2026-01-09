@@ -1,143 +1,99 @@
-# QuantumFold-Advantage Requirements
-# Complete dependency list with version constraints
-# Tested on Python 3.8, 3.9, 3.10, 3.11
+# QuantumFold-Advantage Core Requirements
+# For development, use: pip install -e .[dev,protein-lm,tracking]
+# For production, use: pip install -e .
 
-# ============================================================================
+# =============================================================================
 # CORE DEPENDENCIES (Required)
-# ============================================================================
+# =============================================================================
 
 # Numerical computing
 numpy>=1.24.0,<2.0.0
 scipy>=1.10.0,<2.0.0
 
-# Deep learning
-torch>=2.0.0,<2.3.0
-torchvision>=0.15.0,<0.18.0
+# Deep learning (updated for latest PyTorch 2.5+)
+torch>=2.0.0,<2.6.0
+torchvision>=0.15.0,<0.20.0
 
 # Quantum computing
-pennylane>=0.33.0,<0.36.0
-pennylane-lightning>=0.33.0,<0.36.0
-
-# Protein language models (optional but recommended)
-fair-esm>=2.0.0
-transformers>=4.35.0,<5.0.0
-sentencepiece>=0.1.99,<1.0.0
-tokenizers>=0.15.0,<1.0.0
-huggingface-hub>=0.19.0
-
-# Bioinformatics
-biopython>=1.81,<2.0.0
-biotite>=0.38.0,<1.0.0
+pennylane>=0.33.0,<0.38.0
+pennylane-lightning>=0.33.0,<0.38.0
 
 # Data processing
 pandas>=2.0.0,<3.0.0
 h5py>=3.9.0,<4.0.0
 pyyaml>=6.0,<7.0.0
-joblib>=1.3.0
+joblib>=1.3.0,<2.0.0
+
+# Bioinformatics
+biopython>=1.81,<2.0.0
+biotite>=0.38.0,<1.0.0
 
 # Visualization
 matplotlib>=3.7.0,<4.0.0
 seaborn>=0.12.0,<1.0.0
 plotly>=5.17.0,<6.0.0
-kaleido>=0.2.1
+kaleido>=0.2.1,<0.3.0
 
 # Statistical analysis
 scikit-learn>=1.3.0,<2.0.0
 statsmodels>=0.14.0,<1.0.0
 
-# Progress bars and logging
-tqdm>=4.66.0
-coloredlogs>=15.0
-
 # Utilities
+tqdm>=4.66.0,<5.0.0
+coloredlogs>=15.0,<16.0
 requests>=2.31.0,<3.0.0
-pillow>=10.0.0,<11.0.0
+pillow>=10.0.0,<12.0.0
 
-# ============================================================================
-# JUPYTER & COLAB (Required for notebooks)
-# ============================================================================
+# Jupyter support
 jupyterlab>=4.0.0,<5.0.0
 ipywidgets>=8.1.0,<9.0.0
 ipykernel>=6.25.0,<7.0.0
 nbformat>=5.9.0,<6.0.0
-nbconvert>=7.10.0
+nbconvert>=7.10.0,<8.0.0
 
-# ============================================================================
-# EXPERIMENT TRACKING (Optional)
-# ============================================================================
-tensorboard>=2.14.0,<3.0.0
-wandb>=0.15.0; extra == 'wandb'
-tensorboardX>=2.6.0
+# =============================================================================
+# OPTIONAL DEPENDENCIES
+# Install via: pip install -e .[protein-lm,tracking,dev]
+# =============================================================================
 
-# ============================================================================
-# TESTING & QUALITY (Development)
-# ============================================================================
-pytest>=7.4.0,<9.0.0
-pytest-cov>=4.1.0,<6.0.0
-pytest-xdist>=3.3.0  # Parallel testing
-pytest-timeout>=2.1.0
-black>=23.0.0,<25.0.0
-flake8>=6.0.0,<8.0.0
-isort>=5.12.0,<6.0.0
-mypy>=1.5.0,<2.0.0
-pre-commit>=3.5.0
+# Protein language models (recommended)
+# fair-esm>=2.0.0,<3.0.0
+# transformers>=4.35.0,<5.0.0  
+# sentencepiece>=0.1.99,<1.0.0
+# tokenizers>=0.15.0,<1.0.0
+# huggingface-hub>=0.19.0,<1.0.0
 
-# ============================================================================
-# DISTRIBUTED TRAINING (Advanced, Optional)
-# ============================================================================
-accelerate>=0.24.0; extra == 'distributed'
-deepspeed>=0.11.0; platform_system == 'Linux' and extra == 'distributed'
+# Experiment tracking
+# tensorboard>=2.14.0,<3.0.0
+# wandb>=0.15.0,<1.0.0
+# tensorboardX>=2.6.0,<3.0.0
 
-# ============================================================================
-# API & DEPLOYMENT (Optional)
-# ============================================================================
-fastapi>=0.104.0; extra == 'api'
-uvicorn[standard]>=0.24.0; extra == 'api'
-pydantic>=2.4.0,<3.0.0
-python-multipart>=0.0.6  # For file uploads in API
+# Development tools
+# pytest>=7.4.0,<9.0.0
+# pytest-cov>=4.1.0,<6.0.0
+# pytest-xdist>=3.3.0,<4.0.0
+# black>=23.0.0,<25.0.0
+# flake8>=6.0.0,<8.0.0
+# isort>=5.12.0,<6.0.0
+# mypy>=1.5.0,<2.0.0
 
-# ============================================================================
-# DOCUMENTATION (Development)
-# ============================================================================
-sphinx>=7.2.0; extra == 'docs'
-sphinx-rtd-theme>=1.3.0; extra == 'docs'
-sphinx-autodoc-typehints>=1.24.0; extra == 'docs'
-myst-parser>=2.0.0; extra == 'docs'
-
-# ============================================================================
-# CLOUD STORAGE (Optional)
-# ============================================================================
-boto3>=1.28.0; extra == 'aws'
-azure-storage-blob>=12.19.0; extra == 'azure'
-google-cloud-storage>=2.10.0; extra == 'gcp'
-
-# ============================================================================
-# ADDITIONAL UTILITIES (Optional)
-# ============================================================================
-opencv-python>=4.8.0; extra == 'vision'
-py3Dmol>=2.0.0; extra == 'molecular_viz'  # 3D molecular visualization
-nglview>=3.0.0; extra == 'molecular_viz'  # Alternative molecular viewer
-rdkit>=2023.0.0; extra == 'chemistry'  # Chemistry toolkit
-
-# ============================================================================
-# PROTEIN STRUCTURE TOOLS (Optional)
-# ============================================================================
-mmtf-python>=1.1.3; extra == 'structure'
-pymol-open-source>=2.5.0; platform_system == 'Linux' and extra == 'structure'
-prody>=2.4.0; extra == 'structure'
-
-# ============================================================================
-# NOTES
-# ============================================================================
-# Install basic requirements:
+# =============================================================================
+# INSTALLATION NOTES
+# =============================================================================
+# 
+# Basic installation:
 #   pip install -r requirements.txt
 #
-# Install with all extras:
-#   pip install -r requirements.txt[wandb,distributed,api,docs,aws,vision,molecular_viz,chemistry,structure]
+# With protein language models:
+#   pip install -e .[protein-lm]
 #
-# Install for Colab (minimal):
+# Full development setup:
+#   pip install -e .[dev,protein-lm,tracking]
+#
+# All optional features:
+#   pip install -e .[all]
+#
+# For Google Colab (minimal):
 #   pip install torch pennylane fair-esm biopython matplotlib plotly tqdm
 #
-# Install for development:
-#   pip install -r requirements.txt
-#   pip install -e .
+# =============================================================================
