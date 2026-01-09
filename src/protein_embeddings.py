@@ -1,541 +1,555 @@
-"""Pre-trained protein language model embeddings and advanced features.
+"""Pre-trained protein language model embeddings.
 
 Integrates state-of-the-art protein language models:
-- ESM-2 (Meta AI): Evolutionary Scale Modeling
-- ProtT5 (Rostlab): Protein Transformer
+- ESM-2 (Evolutionary Scale Modeling) from Meta AI
+- ProtT5 from Rostlab
 - Evolutionary features from MSA
-- Secondary structure predictions
-- Geometric features (torsion angles, local frames)
+- Geometric features (torsion angles, frames)
+- Contact predictions
 
 References:
-    - ESM-2: Lin et al., Science 379, 1123 (2023)
-    - ProtT5: Elnaggar et al., IEEE Trans. Pattern Anal. Mach. Intell. 44, 7112 (2022)
-    - AlphaFold-2 MSA: Jumper et al., Nature 596, 583 (2021)
+    - ESM-2: Lin et al., "Evolutionary-scale prediction of atomic-level protein structure
+             with a language model" Science (2023) DOI: 10.1126/science.ade2574
+    - ProtT5: Elnaggar et al., "ProtTrans: Toward Understanding the Language of Life
+              Through Self-Supervised Learning" IEEE TPAMI (2022)
+    - MSA Transformer: Rao et al., "MSA Transformer" ICML (2021)
 """
 
-import numpy as np
 import torch
 import torch.nn as nn
-from typing import Dict, List, Optional, Tuple, Union
+import torch.nn.functional as F
+from torch import Tensor
+import numpy as np
+from typing import Dict, List, Tuple, Optional, Union
 import warnings
 from pathlib import Path
 
 try:
     import esm
-    ESM_AVAILABLE = True
 except ImportError:
-    ESM_AVAILABLE = False
     warnings.warn("ESM not installed. Install with: pip install fair-esm")
+    esm = None
 
 try:
-    from transformers import T5Tokenizer, T5EncoderModel
-    TRANSFORMERS_AVAILABLE = True
+    from transformers import T5EncoderModel, T5Tokenizer
 except ImportError:
-    TRANSFORMERS_AVAILABLE = False
     warnings.warn("Transformers not installed. Install with: pip install transformers")
+    T5EncoderModel = None
+    T5Tokenizer = None
 
 
 class ESM2Embedder(nn.Module):
     """ESM-2 protein language model embeddings.
     
-    ESM-2 is trained on 65M protein sequences and provides rich
-    evolutionary and structural information in its representations.
+    Provides pre-trained representations that capture:
+    - Sequence conservation
+    - Structural information
+    - Functional properties
+    - Co-evolutionary couplings
     
     Args:
         model_name: ESM-2 model variant
-            - 'esm2_t6_8M_UR50D' (8M params, fast)
-            - 'esm2_t12_35M_UR50D' (35M params, balanced)
-            - 'esm2_t30_150M_UR50D' (150M params, best quality)
-            - 'esm2_t33_650M_UR50D' (650M params, SOTA)
-        freeze: Whether to freeze embedding weights
-        repr_layer: Which layer to extract representations from (-1 = last)
-    
-    References:
-        Lin et al., "Evolutionary-scale prediction of atomic-level protein structure
-        with a language model", Science 379, 1123-1130 (2023)
+                   ('esm2_t6_8M_UR50D', 'esm2_t12_35M_UR50D',
+                    'esm2_t30_150M_UR50D', 'esm2_t33_650M_UR50D')
+        repr_layers: Which layers to extract representations from
+        freeze: Whether to freeze pre-trained weights
     """
     
     def __init__(
         self,
-        model_name: str = 'esm2_t12_35M_UR50D',
-        freeze: bool = True,
-        repr_layer: int = -1
+        model_name: str = 'esm2_t33_650M_UR50D',
+        repr_layers: List[int] = [-1],
+        freeze: bool = True
     ):
         super().__init__()
         
-        if not ESM_AVAILABLE:
-            raise ImportError("ESM not installed. Install with: pip install fair-esm")
+        if esm is None:
+            raise ImportError("ESM not installed. Run: pip install fair-esm")
         
         self.model_name = model_name
-        self.repr_layer = repr_layer
+        self.repr_layers = repr_layers
+        self.freeze = freeze
         
         # Load pre-trained model
+        print(f"Loading ESM-2 model: {model_name}...")
         self.model, self.alphabet = esm.pretrained.load_model_and_alphabet(model_name)
         self.batch_converter = self.alphabet.get_batch_converter()
         
         # Get embedding dimension
         self.embed_dim = self.model.embed_dim
         
-        # Freeze weights if specified
+        # Freeze if requested
         if freeze:
             for param in self.model.parameters():
                 param.requires_grad = False
             self.model.eval()
+        
+        print(f"ESM-2 model loaded. Embedding dimension: {self.embed_dim}")
     
-    def forward(self, sequences: List[str]) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        self,
+        sequences: Union[List[str], List[Tuple[str, str]]],
+        return_contacts: bool = False
+    ) -> Dict[str, Tensor]:
         """Extract ESM-2 embeddings.
         
         Args:
-            sequences: List of protein sequences (amino acid strings)
+            sequences: List of protein sequences or (id, sequence) tuples
+            return_contacts: Whether to return predicted contacts
         
         Returns:
-            Tuple of:
-                - embeddings: (batch, max_len, embed_dim)
-                - attention_weights: (batch, n_heads, max_len, max_len)
+            Dictionary with:
+                - 'embeddings': Per-residue embeddings (batch, seq_len, embed_dim)
+                - 'mean_embedding': Sequence-level embedding (batch, embed_dim)
+                - 'contacts': Contact predictions if requested (batch, seq_len, seq_len)
         """
-        # Prepare data
-        data = [(f"protein_{i}", seq) for i, seq in enumerate(sequences)]
-        batch_labels, batch_strs, batch_tokens = self.batch_converter(data)
+        # Format sequences
+        if isinstance(sequences[0], str):
+            sequences = [(f"protein_{i}", seq) for i, seq in enumerate(sequences)]
+        
+        # Convert to batch
+        batch_labels, batch_strs, batch_tokens = self.batch_converter(sequences)
         batch_tokens = batch_tokens.to(next(self.model.parameters()).device)
         
+        # Forward pass
+        with torch.no_grad() if self.freeze else torch.enable_grad():
+            results = self.model(
+                batch_tokens,
+                repr_layers=self.repr_layers,
+                return_contacts=return_contacts
+            )
+        
         # Extract representations
-        with torch.no_grad() if not self.training else torch.enable_grad():
-            results = self.model(batch_tokens, repr_layers=[self.repr_layer], return_contacts=True)
+        # results['representations'] is a dict: {layer: (batch, seq_len, embed_dim)}
+        layer_idx = self.repr_layers[0]
+        embeddings = results['representations'][layer_idx]
         
-        # Get embeddings (remove start/end tokens)
-        embeddings = results['representations'][self.repr_layer][:, 1:-1, :]
+        # Remove start/end tokens
+        embeddings = embeddings[:, 1:-1, :]  # (batch, seq_len, embed_dim)
         
-        # Get attention weights (contact predictions)
-        attention_weights = results['contacts']
+        # Sequence-level embedding (mean pooling)
+        mean_embedding = embeddings.mean(dim=1)  # (batch, embed_dim)
         
-        return embeddings, attention_weights
-    
-    def embed_single(self, sequence: str) -> torch.Tensor:
-        """Embed a single sequence."""
-        embeddings, _ = self.forward([sequence])
-        return embeddings[0]
+        output = {
+            'embeddings': embeddings,
+            'mean_embedding': mean_embedding
+        }
+        
+        if return_contacts:
+            # Contact predictions
+            contacts = results['contacts']
+            contacts = contacts[:, 1:-1, 1:-1]  # Remove special tokens
+            output['contacts'] = contacts
+        
+        return output
 
 
 class ProtT5Embedder(nn.Module):
     """ProtT5 protein language model embeddings.
     
-    ProtT5 is based on T5 architecture and trained on protein sequences,
-    providing contextualized per-residue representations.
+    Based on T5 architecture trained on protein sequences.
     
     Args:
-        model_name: Model variant ('Rostlab/prot_t5_xl_half_uniref50-enc')
-        freeze: Whether to freeze weights
-        half_precision: Use half precision (FP16) for efficiency
-    
-    References:
-        Elnaggar et al., "ProtTrans: Toward Understanding the Language of Life Through
-        Self-Supervised Learning", IEEE Trans. Pattern Anal. Mach. Intell. (2022)
+        model_name: ProtT5 model variant
+        freeze: Whether to freeze pre-trained weights
     """
     
     def __init__(
         self,
-        model_name: str = 'Rostlab/prot_t5_xl_half_uniref50-enc',
-        freeze: bool = True,
-        half_precision: bool = True
+        model_name: str = 'Rostlab/prot_t5_xl_uniref50',
+        freeze: bool = True
     ):
         super().__init__()
         
-        if not TRANSFORMERS_AVAILABLE:
-            raise ImportError("Transformers not installed. Install with: pip install transformers")
+        if T5EncoderModel is None:
+            raise ImportError("Transformers not installed. Run: pip install transformers")
         
-        # Load tokenizer and model
-        self.tokenizer = T5Tokenizer.from_pretrained(model_name, do_lower_case=False)
+        self.model_name = model_name
+        self.freeze = freeze
+        
+        # Load model and tokenizer
+        print(f"Loading ProtT5 model: {model_name}...")
+        self.tokenizer = T5Tokenizer.from_pretrained(model_name)
         self.model = T5EncoderModel.from_pretrained(model_name)
         
-        # Half precision for efficiency
-        if half_precision:
-            self.model = self.model.half()
-        
-        # Get embedding dimension
         self.embed_dim = self.model.config.d_model
         
-        # Freeze weights
         if freeze:
             for param in self.model.parameters():
                 param.requires_grad = False
             self.model.eval()
+        
+        print(f"ProtT5 model loaded. Embedding dimension: {self.embed_dim}")
     
-    def forward(self, sequences: List[str]) -> torch.Tensor:
+    def forward(self, sequences: List[str]) -> Dict[str, Tensor]:
         """Extract ProtT5 embeddings.
         
         Args:
             sequences: List of protein sequences
         
         Returns:
-            embeddings: (batch, max_len, embed_dim)
+            Dictionary with embeddings
         """
-        # Add spaces between amino acids (required by ProtT5)
+        # Add spaces between amino acids (ProtT5 requirement)
         sequences_spaced = [' '.join(list(seq)) for seq in sequences]
         
         # Tokenize
-        ids = self.tokenizer.batch_encode_plus(
+        tokens = self.tokenizer(
             sequences_spaced,
-            add_special_tokens=True,
-            padding='longest',
+            padding=True,
+            truncation=True,
+            max_length=1024,
             return_tensors='pt'
         )
         
-        input_ids = ids['input_ids'].to(next(self.model.parameters()).device)
-        attention_mask = ids['attention_mask'].to(next(self.model.parameters()).device)
+        device = next(self.model.parameters()).device
+        tokens = {k: v.to(device) for k, v in tokens.items()}
+        
+        # Forward pass
+        with torch.no_grad() if self.freeze else torch.enable_grad():
+            outputs = self.model(**tokens)
         
         # Extract embeddings
-        with torch.no_grad() if not self.training else torch.enable_grad():
-            outputs = self.model(input_ids=input_ids, attention_mask=attention_mask)
+        embeddings = outputs.last_hidden_state  # (batch, seq_len, embed_dim)
         
-        # Get embeddings (remove special tokens)
-        embeddings = outputs.last_hidden_state[:, 1:-1, :]
+        # Mean pooling (excluding padding)
+        attention_mask = tokens['attention_mask'].unsqueeze(-1)
+        mean_embedding = (embeddings * attention_mask).sum(dim=1) / attention_mask.sum(dim=1)
         
-        return embeddings
+        return {
+            'embeddings': embeddings,
+            'mean_embedding': mean_embedding
+        }
 
 
 class EvolutionaryFeatureExtractor(nn.Module):
-    """Extract evolutionary features from Multiple Sequence Alignments.
+    """Extract evolutionary features from MSA.
     
     Computes:
     - Position-specific scoring matrices (PSSM)
     - Conservation scores
-    - Coevolution features (mutual information)
+    - Co-evolution couplings
     - Gap statistics
-    
-    Args:
-        n_amino_acids: Number of amino acid types (20 standard)
-        pseudocount: Pseudocount for smoothing
     """
     
-    def __init__(self, n_amino_acids: int = 20, pseudocount: float = 0.01):
+    def __init__(self):
         super().__init__()
-        self.n_amino_acids = n_amino_acids
-        self.pseudocount = pseudocount
-        
-        # Amino acid alphabet
-        self.aa_alphabet = 'ACDEFGHIKLMNPQRSTVWY'
+        self.aa_alphabet = 'ACDEFGHIKLMNPQRSTVWY-'
         self.aa_to_idx = {aa: i for i, aa in enumerate(self.aa_alphabet)}
     
-    def compute_pssm(self, msa: List[str]) -> torch.Tensor:
+    def compute_pssm(
+        self,
+        msa: np.ndarray,
+        pseudocount: float = 0.001
+    ) -> np.ndarray:
         """Compute Position-Specific Scoring Matrix.
         
         Args:
-            msa: Multiple sequence alignment (list of aligned sequences)
+            msa: Multiple sequence alignment (n_seqs, seq_len, 21) one-hot
+            pseudocount: Pseudocount for smoothing
         
         Returns:
-            PSSM: (seq_len, n_amino_acids)
+            PSSM (seq_len, 21)
         """
-        n_seqs = len(msa)
-        seq_len = len(msa[0])
+        # Frequency matrix
+        freq = msa.mean(axis=0) + pseudocount
+        freq = freq / freq.sum(axis=1, keepdims=True)
         
-        # Count amino acids at each position
-        counts = torch.zeros(seq_len, self.n_amino_acids)
-        
-        for seq in msa:
-            for pos, aa in enumerate(seq):
-                if aa in self.aa_to_idx:
-                    counts[pos, self.aa_to_idx[aa]] += 1
-        
-        # Add pseudocount and normalize
-        frequencies = (counts + self.pseudocount) / (n_seqs + self.pseudocount * self.n_amino_acids)
-        
-        # Convert to log-odds (PSSM)
-        background_freq = 1.0 / self.n_amino_acids
-        pssm = torch.log(frequencies / background_freq + 1e-10)
+        # Convert to log-odds
+        background = np.ones(21) / 21
+        pssm = np.log2(freq / background)
         
         return pssm
     
-    def compute_conservation(self, msa: List[str]) -> torch.Tensor:
-        """Compute conservation score using Shannon entropy.
+    def compute_conservation(
+        self,
+        msa: np.ndarray
+    ) -> np.ndarray:
+        """Compute per-position conservation (Shannon entropy).
         
         Args:
-            msa: Multiple sequence alignment
+            msa: Multiple sequence alignment (n_seqs, seq_len, 21)
         
         Returns:
-            conservation: (seq_len,) scores in [0, 1]
+            Conservation scores (seq_len,)
         """
-        seq_len = len(msa[0])
-        n_seqs = len(msa)
+        freq = msa.mean(axis=0) + 1e-9
+        entropy = -np.sum(freq * np.log2(freq), axis=1)
         
-        conservation = torch.zeros(seq_len)
-        
-        for pos in range(seq_len):
-            # Count amino acids
-            aa_counts = {}
-            for seq in msa:
-                aa = seq[pos]
-                if aa != '-':  # Ignore gaps
-                    aa_counts[aa] = aa_counts.get(aa, 0) + 1
-            
-            # Compute Shannon entropy
-            total = sum(aa_counts.values())
-            if total > 0:
-                entropy = 0.0
-                for count in aa_counts.values():
-                    freq = count / total
-                    entropy -= freq * np.log2(freq + 1e-10)
-                
-                # Normalize by maximum entropy
-                max_entropy = np.log2(self.n_amino_acids)
-                conservation[pos] = 1.0 - (entropy / max_entropy)
+        # Normalize to [0, 1], where 1 is highly conserved
+        max_entropy = np.log2(21)
+        conservation = 1.0 - (entropy / max_entropy)
         
         return conservation
     
-    def compute_mutual_information(self, msa: List[str]) -> torch.Tensor:
-        """Compute pairwise mutual information (simplified coevolution).
+    def compute_coevolution(
+        self,
+        msa: np.ndarray,
+        apc_correction: bool = True
+    ) -> np.ndarray:
+        """Compute co-evolution matrix using mutual information.
         
         Args:
             msa: Multiple sequence alignment
+            apc_correction: Apply Average Product Correction
         
         Returns:
-            MI matrix: (seq_len, seq_len)
+            Co-evolution matrix (seq_len, seq_len)
         """
-        seq_len = len(msa[0])
-        mi_matrix = torch.zeros(seq_len, seq_len)
+        n_seqs, seq_len, n_aa = msa.shape
         
-        # This is computationally expensive - use sampling for long sequences
-        max_positions = min(seq_len, 100)
+        # Compute pairwise mutual information
+        mi_matrix = np.zeros((seq_len, seq_len))
         
-        for i in range(max_positions):
-            for j in range(i + 1, max_positions):
-                # Count joint occurrences
-                joint_counts = {}
-                marginal_i = {}
-                marginal_j = {}
+        for i in range(seq_len):
+            for j in range(i + 1, seq_len):
+                # Joint distribution
+                joint = np.zeros((n_aa, n_aa))
+                for k in range(n_seqs):
+                    aa_i = np.argmax(msa[k, i])
+                    aa_j = np.argmax(msa[k, j])
+                    joint[aa_i, aa_j] += 1
+                joint = joint / n_seqs + 1e-9
                 
-                for seq in msa:
-                    aa_i = seq[i]
-                    aa_j = seq[j]
-                    if aa_i != '-' and aa_j != '-':
-                        pair = (aa_i, aa_j)
-                        joint_counts[pair] = joint_counts.get(pair, 0) + 1
-                        marginal_i[aa_i] = marginal_i.get(aa_i, 0) + 1
-                        marginal_j[aa_j] = marginal_j.get(aa_j, 0) + 1
+                # Marginal distributions
+                p_i = msa[:, i].mean(axis=0) + 1e-9
+                p_j = msa[:, j].mean(axis=0) + 1e-9
                 
-                # Compute MI
-                total = sum(joint_counts.values())
-                if total > 0:
-                    mi = 0.0
-                    for (aa_i, aa_j), count in joint_counts.items():
-                        p_ij = count / total
-                        p_i = marginal_i[aa_i] / total
-                        p_j = marginal_j[aa_j] / total
-                        mi += p_ij * np.log2(p_ij / (p_i * p_j) + 1e-10)
-                    
-                    mi_matrix[i, j] = mi_matrix[j, i] = mi
+                # Mutual information
+                mi = 0.0
+                for a in range(n_aa):
+                    for b in range(n_aa):
+                        if joint[a, b] > 0:
+                            mi += joint[a, b] * np.log2(joint[a, b] / (p_i[a] * p_j[b]))
+                
+                mi_matrix[i, j] = mi_matrix[j, i] = mi
+        
+        if apc_correction:
+            # Average Product Correction to remove phylogenetic bias
+            mean_mi_row = mi_matrix.mean(axis=1)
+            mean_mi_col = mi_matrix.mean(axis=0)
+            mean_mi_total = mi_matrix.mean()
+            
+            apc_matrix = np.outer(mean_mi_row, mean_mi_col) / (mean_mi_total + 1e-9)
+            mi_matrix = mi_matrix - apc_matrix
         
         return mi_matrix
     
-    def forward(self, msa: List[str]) -> Dict[str, torch.Tensor]:
+    def forward(self, msa: np.ndarray) -> Dict[str, np.ndarray]:
         """Extract all evolutionary features.
         
         Args:
             msa: Multiple sequence alignment
         
         Returns:
-            Dictionary with:
-                - pssm: Position-specific scoring matrix
-                - conservation: Conservation scores
-                - mutual_information: Coevolution features
+            Dictionary with features
         """
         return {
             'pssm': self.compute_pssm(msa),
             'conservation': self.compute_conservation(msa),
-            'mutual_information': self.compute_mutual_information(msa)
+            'coevolution': self.compute_coevolution(msa)
         }
 
 
 class GeometricFeatureExtractor(nn.Module):
-    """Extract geometric features from protein coordinates.
+    """Extract geometric features from coordinates.
     
     Computes:
     - Backbone torsion angles (phi, psi, omega)
     - Local coordinate frames
-    - Distance distributions
+    - Distance maps
     - Orientation features
     """
     
     def __init__(self):
         super().__init__()
     
-    def compute_torsion_angles(self, coords: torch.Tensor) -> torch.Tensor:
+    def compute_torsion_angles(
+        self,
+        coords: Tensor
+    ) -> Tensor:
         """Compute backbone torsion angles.
         
         Args:
-            coords: CA coordinates (n_residues, 3)
+            coords: CA coordinates (batch, N, 3)
         
         Returns:
-            angles: (n_residues, 3) [phi, psi, omega]
+            Angles (batch, N, 3) for phi, psi, omega
         """
-        n_residues = coords.shape[0]
-        angles = torch.zeros(n_residues, 3)
+        batch_size, n_res, _ = coords.shape
+        angles = torch.zeros(batch_size, n_res, 3, device=coords.device)
         
-        for i in range(1, n_residues - 1):
-            # Phi: angle between (i-1)->(i) and (i)->(i+1)
-            v1 = coords[i] - coords[i-1]
-            v2 = coords[i+1] - coords[i]
+        for i in range(1, n_res - 2):
+            # Vectors
+            v1 = coords[:, i] - coords[:, i-1]
+            v2 = coords[:, i+1] - coords[:, i]
+            v3 = coords[:, i+2] - coords[:, i+1]
             
             # Normalize
-            v1 = v1 / (torch.norm(v1) + 1e-10)
-            v2 = v2 / (torch.norm(v2) + 1e-10)
+            v1 = F.normalize(v1, dim=-1)
+            v2 = F.normalize(v2, dim=-1)
+            v3 = F.normalize(v3, dim=-1)
             
-            # Compute angle
-            cos_angle = torch.clamp(torch.dot(v1, v2), -1.0, 1.0)
-            angle = torch.acos(cos_angle)
+            # Phi angle (approximate)
+            cos_phi = torch.sum(v1 * v2, dim=-1)
+            angles[:, i, 0] = torch.acos(torch.clamp(cos_phi, -1, 1))
             
-            angles[i, 0] = angle  # phi
-            angles[i, 1] = angle  # psi (simplified)
-            angles[i, 2] = angle  # omega (simplified)
+            # Psi angle (approximate)
+            cos_psi = torch.sum(v2 * v3, dim=-1)
+            angles[:, i, 1] = torch.acos(torch.clamp(cos_psi, -1, 1))
         
         return angles
     
-    def compute_local_frames(self, coords: torch.Tensor) -> torch.Tensor:
-        """Compute local coordinate frames for each residue.
+    def compute_local_frames(
+        self,
+        coords: Tensor
+    ) -> Tuple[Tensor, Tensor]:
+        """Compute local coordinate frames.
         
         Args:
-            coords: CA coordinates (n_residues, 3)
+            coords: CA coordinates (batch, N, 3)
         
         Returns:
-            frames: (n_residues, 3, 3) rotation matrices
+            (origins, rotation_matrices)
+            origins: (batch, N-2, 3)
+            rotation_matrices: (batch, N-2, 3, 3)
         """
-        n_residues = coords.shape[0]
-        frames = torch.zeros(n_residues, 3, 3)
+        batch_size, n_res, _ = coords.shape
         
-        for i in range(1, n_residues - 1):
-            # Define frame using neighboring residues
-            v1 = coords[i] - coords[i-1]
-            v2 = coords[i+1] - coords[i]
-            
-            # Normalize
-            v1 = v1 / (torch.norm(v1) + 1e-10)
-            v2 = v2 / (torch.norm(v2) + 1e-10)
-            
-            # Gram-Schmidt orthogonalization
-            e1 = v1
-            e2 = v2 - torch.dot(v2, e1) * e1
-            e2 = e2 / (torch.norm(e2) + 1e-10)
-            e3 = torch.cross(e1, e2)
-            
-            frames[i] = torch.stack([e1, e2, e3])
+        origins = coords[:, :-2]
         
-        # Handle boundaries
-        frames[0] = frames[1]
-        frames[-1] = frames[-2]
+        # X-axis: CA(i) -> CA(i+1)
+        x_axis = coords[:, 1:-1] - origins
+        x_axis = F.normalize(x_axis, dim=-1)
         
-        return frames
+        # Y-axis: perpendicular in plane with CA(i+2)
+        v = coords[:, 2:] - origins
+        y_axis = v - torch.sum(v * x_axis, dim=-1, keepdim=True) * x_axis
+        y_axis = F.normalize(y_axis, dim=-1)
+        
+        # Z-axis: cross product
+        z_axis = torch.cross(x_axis, y_axis, dim=-1)
+        
+        # Rotation matrix
+        rotation_matrices = torch.stack([x_axis, y_axis, z_axis], dim=-1)
+        
+        return origins, rotation_matrices
     
-    def forward(self, coords: torch.Tensor) -> Dict[str, torch.Tensor]:
-        """Extract all geometric features.
+    def forward(
+        self,
+        coords: Tensor
+    ) -> Dict[str, Tensor]:
+        """Extract geometric features.
         
         Args:
-            coords: CA coordinates
+            coords: CA coordinates (batch, N, 3)
         
         Returns:
-            Dictionary with geometric features
+            Dictionary with features
         """
+        # Torsion angles
+        angles = self.compute_torsion_angles(coords)
+        
+        # Local frames
+        origins, frames = self.compute_local_frames(coords)
+        
+        # Distance matrix
+        distances = torch.cdist(coords, coords)
+        
         return {
-            'torsion_angles': self.compute_torsion_angles(coords),
-            'local_frames': self.compute_local_frames(coords)
+            'angles': angles,
+            'origins': origins,
+            'frames': frames,
+            'distances': distances
         }
 
 
-class MultiModalEmbedding(nn.Module):
-    """Combine multiple protein representations.
+class CombinedProteinEmbedding(nn.Module):
+    """Combined embedding from multiple sources.
     
     Integrates:
-    - Pre-trained language model embeddings (ESM-2 or ProtT5)
-    - Evolutionary features (MSA-based)
-    - Geometric features (structure-based)
-    - Learnable fusion
+    - Pre-trained language model (ESM-2 or ProtT5)
+    - Evolutionary features
+    - Geometric features
     
     Args:
         use_esm: Use ESM-2 embeddings
-        use_prott5: Use ProtT5 embeddings
+        use_prot_t5: Use ProtT5 embeddings
         use_evolutionary: Use MSA features
-        output_dim: Final embedding dimension
+        projection_dim: Output dimension
     """
     
     def __init__(
         self,
         use_esm: bool = True,
-        use_prott5: bool = False,
+        use_prot_t5: bool = False,
         use_evolutionary: bool = True,
-        output_dim: int = 512
+        projection_dim: int = 512
     ):
         super().__init__()
         
         self.use_esm = use_esm
-        self.use_prott5 = use_prott5
+        self.use_prot_t5 = use_prot_t5
         self.use_evolutionary = use_evolutionary
         
-        # Embedding models
-        if use_esm:
-            self.esm_embedder = ESM2Embedder(model_name='esm2_t12_35M_UR50D')
-            esm_dim = self.esm_embedder.embed_dim
-        else:
-            esm_dim = 0
+        # Initialize embedders
+        input_dim = 0
         
-        if use_prott5:
-            self.prott5_embedder = ProtT5Embedder()
-            prott5_dim = self.prott5_embedder.embed_dim
-        else:
-            prott5_dim = 0
+        if use_esm:
+            self.esm_embedder = ESM2Embedder()
+            input_dim += self.esm_embedder.embed_dim
+        
+        if use_prot_t5:
+            self.prot_t5_embedder = ProtT5Embedder()
+            input_dim += self.prot_t5_embedder.embed_dim
         
         if use_evolutionary:
-            self.evolutionary_extractor = EvolutionaryFeatureExtractor()
-            evolutionary_dim = 20  # PSSM dimension
-        else:
-            evolutionary_dim = 0
+            self.evo_extractor = EvolutionaryFeatureExtractor()
+            input_dim += 21  # PSSM features
         
-        # Fusion layer
-        total_dim = esm_dim + prott5_dim + evolutionary_dim
-        self.fusion = nn.Sequential(
-            nn.Linear(total_dim, output_dim),
-            nn.LayerNorm(output_dim),
-            nn.GELU(),
-            nn.Dropout(0.1),
-            nn.Linear(output_dim, output_dim)
-        )
+        # Projection layer
+        self.projection = nn.Linear(input_dim, projection_dim)
+        self.norm = nn.LayerNorm(projection_dim)
     
     def forward(
         self,
         sequences: List[str],
-        msa: Optional[List[List[str]]] = None
-    ) -> torch.Tensor:
-        """Extract multi-modal embeddings.
+        msa: Optional[np.ndarray] = None
+    ) -> Tensor:
+        """Generate combined embeddings.
         
         Args:
             sequences: Protein sequences
-            msa: Multiple sequence alignments (one per sequence)
+            msa: Optional MSA for evolutionary features
         
         Returns:
-            embeddings: (batch, max_len, output_dim)
+            Combined embeddings (batch, seq_len, projection_dim)
         """
-        embeddings_list = []
+        embeddings = []
         
-        # ESM-2 embeddings
+        # ESM-2
         if self.use_esm:
-            esm_emb, _ = self.esm_embedder(sequences)
-            embeddings_list.append(esm_emb)
+            esm_out = self.esm_embedder(sequences)
+            embeddings.append(esm_out['embeddings'])
         
-        # ProtT5 embeddings
-        if self.use_prott5:
-            prott5_emb = self.prott5_embedder(sequences)
-            embeddings_list.append(prott5_emb)
+        # ProtT5
+        if self.use_prot_t5:
+            prot_t5_out = self.prot_t5_embedder(sequences)
+            embeddings.append(prot_t5_out['embeddings'])
         
         # Evolutionary features
         if self.use_evolutionary and msa is not None:
-            pssm_list = []
-            for msa_sample in msa:
-                features = self.evolutionary_extractor(msa_sample)
-                pssm_list.append(features['pssm'])
-            pssm_batch = torch.stack(pssm_list)
-            embeddings_list.append(pssm_batch)
+            evo_features = self.evo_extractor(msa)
+            pssm = torch.from_numpy(evo_features['pssm']).float()
+            pssm = pssm.unsqueeze(0).expand(len(sequences), -1, -1)
+            pssm = pssm.to(embeddings[0].device)
+            embeddings.append(pssm)
         
-        # Concatenate all embeddings
-        combined = torch.cat(embeddings_list, dim=-1)
+        # Concatenate
+        combined = torch.cat(embeddings, dim=-1)
         
-        # Fuse embeddings
-        output = self.fusion(combined)
+        # Project
+        output = self.projection(combined)
+        output = self.norm(output)
         
         return output
