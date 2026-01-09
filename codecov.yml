@@ -1,4 +1,5 @@
-# Codecov configuration
+# Codecov configuration for QuantumFold-Advantage
+# https://docs.codecov.com/docs/codecov-yaml
 
 coverage:
   status:
@@ -6,19 +7,36 @@ coverage:
       default:
         target: 70%
         threshold: 5%
+        base: auto
     patch:
       default:
-        target: 60%
-        threshold: 10%
+        target: 70%
+        threshold: 5%
 
 comment:
-  layout: "header, diff, flags, files"
+  layout: "reach, diff, flags, files"
   behavior: default
   require_changes: false
+  require_base: false
+  require_head: true
 
 ignore:
   - "tests/**/*"
-  - "docs/**/*"
   - "examples/**/*"
-  - "scripts/**/*"
+  - "docs/**/*"
+  - "setup.py"
+  - "**/test_*.py"
   - "**/__pycache__/**/*"
+
+flags:
+  unittests:
+    paths:
+      - src/
+    carryforward: true
+  integration:
+    paths:
+      - src/
+    carryforward: true
+
+github_checks:
+  annotations: true
