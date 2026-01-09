@@ -201,6 +201,9 @@ class QuantumAttentionLayer(nn.Module):
         attn_weights = torch.softmax(scores, dim=-1)
         
         # Quantum enhancement of attention (process first few positions)
+        # Create a copy to avoid in-place modification
+        attn_weights_enhanced = attn_weights.clone()
+        
         max_quantum_seq = min(seq_len, 8)  # Limit for efficiency
         for head in range(self.n_heads):
             for i in range(max_quantum_seq):
@@ -216,13 +219,17 @@ class QuantumAttentionLayer(nn.Module):
                 
                 # Apply quantum modulation (subtle enhancement)
                 modulation = torch.sigmoid(quantum_output.mean(dim=-1, keepdim=True))  # (batch, 1)
-                attn_weights[:, head, i, :max_quantum_seq] *= modulation
+                
+                # Apply modulation without in-place operation
+                attn_weights_enhanced[:, head, i, :max_quantum_seq] = (
+                    attn_weights[:, head, i, :max_quantum_seq] * modulation
+                )
         
         # Renormalize attention weights
-        attn_weights = attn_weights / (attn_weights.sum(dim=-1, keepdim=True) + 1e-9)
+        attn_weights_final = attn_weights_enhanced / (attn_weights_enhanced.sum(dim=-1, keepdim=True) + 1e-9)
         
         # Apply attention to values
-        output = torch.matmul(attn_weights, V)  # (batch, n_heads, seq_len, head_dim)
+        output = torch.matmul(attn_weights_final, V)  # (batch, n_heads, seq_len, head_dim)
         
         # Concatenate heads
         output = output.transpose(1, 2).reshape(batch_size, seq_len, self.embed_dim)
