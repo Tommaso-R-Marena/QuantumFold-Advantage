@@ -1,10 +1,10 @@
 # Git
 .git
 .gitignore
-.github
+.gitattributes
 
 # Python
-__pycache__
+__pycache__/
 *.py[cod]
 *$py.class
 *.so
@@ -26,15 +26,15 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+PIPFILE.lock
 
 # Virtual environments
 venv/
-env/
 ENV/
-env.bak/
-venv.bak/
+env/
+.venv
 
-# IDE
+# IDEs
 .vscode/
 .idea/
 *.swp
@@ -42,60 +42,48 @@ venv.bak/
 *~
 .DS_Store
 
-# Testing
-.pytest_cache/
-.coverage
-.coverage.*
-htmlcov/
-.tox/
-.nox/
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
 
-# Documentation
-docs/
-README.md
-LICENSE
-
-# Data (exclude large files)
+# Data and outputs (mount these as volumes)
 data/
-*.pdb
-*.cif
+outputs/
+models/
+logs/
+checkpoints/
+results/
 *.h5
 *.hdf5
-
-# Outputs
-outputs/
-results/
-logs/
-*.log
-
-# Checkpoints (exclude large model files)
-checkpoints/
 *.pt
 *.pth
 *.ckpt
 
-# Jupyter
-.ipynb_checkpoints/
-examples/
-*.ipynb
+# Testing
+.pytest_cache/
+.coverage
+.tox/
 
-# Docker
-Dockerfile
-docker-compose*.yml
-.dockerignore
+# Documentation
+docs/_build/
+site/
 
-# CI/CD
-.github/
+# OS
+Thumbs.db
+.DS_Store
 
-# Scripts (not needed in container)
-scripts/
+# Temporary files
+*.log
+*.tmp
+*.temp
 
-# Tests (not needed in production)
-tests/
+# Large files
+*.zip
+*.tar.gz
+*.tar.bz2
 
-# API (optional, uncomment if not using API)
-# api/
-
-# Misc
-.gitattributes
-*.md
+# Secrets
+.env
+*.key
+*.pem
+secrets/

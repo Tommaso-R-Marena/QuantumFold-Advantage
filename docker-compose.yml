@@ -1,152 +1,65 @@
 version: '3.8'
 
 services:
-  # Main QuantumFold application
   quantumfold:
     build:
       context: .
       dockerfile: Dockerfile
-      target: production
     image: quantumfold-advantage:latest
-    container_name: quantumfold-app
-    runtime: nvidia  # Enable GPU support
-    environment:
-      - CUDA_VISIBLE_DEVICES=0
-      - PYTHONUNBUFFERED=1
-    volumes:
-      - ./data:/data:ro
-      - ./outputs:/outputs:rw
-      - ./checkpoints:/checkpoints:ro
-    command: python3 run_demo.py
-    restart: unless-stopped
-
-  # Training service
-  train:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
-    image: quantumfold-advantage:latest
-    container_name: quantumfold-train
+    container_name: quantumfold
     runtime: nvidia
     environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - CUDA_VISIBLE_DEVICES=0
-      - PYTHONUNBUFFERED=1
     volumes:
-      - ./data:/data:ro
-      - ./checkpoints:/checkpoints:rw
-      - ./logs:/app/logs:rw
-    command: >
-      python3 src/train.py
-        --data_dir /data/train
-        --val_dir /data/validation
-        --output_dir /checkpoints
-        --epochs 50
-        --batch_size 4
-        --use_quantum
-    restart: "no"
-
-  # Evaluation service
-  evaluate:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
-    image: quantumfold-advantage:latest
-    container_name: quantumfold-eval
-    runtime: nvidia
-    environment:
-      - CUDA_VISIBLE_DEVICES=0
-      - PYTHONUNBUFFERED=1
-    volumes:
-      - ./data:/data:ro
-      - ./checkpoints:/checkpoints:ro
-      - ./outputs:/outputs:rw
-    command: >
-      python3 scripts/evaluate_model.py
-        --checkpoint /checkpoints/best_model.pt
-        --data_dir /data/validation
-        --output /outputs/evaluation_results.json
-    restart: "no"
-
-  # Benchmark service
-  benchmark:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
-    image: quantumfold-advantage:latest
-    container_name: quantumfold-benchmark
-    runtime: nvidia
-    environment:
-      - CUDA_VISIBLE_DEVICES=0
-      - PYTHONUNBUFFERED=1
-    volumes:
-      - ./data:/data:ro
-      - ./checkpoints:/checkpoints:ro
-      - ./outputs:/outputs:rw
-    command: >
-      python3 scripts/run_benchmark.py
-        --test_set /data/casp15_test.json
-        --model_checkpoint /checkpoints/best_model.pt
-        --output_dir /outputs/benchmarks
-    restart: "no"
-
-  # Jupyter notebook server
-  jupyter:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
-    image: quantumfold-advantage:latest
-    container_name: quantumfold-jupyter
-    runtime: nvidia
-    environment:
-      - CUDA_VISIBLE_DEVICES=0
-      - JUPYTER_ENABLE_LAB=yes
+      # Mount local directories
+      - ./data:/workspace/data
+      - ./outputs:/workspace/outputs
+      - ./models:/workspace/models
+      - ./logs:/workspace/logs
+      # Mount source code for development
+      - ./src:/workspace/src
+      - ./configs:/workspace/configs
     ports:
-      - "8888:8888"
-    volumes:
-      - ./:/app:rw
-      - ./data:/data:ro
-      - ./checkpoints:/checkpoints:ro
-    command: >
-      jupyter lab
-        --ip=0.0.0.0
-        --port=8888
-        --no-browser
-        --allow-root
-        --NotebookApp.token='quantumfold'
-    restart: unless-stopped
+      - "8888:8888"  # Jupyter Lab
+      - "8000:8000"  # FastAPI
+      - "6006:6006"  # TensorBoard
+    shm_size: '8gb'  # Shared memory for DataLoader workers
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token='' --NotebookApp.password=''
 
-  # API server (to be implemented)
+  # Training service (alternative)
+  training:
+    extends: quantumfold
+    container_name: quantumfold-training
+    command: python train_advanced.py --config configs/advanced_config.yaml --use-quantum --use-amp --use-ema
+    profiles:
+      - training
+
+  # API service (alternative)
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
-    image: quantumfold-advantage:latest
+    extends: quantumfold
     container_name: quantumfold-api
-    runtime: nvidia
-    environment:
-      - CUDA_VISIBLE_DEVICES=0
-      - PYTHONUNBUFFERED=1
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+    profiles:
+      - api
+
+  # TensorBoard service
+  tensorboard:
+    extends: quantumfold
+    container_name: quantumfold-tensorboard
+    command: tensorboard --logdir=/workspace/logs --host=0.0.0.0 --port=6006
     ports:
-      - "8000:8000"
-    volumes:
-      - ./checkpoints:/checkpoints:ro
-      - ./outputs:/outputs:rw
-    command: >
-      python3 api/server.py
-        --host 0.0.0.0
-        --port 8000
-        --checkpoint /checkpoints/best_model.pt
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - "6006:6006"
+    profiles:
+      - tensorboard
 
 networks:
   default:
