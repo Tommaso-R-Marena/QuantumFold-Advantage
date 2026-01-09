@@ -3,6 +3,7 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
 [![PennyLane](https://img.shields.io/badge/PennyLane-0.33+-green.svg)](https://pennylane.ai/)
+[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/colab_quickstart.ipynb)
 
@@ -12,11 +13,24 @@ QuantumFold-Advantage demonstrates provable quantum advantage in protein structu
 
 ## 🚀 Try it Now!
 
-**Run in Google Colab** (no installation required):
+**Three ways to get started:**
 
+### 1. Google Colab (Easiest - No Installation!)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/colab_quickstart.ipynb)
 
-Click the badge above for a 5-minute quickstart tutorial with free GPU access!
+**Quick Demo** (5 minutes) - Free GPU included!
+
+### 2. Complete Benchmark (Run Everything!)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/complete_benchmark.ipynb)
+
+**Full Pipeline** (30-60 minutes) - Train quantum & classical models, run statistical validation, generate publication-ready figures!
+
+### 3. Docker (Production Ready)
+```bash
+# Quick start with Docker
+docker-compose up
+# Access JupyterLab at http://localhost:8888
+```
 
 ## 🎯 Key Features
 
@@ -98,7 +112,7 @@ See `configs/quantum_ablation.yaml` for experimental configurations.
 
 ## 🚀 Quick Start
 
-### Installation
+### Option 1: Local Installation
 
 ```bash
 # Clone repository
@@ -114,6 +128,43 @@ pip install -r requirements.txt
 
 # Install ESM-2 (optional, for pre-trained embeddings)
 pip install fair-esm
+```
+
+### Option 2: Docker (Recommended for Production)
+
+```bash
+# Build and run with Docker Compose
+docker-compose up -d
+
+# Access services:
+# - JupyterLab: http://localhost:8888
+# - TensorBoard: http://localhost:6006
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+**Advanced Docker Usage:**
+```bash
+# Build image manually
+docker build -t quantumfold-advantage .
+
+# Run with GPU support
+docker run --gpus all -p 8888:8888 \
+  -v $(pwd)/data:/workspace/data \
+  -v $(pwd)/outputs:/workspace/outputs \
+  quantumfold-advantage
+
+# Run training directly
+docker run --gpus all \
+  -v $(pwd)/data:/workspace/data \
+  quantumfold-advantage train --use-quantum --epochs 50
+
+# Interactive bash shell
+docker run --gpus all -it quantumfold-advantage bash
 ```
 
 ### Basic Usage
@@ -212,10 +263,11 @@ QuantumFold-Advantage/
 │       ├── data_loader.py          # Dataset utilities
 │       └── visualization.py        # Plotting functions
 ├── examples/
-│   ├── colab_quickstart.ipynb           # ⚡ Quick Google Colab demo
-│   ├── 01_getting_started.ipynb         # Detailed getting started guide
-│   ├── 02_quantum_vs_classical.ipynb    # Quantum vs classical comparison
-│   └── 03_advanced_visualization.ipynb  # 3D structures & Ramachandran plots
+│   ├── colab_quickstart.ipynb           # ⚡ 5-minute demo
+│   ├── complete_benchmark.ipynb         # 🔥 FULL PIPELINE (30-60 min)
+│   ├── 01_getting_started.ipynb         # Detailed tutorial
+│   ├── 02_quantum_vs_classical.ipynb    # Comparative analysis
+│   └── 03_advanced_visualization.ipynb  # 3D plots & Ramachandran
 ├── tests/
 │   ├── test_quantum_layers.py
 │   ├── test_model.py
@@ -224,8 +276,11 @@ QuantumFold-Advantage/
 │   ├── default_config.yaml
 │   ├── advanced_config.yaml
 │   └── quantum_ablation.yaml
+├── Dockerfile                      # Container configuration
+├── docker-compose.yml              # Orchestration
+├── .dockerignore                   # Docker build optimization
 ├── train_advanced.py               # Main training script
-├── requirements.txt
+├── requirements.txt                # Python dependencies
 └── README.md
 ```
 
@@ -234,9 +289,10 @@ QuantumFold-Advantage/
 Explore the examples with interactive notebooks:
 
 ### Quick Start
-| Notebook | Description | Colab |
-|----------|-------------|-------|
-| **Colab Quickstart** | 5-minute demo with free GPU | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/colab_quickstart.ipynb) |
+| Notebook | Description | Runtime | Colab |
+|----------|-------------|---------|-------|
+| **colab_quickstart.ipynb** | 5-minute demo with free GPU | ~5 min | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/colab_quickstart.ipynb) |
+| **complete_benchmark.ipynb** | 🔥 **FULL PIPELINE** - Everything! | ~30-60 min | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/complete_benchmark.ipynb) |
 
 ### Detailed Tutorials
 | Notebook | Description | Colab |
@@ -244,6 +300,63 @@ Explore the examples with interactive notebooks:
 | **01_getting_started.ipynb** | Complete introduction with advanced features | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/01_getting_started.ipynb) |
 | **02_quantum_vs_classical.ipynb** | Comparative analysis of quantum advantage | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/02_quantum_vs_classical.ipynb) |
 | **03_advanced_visualization.ipynb** | 3D structures, contact maps, Ramachandran plots | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/03_advanced_visualization.ipynb) |
+
+### What's in complete_benchmark.ipynb?
+
+The **complete benchmark notebook** runs the entire research pipeline:
+
+✅ **Data Preparation** - Synthetic protein datasets  
+✅ **Quantum Model Training** - Full training with advanced features  
+✅ **Classical Baseline Training** - Identical architecture without quantum  
+✅ **Comprehensive Evaluation** - TM-score, RMSD, GDT-TS, pLDDT  
+✅ **Statistical Validation** - Wilcoxon, t-tests, Cohen's d, bootstrap CI  
+✅ **Publication Figures** - Training curves, distributions, paired comparisons  
+✅ **Results Export** - JSON, plots, and downloadable archive  
+
+Perfect for generating research results for papers or presentations!
+
+## 🐳 Docker Deployment
+
+### Services Included
+
+The Docker Compose setup provides:
+
+1. **Main Service** (`quantumfold`)
+   - JupyterLab on port 8888
+   - Full GPU support
+   - All notebooks and tools
+
+2. **TensorBoard** (`tensorboard`)
+   - Real-time training monitoring on port 6007
+   - Automatic log synchronization
+
+3. **Notebook Server** (`notebook`)
+   - Additional CPU-only server for visualization
+   - Port 8889
+
+### Environment Variables
+
+Create a `.env` file for configuration:
+
+```bash
+# Optional: Weights & Biases
+WANDB_API_KEY=your_wandb_key
+
+# Optional: HuggingFace token for ESM-2
+HF_TOKEN=your_hf_token
+
+# GPU selection
+CUDA_VISIBLE_DEVICES=0
+```
+
+### Volume Mounts
+
+Data persists in these directories:
+- `./data` - Input protein datasets
+- `./outputs` - Training outputs and predictions
+- `./checkpoints` - Model checkpoints
+- `./logs` - TensorBoard logs
+- `./configs` - Configuration files
 
 ## 🔬 Scientific Background
 
@@ -364,7 +477,11 @@ The Catholic University of America
 - [ ] Real-time folding dynamics
 - [ ] Distributed training on GPU clusters
 - [ ] Web API deployment
+- [ ] Kubernetes orchestration
+- [ ] Cloud deployment (AWS, GCP, Azure)
 
 ---
 
-**Star ⭐ this repository if you find it useful!**
+**⭐ Star this repository if you find it useful!**
+
+**🔥 Try the [complete benchmark notebook](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/complete_benchmark.ipynb) - it runs everything!**
