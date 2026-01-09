@@ -1,28 +1,36 @@
-# QuantumFold-Advantage Core Requirements
-# For development, use: pip install -e .[dev,protein-lm,tracking]
-# For production, use: pip install -e .
+# QuantumFold-Advantage Requirements
+# Core Python dependencies for quantum-classical protein structure prediction
+#
+# Installation:
+#   pip install -r requirements.txt
+#
+# For development:
+#   pip install -e .[dev]
 
-# =============================================================================
-# CORE DEPENDENCIES (Required)
-# =============================================================================
-
-# Numerical computing
+# Core Scientific Computing
 numpy>=1.24.0,<2.0.0
 scipy>=1.10.0,<2.0.0
-
-# Deep learning (updated for latest PyTorch 2.5+)
-torch>=2.0.0,<2.6.0
-torchvision>=0.15.0,<0.20.0
-
-# Quantum computing
-pennylane>=0.33.0,<0.38.0
-pennylane-lightning>=0.33.0,<0.38.0
-
-# Data processing
 pandas>=2.0.0,<3.0.0
 h5py>=3.9.0,<4.0.0
-pyyaml>=6.0,<7.0.0
-joblib>=1.3.0,<2.0.0
+
+# Deep Learning - PyTorch
+# Note: For CUDA support, see installation instructions below
+torch>=2.0.0,<2.6.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# Quantum Computing - PennyLane
+# CRITICAL: autoray>=0.6.11 required for PennyLane compatibility
+autoray>=0.6.11
+pennylane>=0.33.0,<0.37.0
+pennylane-lightning>=0.33.0,<0.37.0
+
+# Protein Language Models (Optional - large downloads)
+# Uncomment to enable ESM-2 and ProtT5:
+# fair-esm>=2.0.0
+# transformers>=4.35.0,<5.0.0
+# sentencepiece>=0.1.99,<1.0.0
+# tokenizers>=0.15.0,<1.0.0
 
 # Bioinformatics
 biopython>=1.81,<2.0.0
@@ -32,68 +40,59 @@ biotite>=0.38.0,<1.0.0
 matplotlib>=3.7.0,<4.0.0
 seaborn>=0.12.0,<1.0.0
 plotly>=5.17.0,<6.0.0
-kaleido>=0.2.1,<0.3.0
+kaleido>=0.2.1
 
-# Statistical analysis
+# Machine Learning Utilities
 scikit-learn>=1.3.0,<2.0.0
 statsmodels>=0.14.0,<1.0.0
 
-# Utilities
-tqdm>=4.66.0,<5.0.0
-coloredlogs>=15.0,<16.0
-requests>=2.31.0,<3.0.0
-pillow>=10.0.0,<12.0.0
+# Progress and Logging
+tqdm>=4.66.0
+wandb>=0.16.0
+tensorboard>=2.14.0,<3.0.0
 
-# Jupyter support
+# Configuration and I/O
+pyyaml>=6.0,<7.0.0
+joblib>=1.3.0
+requests>=2.31.0,<3.0.0
+pillow>=10.0.0,<11.0.0
+
+# Jupyter Support (Optional)
 jupyterlab>=4.0.0,<5.0.0
 ipywidgets>=8.1.0,<9.0.0
 ipykernel>=6.25.0,<7.0.0
-nbformat>=5.9.0,<6.0.0
-nbconvert>=7.10.0,<8.0.0
 
-# =============================================================================
-# OPTIONAL DEPENDENCIES
-# Install via: pip install -e .[protein-lm,tracking,dev]
-# =============================================================================
+# Testing and Development (Optional)
+pytest>=7.4.0,<9.0.0
+pytest-cov>=4.1.0,<6.0.0
+pytest-xdist>=3.3.0,<4.0.0
+pytest-timeout>=2.1.0,<3.0.0
+black>=23.0.0,<25.0.0
+isort>=5.12.0,<6.0.0
+flake8>=6.1.0,<8.0.0
+mypy>=1.5.0,<2.0.0
 
-# Protein language models (recommended)
-# fair-esm>=2.0.0,<3.0.0
-# transformers>=4.35.0,<5.0.0  
-# sentencepiece>=0.1.99,<1.0.0
-# tokenizers>=0.15.0,<1.0.0
-# huggingface-hub>=0.19.0,<1.0.0
-
-# Experiment tracking
-# tensorboard>=2.14.0,<3.0.0
-# wandb>=0.15.0,<1.0.0
-# tensorboardX>=2.6.0,<3.0.0
-
-# Development tools
-# pytest>=7.4.0,<9.0.0
-# pytest-cov>=4.1.0,<6.0.0
-# pytest-xdist>=3.3.0,<4.0.0
-# black>=23.0.0,<25.0.0
-# flake8>=6.0.0,<8.0.0
-# isort>=5.12.0,<6.0.0
-# mypy>=1.5.0,<2.0.0
-
-# =============================================================================
-# INSTALLATION NOTES
-# =============================================================================
-# 
-# Basic installation:
-#   pip install -r requirements.txt
+# ====================
+# Installation Notes
+# ====================
 #
-# With protein language models:
-#   pip install -e .[protein-lm]
+# CUDA Support (Recommended for GPU training):
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
 #
-# Full development setup:
-#   pip install -e .[dev,protein-lm,tracking]
+# Protein Language Models:
+#   pip install fair-esm transformers sentencepiece tokenizers
+#   Note: ESM-2 models are large (650M-15B parameters)
 #
-# All optional features:
+# Development Setup:
+#   pip install -e .[dev]
+#
+# Complete Installation:
 #   pip install -e .[all]
 #
-# For Google Colab (minimal):
-#   pip install torch pennylane fair-esm biopython matplotlib plotly tqdm
+# Docker (Recommended):
+#   docker-compose up
 #
-# =============================================================================
+# Known Issues:
+# - PennyLane requires autoray>=0.6.11 for compatibility with recent NumPy
+# - PyTorch CUDA versions must match your system CUDA version
+# - ESM-2 models require significant memory (8GB+ VRAM recommended)

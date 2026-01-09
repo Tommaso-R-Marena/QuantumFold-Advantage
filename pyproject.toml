@@ -1,19 +1,28 @@
 [build-system]
-requires = ["setuptools>=65.0", "wheel"]
+requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "quantumfold-advantage"
 version = "0.1.0"
 description = "Quantum-classical hybrid architecture for protein structure prediction"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
 authors = [
     {name = "Tommaso R. Marena", email = "marena@cua.edu"}
 ]
-readme = "README.md"
-license = {text = "MIT"}
-requires-python = ">=3.8,<3.12"
+keywords = [
+    "quantum computing",
+    "protein folding",
+    "deep learning",
+    "bioinformatics",
+    "quantum machine learning",
+    "alphafold",
+    "pennylane",
+]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -25,156 +34,94 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Scientific/Engineering :: Physics",
 ]
-keywords = ["protein-folding", "quantum-computing", "deep-learning", "alphafold", "quantum-ml"]
 
 dependencies = [
-    # Core numerical computing
     "numpy>=1.24.0,<2.0.0",
     "scipy>=1.10.0,<2.0.0",
-    
-    # Deep learning (updated to support latest PyTorch)
-    "torch>=2.0.0,<2.6.0",
-    "torchvision>=0.15.0,<0.20.0",
-    
-    # Quantum computing
-    "pennylane>=0.33.0,<0.38.0",
-    "pennylane-lightning>=0.33.0,<0.38.0",
-    
-    # Data processing
     "pandas>=2.0.0,<3.0.0",
-    "h5py>=3.9.0,<4.0.0",
-    "pyyaml>=6.0,<7.0.0",
-    "joblib>=1.3.0,<2.0.0",
-    
-    # Bioinformatics
+    "torch>=2.0.0,<2.6.0",
+    "autoray>=0.6.11",
+    "pennylane>=0.33.0,<0.37.0",
+    "pennylane-lightning>=0.33.0,<0.37.0",
     "biopython>=1.81,<2.0.0",
     "biotite>=0.38.0,<1.0.0",
-    
-    # Visualization
     "matplotlib>=3.7.0,<4.0.0",
     "seaborn>=0.12.0,<1.0.0",
-    "plotly>=5.17.0,<6.0.0",
-    "kaleido>=0.2.1,<0.3.0",
-    
-    # Statistical analysis
     "scikit-learn>=1.3.0,<2.0.0",
-    "statsmodels>=0.14.0,<1.0.0",
-    
-    # Utilities
-    "tqdm>=4.66.0,<5.0.0",
-    "requests>=2.31.0,<3.0.0",
-    "pillow>=10.0.0,<12.0.0",
-    "coloredlogs>=15.0,<16.0",
-    
-    # Jupyter support
-    "jupyterlab>=4.0.0,<5.0.0",
-    "ipywidgets>=8.1.0,<9.0.0",
-    "ipykernel>=6.25.0,<7.0.0",
+    "tqdm>=4.66.0",
+    "pyyaml>=6.0,<7.0.0",
+    "h5py>=3.9.0,<4.0.0",
+    "joblib>=1.3.0",
 ]
 
 [project.optional-dependencies]
-# Protein language models
 protein-lm = [
-    "fair-esm>=2.0.0,<3.0.0",
+    "fair-esm>=2.0.0",
     "transformers>=4.35.0,<5.0.0",
     "sentencepiece>=0.1.99,<1.0.0",
     "tokenizers>=0.15.0,<1.0.0",
-    "huggingface-hub>=0.19.0,<1.0.0",
+    "huggingface-hub>=0.19.0",
 ]
 
-# Experiment tracking
 tracking = [
+    "wandb>=0.16.0",
     "tensorboard>=2.14.0,<3.0.0",
-    "wandb>=0.15.0,<1.0.0",
-    "tensorboardX>=2.6.0,<3.0.0",
 ]
 
-# Distributed training
-distributed = [
-    "accelerate>=0.24.0,<1.0.0",
-    "deepspeed>=0.11.0,<1.0.0; platform_system=='Linux'",
+vis = [
+    "plotly>=5.17.0,<6.0.0",
+    "kaleido>=0.2.1",
+    "pillow>=10.0.0,<11.0.0",
 ]
 
-# API deployment
-api = [
-    "fastapi>=0.104.0,<1.0.0",
-    "uvicorn[standard]>=0.24.0,<1.0.0",
-    "pydantic>=2.4.0,<3.0.0",
-    "python-multipart>=0.0.6,<1.0.0",
-]
-
-# Development tools
 dev = [
     "pytest>=7.4.0,<9.0.0",
     "pytest-cov>=4.1.0,<6.0.0",
     "pytest-xdist>=3.3.0,<4.0.0",
     "pytest-timeout>=2.1.0,<3.0.0",
     "black>=23.0.0,<25.0.0",
-    "flake8>=6.0.0,<8.0.0",
     "isort>=5.12.0,<6.0.0",
+    "flake8>=6.1.0,<8.0.0",
     "mypy>=1.5.0,<2.0.0",
-    "pre-commit>=3.5.0,<4.0.0",
+    "pre-commit>=3.0.0",
 ]
 
-# Documentation
-docs = [
-    "sphinx>=7.2.0,<8.0.0",
-    "sphinx-rtd-theme>=1.3.0,<2.0.0",
-    "sphinx-autodoc-typehints>=1.24.0,<2.0.0",
-    "myst-parser>=2.0.0,<3.0.0",
+jupyter = [
+    "jupyterlab>=4.0.0,<5.0.0",
+    "ipywidgets>=8.1.0,<9.0.0",
+    "ipykernel>=6.25.0,<7.0.0",
 ]
 
-# Cloud storage
-cloud = [
-    "boto3>=1.28.0,<2.0.0",
-    "azure-storage-blob>=12.19.0,<13.0.0",
-    "google-cloud-storage>=2.10.0,<3.0.0",
+api = [
+    "fastapi>=0.104.0,<1.0.0",
+    "uvicorn[standard]>=0.24.0,<1.0.0",
+    "pydantic>=2.5.0,<3.0.0",
 ]
 
-# Molecular visualization
-mol-viz = [
-    "py3Dmol>=2.0.0,<3.0.0",
-    "nglview>=3.0.0,<4.0.0",
-]
-
-# Chemistry tools
-chemistry = [
-    "rdkit>=2023.0.0,<2025.0.0",
-    "openmm>=8.0.0,<9.0.0",
-]
-
-# Structure analysis
-structure = [
-    "mmtf-python>=1.1.3,<2.0.0",
-    "prody>=2.4.0,<3.0.0",
-]
-
-# All optional dependencies
 all = [
-    "quantumfold-advantage[protein-lm,tracking,distributed,api,dev,docs,cloud,mol-viz,chemistry,structure]"
+    "quantumfold-advantage[protein-lm,tracking,vis,dev,jupyter,api]",
 ]
 
 [project.urls]
 Homepage = "https://github.com/Tommaso-R-Marena/QuantumFold-Advantage"
-Repository = "https://github.com/Tommaso-R-Marena/QuantumFold-Advantage"
 Documentation = "https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/README.md"
 "Bug Tracker" = "https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/issues"
+"Source Code" = "https://github.com/Tommaso-R-Marena/QuantumFold-Advantage"
 
 [project.scripts]
 quantumfold-train = "src.cli:train_cli"
 quantumfold-predict = "src.cli:predict_cli"
 quantumfold-evaluate = "src.cli:evaluate_cli"
 
-[tool.setuptools.packages.find]
-where = ["."]  
-include = ["src*"]
+[tool.setuptools]
+packages = ["src", "src.data", "src.utils"]
 
 [tool.setuptools.package-data]
 src = ["py.typed"]
 
 [tool.black]
 line-length = 100
-target-version = ["py38", "py39", "py310", "py311"]
+target-version = ['py38', 'py39', 'py310', 'py311']
 include = '\.pyi?$'
 exclude = '''
 /(
@@ -188,6 +135,8 @@ exclude = '''
   | buck-out
   | build
   | dist
+  | examples
+  | notebooks
 )/
 '''
 
@@ -196,28 +145,19 @@ profile = "black"
 line_length = 100
 multi_line_output = 3
 include_trailing_comma = true
+skip_glob = ["examples/*", "notebooks/*"]
 
 [tool.mypy]
 python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
-disallow_incomplete_defs = false
-check_untyped_defs = true
-disallow_untyped_decorators = false
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-follow_imports = "normal"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers"
 testpaths = ["tests"]
-python_files = "test_*.py"
-python_classes = "Test*"
-python_functions = "test_*"
-addopts = "-v --cov=src --cov-report=term-missing --cov-report=html"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "gpu: marks tests that require GPU",
@@ -230,6 +170,7 @@ omit = [
     "*/tests/*",
     "*/test_*.py",
     "*/__pycache__/*",
+    "*/site-packages/*",
 ]
 
 [tool.coverage.report]

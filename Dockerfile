@@ -68,6 +68,7 @@ RUN pip install --no-cache-dir \
     torchvision>=0.15.0,<0.18.0 --index-url https://download.pytorch.org/whl/cu118
 
 RUN pip install --no-cache-dir \
+    autoray>=0.6.11 \
     pennylane>=0.33.0,<0.36.0 \
     pennylane-lightning>=0.33.0,<0.36.0
 
@@ -115,10 +116,12 @@ RUN pip install -e .
 # Create directories for data and outputs
 RUN mkdir -p /workspace/data /workspace/outputs /workspace/checkpoints /workspace/logs
 
-# Expose ports
-EXPOSE 8888  # JupyterLab
-EXPOSE 6006  # TensorBoard
-EXPOSE 8000  # API (if using FastAPI)
+# JupyterLab port
+EXPOSE 8888
+# TensorBoard port
+EXPOSE 6006
+# API port (if using FastAPI)
+EXPOSE 8000
 
 # Set up JupyterLab configuration
 RUN jupyter lab --generate-config && \
