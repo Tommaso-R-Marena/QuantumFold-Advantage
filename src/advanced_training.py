@@ -24,7 +24,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 from torch.utils.data import DataLoader
-from torch.cuda.amp import autocast, GradScaler
+from torch.amp import autocast, GradScaler  # torch >= 2.0
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 from typing import Dict, List, Tuple, Optional, Callable
 from dataclasses import dataclass
@@ -349,7 +349,7 @@ class AdvancedTrainer:
         self._setup_scheduler()
         
         # Mixed precision scaler
-        self.scaler = GradScaler() if config.use_amp else None
+        self.scaler = GradScaler("cuda") if config.use_amp else None
         
         # EMA
         self.ema = ExponentialMovingAverage(model, config.ema_decay) if config.use_ema else None
@@ -404,7 +404,7 @@ class AdvancedTrainer:
                 mask = mask.to(self.device)
             
             # Forward pass with mixed precision
-            with autocast(enabled=self.config.use_amp, dtype=torch.float16 if self.config.amp_dtype == 'float16' else torch.bfloat16):
+            with autocast(device_type="cuda", enabled=self.config.use_amp, dtype=torch.float16 if self.config.amp_dtype == 'float16' else torch.bfloat16):
                 coords_pred = self.model(sequences)
                 losses = self.criterion(coords_pred, coords_true, mask=mask)
             
