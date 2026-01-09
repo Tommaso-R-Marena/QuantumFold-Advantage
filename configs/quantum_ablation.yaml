@@ -1,0 +1,48 @@
+# Quantum Ablation Study Configuration
+# For comparing different quantum configurations
+
+model:
+  type: "AdvancedProteinFoldingModel"
+  input_dim: 1280
+  c_s: 384
+  c_z: 128
+  n_structure_layers: 8
+  use_quantum: true
+
+quantum:
+  n_qubits: 8
+  quantum_depth: 4
+  entanglement: "all_to_all"
+  noise_level: 0.0  # Vary this for noise studies
+  use_quantum_kernel: true
+  use_quantum_attention: true
+
+training:
+  epochs: 50
+  batch_size: 32
+  learning_rate: 0.001
+  use_amp: true
+  use_ema: true
+
+loss:
+  fape_weight: 1.0
+  rmsd_weight: 0.5
+  distance_weight: 0.3
+
+data:
+  train_samples: 500
+  val_samples: 100
+  test_samples: 50
+  seq_len: 100
+
+validation:
+  run_statistical_tests: true
+  alpha: 0.05
+  n_bootstrap: 10000
+  correction_method: "bonferroni"
+
+output:
+  dir: "outputs/quantum_ablation"
+  save_predictions: true
+  save_trajectory: true
+  generate_plots: true

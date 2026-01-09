@@ -1,0 +1,121 @@
+# Advanced Training Configuration for QuantumFold-Advantage
+# Optimized for publication-quality results
+
+# Model Architecture
+model:
+  type: "AdvancedProteinFoldingModel"
+  input_dim: 1280  # ESM-2 embedding dimension
+  c_s: 384  # Single representation dimension
+  c_z: 128  # Pair representation dimension
+  n_structure_layers: 8  # Number of IPA refinement layers
+  use_quantum: true  # Enable quantum enhancement
+
+# Pre-trained Embeddings
+embeddings:
+  esm_model: "esm2_t33_650M_UR50D"  # ESM-2 650M parameter model
+  freeze_embedder: true  # Freeze pre-trained weights
+  use_evolutionary: true  # Use MSA features if available
+  use_geometric: true  # Use torsion angles and frames
+
+# Quantum Configuration
+quantum:
+  n_qubits: 8
+  quantum_depth: 4
+  entanglement: "all_to_all"  # linear, circular, all_to_all
+  noise_level: 0.01  # Depolarizing noise
+  use_quantum_kernel: true
+  use_quantum_attention: true
+
+# Training
+training:
+  epochs: 100
+  batch_size: 32
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  warmup_epochs: 5
+  gradient_clip_norm: 1.0
+  gradient_accumulation_steps: 1
+  
+  # Mixed Precision
+  use_amp: true
+  amp_dtype: "float16"  # float16 or bfloat16
+  
+  # Exponential Moving Average
+  use_ema: true
+  ema_decay: 0.999
+  
+  # Learning Rate Schedule
+  scheduler: "cosine_annealing_warmup"
+  min_lr: 0.00001
+  
+# Loss Configuration
+loss:
+  # FAPE Loss (Frame Aligned Point Error)
+  fape_weight: 1.0
+  fape_clamp: 10.0
+  
+  # RMSD Loss
+  rmsd_weight: 0.5
+  
+  # Distance Matrix Loss
+  distance_weight: 0.3
+  distance_clamp: 15.0
+  
+  # Angle Loss
+  angle_weight: 0.2
+  
+  # Confidence Loss
+  confidence_weight: 0.1
+
+# Data
+data:
+  train_samples: 1000
+  val_samples: 200
+  test_samples: 100
+  seq_len: 128
+  max_seq_len: 512
+  
+  # Data Augmentation
+  use_augmentation: true
+  rotation_augmentation: true
+  noise_augmentation: 0.1
+
+# Statistical Validation
+validation:
+  run_statistical_tests: true
+  alpha: 0.05  # Significance level
+  n_bootstrap: 10000
+  correction_method: "fdr"  # bonferroni or fdr
+  compute_power: true
+  
+# Checkpointing
+checkpoint:
+  save_freq: 5  # Save every N epochs
+  keep_last_n: 3  # Keep last N checkpoints
+  save_best_only: false
+  monitor_metric: "val_tm_score"
+  
+# Logging
+logging:
+  log_freq: 10  # Log every N batches
+  use_tensorboard: true
+  use_wandb: false  # Weights & Biases
+  log_gradients: true
+  log_weights: false
+  
+# System
+system:
+  device: "cuda"  # cuda or cpu
+  num_workers: 4
+  pin_memory: true
+  seed: 42
+  deterministic: true
+  benchmark: false  # cudnn.benchmark
+  
+# Output
+output:
+  dir: "outputs/advanced_run"
+  save_predictions: true
+  save_trajectory: true
+  save_confidence: true
+  generate_plots: true

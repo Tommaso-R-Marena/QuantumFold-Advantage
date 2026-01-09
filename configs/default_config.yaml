@@ -1,0 +1,68 @@
+# Default Configuration for QuantumFold-Advantage
+# Basic settings for quick experimentation
+
+model:
+  type: "AdvancedProteinFoldingModel"
+  input_dim: 1280
+  c_s: 256
+  c_z: 64
+  n_structure_layers: 4
+  use_quantum: false
+
+embeddings:
+  esm_model: "esm2_t12_35M_UR50D"  # Smaller, faster model
+  freeze_embedder: true
+  use_evolutionary: false
+  use_geometric: false
+
+training:
+  epochs: 20
+  batch_size: 16
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  warmup_epochs: 2
+  gradient_clip_norm: 1.0
+  use_amp: false
+  use_ema: false
+  scheduler: "cosine_annealing_warmup"
+
+loss:
+  fape_weight: 1.0
+  rmsd_weight: 0.5
+  distance_weight: 0.3
+  angle_weight: 0.2
+  confidence_weight: 0.1
+
+data:
+  train_samples: 100
+  val_samples: 20
+  test_samples: 10
+  seq_len: 50
+  max_seq_len: 256
+  use_augmentation: false
+
+validation:
+  run_statistical_tests: false
+  alpha: 0.05
+
+checkpoint:
+  save_freq: 5
+  keep_last_n: 2
+  monitor_metric: "val_loss"
+
+logging:
+  log_freq: 10
+  use_tensorboard: false
+  use_wandb: false
+
+system:
+  device: "cuda"
+  num_workers: 2
+  seed: 42
+  deterministic: false
+
+output:
+  dir: "outputs/default_run"
+  save_predictions: true
+  save_trajectory: false
+  generate_plots: false
