@@ -23,6 +23,9 @@ import numpy as np
 from typing import Dict, List, Tuple, Optional, Union, Sequence, Any
 import warnings
 from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     import esm
@@ -66,14 +69,26 @@ class ESM2Embedder(nn.Module):
         super().__init__()
         
         if esm is None:
-            raise ImportError("ESM not installed. Run: pip install fair-esm")
+            raise ImportError(
+                "ESM not installed. Install with: pip install fair-esm\n"
+                "Or for minimal installation: pip install fair-esm --no-deps"
+            )
         
         self.model_name = model_name
-        self.device = device or torch.device("cpu")
+        self.freeze = freeze
+        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # Load ESM-2 model and alphabet
-        print(f"Loading ESM-2 model: {model_name}...")
-        self.model, self.alphabet = esm.pretrained.load_model_and_alphabet(model_name)
+        logger.info(f"Loading ESM-2 model: {model_name}...")
+        try:
+            self.model, self.alphabet = esm.pretrained.load_model_and_alphabet(model_name)
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to load ESM-2 model '{model_name}': {e}\n"
+                f"Available models: esm2_t6_8M_UR50D, esm2_t12_35M_UR50D, "
+                f"esm2_t30_150M_UR50D, esm2_t33_650M_UR50D"
+            ) from e
+        
         self.model.eval()
         self.model.to(self.device)
         
@@ -84,7 +99,7 @@ class ESM2Embedder(nn.Module):
             try:
                 t_field = model_name.split("_")[1]  # e.g. "t12"
                 self.num_layers = int(t_field[1:])
-            except Exception as e:
+            except (IndexError, ValueError) as e:
                 raise ValueError(
                     f"Could not infer num_layers for model {model_name}. "
                     "Please pass repr_layers explicitly as valid layer indices."
@@ -96,13 +111,24 @@ class ESM2Embedder(nn.Module):
         if repr_layers is None:
             self.repr_layers = [self.num_layers]
         else:
-            normalized: list[int] = []
+            normalized: List[int] = []
             for l in repr_layers:
                 if l == -1:
                     normalized.append(self.num_layers)
+                elif l < 0:
+                    # Support negative indexing like Python lists
+                    normalized.append(self.num_layers + l + 1)
                 else:
                     normalized.append(int(l))
             self.repr_layers = normalized
+        
+        # Validate layer indices
+        for layer_idx in self.repr_layers:
+            if layer_idx < 0 or layer_idx > self.num_layers:
+                raise ValueError(
+                    f"Invalid layer index {layer_idx}. "
+                    f"Model has {self.num_layers} layers (indices 0-{self.num_layers})."
+                )
         
         # Embedding dimension depends on checkpoint (e.g. 480, 640, 1280, 2560)
         self.embed_dim = self.model.embed_dim
@@ -110,11 +136,13 @@ class ESM2Embedder(nn.Module):
         if freeze:
             for param in self.model.parameters():
                 param.requires_grad = False
-            self.model.eval()
         
         self.batch_converter = self.alphabet.get_batch_converter()
         
-        print(f"ESM-2 model loaded. Embedding dimension: {self.embed_dim}, num_layers: {self.num_layers}, repr_layers: {self.repr_layers}")
+        logger.info(
+            f"ESM-2 model loaded: dim={self.embed_dim}, "
+            f"num_layers={self.num_layers}, repr_layers={self.repr_layers}"
+        )
     
     def forward(
         self,
@@ -132,35 +160,67 @@ class ESM2Embedder(nn.Module):
                 - 'embeddings': Per-residue embeddings (batch, seq_len, embed_dim)
                 - 'mean_embedding': Sequence-level embedding (batch, embed_dim)
                 - 'contacts': Contact predictions if requested (batch, seq_len, seq_len)
+        
+        Raises:
+            ValueError: If sequences is empty or contains invalid amino acids
+            RuntimeError: If forward pass fails
         """
         if len(sequences) == 0:
             raise ValueError("ESM2Embedder.forward received an empty sequence list.")
         
+        # Validate sequences
+        valid_aa = set('ACDEFGHIKLMNPQRSTVWYX')  # X for unknown
+        for i, seq in enumerate(sequences):
+            if not seq:
+                raise ValueError(f"Sequence {i} is empty")
+            invalid_chars = set(seq.upper()) - valid_aa
+            if invalid_chars:
+                logger.warning(
+                    f"Sequence {i} contains invalid amino acids: {invalid_chars}. "
+                    f"These will be treated as 'X' (unknown)."
+                )
+        
         # Format sequences
-        data = [("seq", s) for s in sequences]
-        _, _, batch_tokens = self.batch_converter(data)
+        data = [(f"protein_{i}", seq) for i, seq in enumerate(sequences)]
+        
+        try:
+            _, _, batch_tokens = self.batch_converter(data)
+        except Exception as e:
+            raise RuntimeError(f"Failed to convert sequences to tokens: {e}") from e
+        
+        # Ensure tensors are on the correct device
         batch_tokens = batch_tokens.to(self.device)
         
-        # repr_layers must be valid positive indices (e.g. [12])
-        with torch.no_grad() if self.freeze else torch.enable_grad():
-            results = self.model(
-                batch_tokens,
-                repr_layers=self.repr_layers,
-                return_contacts=return_contacts,
-            )
+        # Forward pass (always use no_grad for frozen embedder)
+        with torch.set_grad_enabled(not self.freeze):
+            try:
+                results = self.model(
+                    batch_tokens,
+                    repr_layers=self.repr_layers,
+                    return_contacts=return_contacts,
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    f"ESM-2 forward pass failed: {e}\n"
+                    f"Input shape: {batch_tokens.shape}, device: {batch_tokens.device}"
+                ) from e
         
         # Use the first requested layer
         layer_idx = self.repr_layers[0]
         reps = results["representations"]
+        
         if layer_idx not in reps:
+            available_layers = list(reps.keys())
             raise KeyError(
-                f"Requested repr_layer {layer_idx} not in results['representations']; "
-                f"available: {list(reps.keys())}"
+                f"Requested layer {layer_idx} not in model outputs. "
+                f"Available layers: {available_layers}. "
+                f"This should not happen - please report this bug."
             )
         
         embeddings = reps[layer_idx]  # (batch, seq_len, embed_dim)
         
-        # Remove start/end tokens
+        # Remove start/end special tokens
+        # ESM adds <cls> at start and <eos> at end
         embeddings = embeddings[:, 1:-1, :]  # (batch, seq_len, embed_dim)
         
         # Sequence-level embedding (mean pooling)
@@ -174,10 +234,17 @@ class ESM2Embedder(nn.Module):
         if return_contacts and "contacts" in results:
             # Contact predictions
             contacts = results['contacts']
-            contacts = contacts[:, 1:-1, 1:-1]  # Remove special tokens
+            # Remove special tokens from contact map
+            contacts = contacts[:, 1:-1, 1:-1]  # (batch, seq_len, seq_len)
             output['contacts'] = contacts
         
         return output
+    
+    def to(self, device: torch.device) -> 'ESM2Embedder':
+        """Move model to device."""
+        self.device = device
+        self.model = self.model.to(device)
+        return super().to(device)
 
 
 class ProtT5Embedder(nn.Module):
@@ -188,26 +255,36 @@ class ProtT5Embedder(nn.Module):
     Args:
         model_name: ProtT5 model variant
         freeze: Whether to freeze pre-trained weights
+        device: Device to load model on
     """
     
     def __init__(
         self,
         model_name: str = 'Rostlab/prot_t5_xl_uniref50',
-        freeze: bool = True
+        freeze: bool = True,
+        device: Optional[torch.device] = None,
     ):
         super().__init__()
         
         if T5EncoderModel is None:
-            raise ImportError("Transformers not installed. Run: pip install transformers")
+            raise ImportError(
+                "Transformers not installed. Install with: pip install transformers\n"
+                "Or: pip install transformers sentencepiece"
+            )
         
         self.model_name = model_name
         self.freeze = freeze
+        self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
         # Load model and tokenizer
-        print(f"Loading ProtT5 model: {model_name}...")
-        self.tokenizer = T5Tokenizer.from_pretrained(model_name)
-        self.model = T5EncoderModel.from_pretrained(model_name)
+        logger.info(f"Loading ProtT5 model: {model_name}...")
+        try:
+            self.tokenizer = T5Tokenizer.from_pretrained(model_name)
+            self.model = T5EncoderModel.from_pretrained(model_name)
+        except Exception as e:
+            raise RuntimeError(f"Failed to load ProtT5 model: {e}") from e
         
+        self.model.to(self.device)
         self.embed_dim = self.model.config.d_model
         
         if freeze:
@@ -215,7 +292,7 @@ class ProtT5Embedder(nn.Module):
                 param.requires_grad = False
             self.model.eval()
         
-        print(f"ProtT5 model loaded. Embedding dimension: {self.embed_dim}")
+        logger.info(f"ProtT5 model loaded. Embedding dimension: {self.embed_dim}")
     
     def forward(self, sequences: List[str]) -> Dict[str, Tensor]:
         """Extract ProtT5 embeddings.
@@ -226,24 +303,33 @@ class ProtT5Embedder(nn.Module):
         Returns:
             Dictionary with embeddings
         """
+        if len(sequences) == 0:
+            raise ValueError("ProtT5Embedder.forward received empty sequence list")
+        
         # Add spaces between amino acids (ProtT5 requirement)
         sequences_spaced = [' '.join(list(seq)) for seq in sequences]
         
         # Tokenize
-        tokens = self.tokenizer(
-            sequences_spaced,
-            padding=True,
-            truncation=True,
-            max_length=1024,
-            return_tensors='pt'
-        )
+        try:
+            tokens = self.tokenizer(
+                sequences_spaced,
+                padding=True,
+                truncation=True,
+                max_length=1024,
+                return_tensors='pt'
+            )
+        except Exception as e:
+            raise RuntimeError(f"ProtT5 tokenization failed: {e}") from e
         
-        device = next(self.model.parameters()).device
-        tokens = {k: v.to(device) for k, v in tokens.items()}
+        # Move to correct device
+        tokens = {k: v.to(self.device) for k, v in tokens.items()}
         
         # Forward pass
-        with torch.no_grad() if self.freeze else torch.enable_grad():
-            outputs = self.model(**tokens)
+        with torch.set_grad_enabled(not self.freeze):
+            try:
+                outputs = self.model(**tokens)
+            except Exception as e:
+                raise RuntimeError(f"ProtT5 forward pass failed: {e}") from e
         
         # Extract embeddings
         embeddings = outputs.last_hidden_state  # (batch, seq_len, embed_dim)
@@ -256,6 +342,12 @@ class ProtT5Embedder(nn.Module):
             'embeddings': embeddings,
             'mean_embedding': mean_embedding
         }
+    
+    def to(self, device: torch.device) -> 'ProtT5Embedder':
+        """Move model to device."""
+        self.device = device
+        self.model = self.model.to(device)
+        return super().to(device)
 
 
 class EvolutionaryFeatureExtractor(nn.Module):
