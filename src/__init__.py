@@ -20,7 +20,7 @@ _EMBEDDINGS_AVAILABLE = False
 _TRAINING_AVAILABLE = False
 
 try:
-    from .quantum_layers import QuantumLayer, QuantumHybridLayer, EntanglementType
+    from .quantum_layers import EntanglementType, QuantumHybridLayer, QuantumLayer
 
     _QUANTUM_AVAILABLE = True
 except (ImportError, AttributeError) as e:
@@ -48,11 +48,7 @@ except ImportError:
     ProtT5Embedder = None
 
 try:
-    from .advanced_training import (
-        AdvancedTrainer,
-        TrainingConfig,
-        FrameAlignedPointError,
-    )
+    from .advanced_training import AdvancedTrainer, FrameAlignedPointError, TrainingConfig
 
     _TRAINING_AVAILABLE = True
 except ImportError:

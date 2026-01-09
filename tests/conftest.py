@@ -1,9 +1,10 @@
 """Pytest configuration and fixtures for QuantumFold-Advantage tests."""
 
+from pathlib import Path
+
+import numpy as np
 import pytest
 import torch
-import numpy as np
-from pathlib import Path
 
 
 @pytest.fixture(scope="session")
@@ -57,10 +58,10 @@ def temp_output_dir(tmp_path):
 def config_dict():
     """Sample configuration dictionary."""
     return {
-        'epochs': 5,
-        'batch_size': 4,
-        'learning_rate': 1e-3,
-        'use_quantum': True,
-        'n_qubits': 4,
-        'quantum_depth': 2,
+        "epochs": 5,
+        "batch_size": 4,
+        "learning_rate": 1e-3,
+        "use_quantum": True,
+        "n_qubits": 4,
+        "quantum_depth": 2,
     }
