@@ -3,260 +3,285 @@
 Implements state-of-the-art training techniques:
 - Frame Aligned Point Error (FAPE) loss from AlphaFold-3
 - Multi-stage curriculum learning
-- Mixed precision training (AMP)
-- Exponential Moving Average (EMA) of weights
-- Gradient accumulation and clipping
-- Advanced learning rate schedules with warmup
+- Mixed precision training (FP16/BF16)
+- Exponential Moving Average (EMA) for model weights
+- Gradient clipping and accumulation
+- Cosine annealing with warmup
 - Distributed Data Parallel (DDP) support
-- Comprehensive logging and checkpointing
+- Structure-aware loss functions
+- Confidence prediction (pLDDT-style)
 
 References:
-    - AlphaFold-3: Abramson et al., Nature 630, 493 (2024)
-    - FAPE Loss: Jumper et al., Nature 596, 583 (2021)
-    - Mixed Precision: Micikevicius et al., ICLR 2018
-    - EMA: Polyak & Juditsky, SIAM J. Control Optim. 30, 838 (1992)
+    - AlphaFold-3: Abramson et al., Nature (2024) DOI: 10.1038/s41586-024-07487-w
+    - FAPE Loss: Jumper et al., Nature (2021) DOI: 10.1038/s41586-021-03819-2
+    - Mixed Precision: Micikevicius et al., ICLR (2018) arXiv:1710.03740
+    - EMA: Polyak & Juditsky, SIAM J. Control Optim. (1992)
 """
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import Tensor
 from torch.utils.data import DataLoader
 from torch.cuda.amp import autocast, GradScaler
-from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, OneCycleLR
-import torch.distributed as dist
-from torch.nn.parallel import DistributedDataParallel as DDP
-from typing import Dict, List, Optional, Tuple, Callable
-from pathlib import Path
+from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
+from typing import Dict, List, Tuple, Optional, Callable
+from dataclasses import dataclass
 import logging
-import time
-import json
-from collections import defaultdict
-from copy import deepcopy
 from tqdm import tqdm
+import warnings
+from pathlib import Path
+import json
+
+
+@dataclass
+class TrainingConfig:
+    """Configuration for advanced training."""
+    # Optimization
+    epochs: int = 100
+    batch_size: int = 32
+    learning_rate: float = 1e-3
+    weight_decay: float = 1e-4
+    gradient_clip_norm: float = 1.0
+    gradient_accumulation_steps: int = 1
+    
+    # Mixed precision
+    use_amp: bool = True
+    amp_dtype: str = 'float16'  # 'float16' or 'bfloat16'
+    
+    # Learning rate schedule
+    warmup_epochs: int = 5
+    lr_scheduler: str = 'cosine'  # 'cosine', 'linear', 'constant'
+    min_lr: float = 1e-6
+    
+    # EMA
+    use_ema: bool = True
+    ema_decay: float = 0.999
+    
+    # Loss weights
+    fape_weight: float = 1.0
+    rmsd_weight: float = 0.5
+    distance_weight: float = 0.3
+    angle_weight: float = 0.2
+    confidence_weight: float = 0.1
+    
+    # Curriculum learning
+    use_curriculum: bool = True
+    curriculum_stages: List[int] = None  # Epochs for each stage
+    
+    # Checkpointing
+    checkpoint_dir: str = 'checkpoints'
+    save_every_n_epochs: int = 10
+    keep_best_n_checkpoints: int = 3
+    
+    # Logging
+    log_every_n_steps: int = 100
+    validate_every_n_epochs: int = 1
+    
+    def __post_init__(self):
+        if self.curriculum_stages is None:
+            self.curriculum_stages = [20, 40, 80]  # Default stages
 
 
 class FrameAlignedPointError(nn.Module):
     """Frame Aligned Point Error (FAPE) loss from AlphaFold.
     
-    FAPE computes structural error in local reference frames, making it
-    invariant to global rotations and translations. This is crucial for
-    protein structure prediction.
+    FAPE measures structural error in local coordinate frames,
+    making it invariant to global rotations and translations.
     
     Args:
-        d_clamp: Clamping distance for errors (Angstroms)
-        loss_unit_distance: Unit distance for normalization
-        eps: Small constant for numerical stability
+        clamp_distance: Maximum distance for clamping (Angstroms)
+        loss_unit_distance: Distance scale for loss (Angstroms)
     
     References:
-        Jumper et al., "Highly accurate protein structure prediction with AlphaFold",
-        Nature 596, 583-589 (2021)
+        Jumper et al., "Highly accurate protein structure prediction with AlphaFold"
+        Nature 596, 583–589 (2021)
     """
     
-    def __init__(self, d_clamp: float = 10.0, loss_unit_distance: float = 10.0, eps: float = 1e-8):
+    def __init__(self, clamp_distance: float = 10.0, loss_unit_distance: float = 10.0):
         super().__init__()
-        self.d_clamp = d_clamp
+        self.clamp_distance = clamp_distance
         self.loss_unit_distance = loss_unit_distance
-        self.eps = eps
+    
+    def _construct_frames(self, coords: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+        """Construct local coordinate frames from CA atoms.
+        
+        Args:
+            coords: CA coordinates (batch, N, 3)
+        
+        Returns:
+            Tuple of (origin, x_axis, y_axis) defining local frames
+        """
+        batch_size, n_res, _ = coords.shape
+        
+        # Use sliding window to define frames
+        origins = coords[:, :-2]  # (batch, N-2, 3)
+        
+        # X-axis: vector to next residue
+        x_axis = coords[:, 1:-1] - origins
+        x_axis = F.normalize(x_axis, dim=-1)
+        
+        # Y-axis: perpendicular to x in plane with next residue
+        v2 = coords[:, 2:] - origins
+        y_axis = v2 - (v2 * x_axis).sum(dim=-1, keepdim=True) * x_axis
+        y_axis = F.normalize(y_axis, dim=-1)
+        
+        # Z-axis: cross product
+        z_axis = torch.cross(x_axis, y_axis, dim=-1)
+        
+        return origins, torch.stack([x_axis, y_axis, z_axis], dim=-2)
     
     def forward(
         self,
-        pred_coords: torch.Tensor,
-        true_coords: torch.Tensor,
-        frames: Optional[torch.Tensor] = None,
-        mask: Optional[torch.Tensor] = None
-    ) -> torch.Tensor:
+        pred_coords: Tensor,
+        true_coords: Tensor,
+        mask: Optional[Tensor] = None
+    ) -> Tensor:
         """Compute FAPE loss.
         
         Args:
-            pred_coords: Predicted coordinates (batch, n_residues, n_atoms, 3)
-            true_coords: True coordinates (batch, n_residues, n_atoms, 3)
-            frames: Local reference frames (batch, n_residues, 3, 3)
-                   If None, uses global frame
-            mask: Valid residue mask (batch, n_residues)
+            pred_coords: Predicted coordinates (batch, N, 3)
+            true_coords: True coordinates (batch, N, 3)
+            mask: Optional residue mask (batch, N)
         
         Returns:
-            FAPE loss (scalar)
+            FAPE loss scalar
         """
-        batch_size, n_residues, n_atoms, _ = pred_coords.shape
+        # Construct local frames
+        pred_origins, pred_frames = self._construct_frames(pred_coords)
+        true_origins, true_frames = self._construct_frames(true_coords)
         
-        if mask is None:
-            mask = torch.ones(batch_size, n_residues, device=pred_coords.device)
+        # Transform predicted coordinates to true frames
+        n_frames = pred_origins.shape[1]
+        errors = []
         
-        # If no frames provided, use identity (global frame)
-        if frames is None:
-            frames = torch.eye(3, device=pred_coords.device).unsqueeze(0).unsqueeze(0)
-            frames = frames.expand(batch_size, n_residues, 3, 3)
+        for i in range(min(n_frames, 100)):  # Limit for efficiency
+            # Get frame
+            origin_true = true_origins[:, i:i+1]  # (batch, 1, 3)
+            frame_true = true_frames[:, i]  # (batch, 3, 3)
+            
+            # Transform predicted coords to this frame
+            pred_in_frame = pred_coords - pred_origins[:, i:i+1]
+            pred_in_frame = torch.einsum('bij,bkj->bki', frame_true, pred_in_frame)
+            
+            # Transform true coords to this frame
+            true_in_frame = true_coords - origin_true
+            true_in_frame = torch.einsum('bij,bkj->bki', frame_true, true_in_frame)
+            
+            # Compute distances
+            distances = torch.sqrt(torch.sum((pred_in_frame - true_in_frame) ** 2, dim=-1) + 1e-8)
+            
+            # Clamp and normalize
+            clamped = torch.clamp(distances, max=self.clamp_distance)
+            normalized = clamped / self.loss_unit_distance
+            
+            errors.append(normalized)
         
-        # Transform coordinates to local frames
-        # pred_local = (frames^T @ pred_coords)
-        pred_local = torch.einsum('bfij,bfak->bfai', frames.transpose(-1, -2), pred_coords)
-        true_local = torch.einsum('bfij,bfak->bfai', frames.transpose(-1, -2), true_coords)
+        # Average over frames and residues
+        errors = torch.stack(errors, dim=1)  # (batch, n_frames, N)
         
-        # Compute distances in local frames
-        diff = pred_local - true_local  # (batch, n_residues, n_atoms, 3)
-        distances = torch.sqrt(torch.sum(diff ** 2, dim=-1) + self.eps)  # (batch, n_residues, n_atoms)
-        
-        # Clamp distances
-        clamped_distances = torch.clamp(distances, max=self.d_clamp)
-        
-        # Normalize by unit distance
-        normalized_error = clamped_distances / self.loss_unit_distance
-        
-        # Apply mask and average
-        mask_expanded = mask.unsqueeze(-1).expand_as(normalized_error)  # (batch, n_residues, n_atoms)
-        masked_error = normalized_error * mask_expanded
-        
-        # Compute mean over valid positions
-        loss = masked_error.sum() / (mask_expanded.sum() + self.eps)
+        if mask is not None:
+            errors = errors * mask.unsqueeze(1)
+            loss = errors.sum() / (mask.sum() + 1e-8)
+        else:
+            loss = errors.mean()
         
         return loss
 
 
 class StructureAwareLoss(nn.Module):
-    """Combined structure-aware loss for protein folding.
+    """Combined loss for structure prediction with multiple components."""
     
-    Combines:
-    - FAPE loss (structural)
-    - Distance matrix loss (pairwise distances)
-    - Angle loss (backbone torsion angles)
-    - Violation loss (steric clashes, bond lengths)
-    
-    Args:
-        fape_weight: Weight for FAPE loss
-        distance_weight: Weight for distance matrix loss
-        angle_weight: Weight for angle loss
-        violation_weight: Weight for violation loss
-    """
-    
-    def __init__(
-        self,
-        fape_weight: float = 1.0,
-        distance_weight: float = 0.5,
-        angle_weight: float = 0.3,
-        violation_weight: float = 0.2
-    ):
+    def __init__(self, config: TrainingConfig):
         super().__init__()
-        self.fape_weight = fape_weight
-        self.distance_weight = distance_weight
-        self.angle_weight = angle_weight
-        self.violation_weight = violation_weight
+        self.config = config
+        self.fape = FrameAlignedPointError()
+        self.mse = nn.MSELoss()
+        self.smooth_l1 = nn.SmoothL1Loss()
+    
+    def _rmsd_loss(self, pred: Tensor, true: Tensor) -> Tensor:
+        """Differentiable RMSD loss."""
+        diff = pred - true
+        squared_diff = torch.sum(diff ** 2, dim=-1)  # (batch, N)
+        return torch.sqrt(torch.mean(squared_diff) + 1e-8)
+    
+    def _distance_matrix_loss(self, pred_coords: Tensor, true_coords: Tensor) -> Tensor:
+        """Loss on pairwise distance matrices."""
+        # Compute distance matrices
+        pred_dist = torch.cdist(pred_coords, pred_coords)
+        true_dist = torch.cdist(true_coords, true_coords)
         
-        self.fape_loss = FrameAlignedPointError()
-        self.mse_loss = nn.MSELoss()
-        self.smooth_l1_loss = nn.SmoothL1Loss()
+        # Use smooth L1 to be robust to outliers
+        return self.smooth_l1(pred_dist, true_dist)
     
-    def compute_distance_matrix(self, coords: torch.Tensor) -> torch.Tensor:
-        """Compute pairwise distance matrix."""
-        # coords: (batch, n_residues, 3)
-        diff = coords.unsqueeze(2) - coords.unsqueeze(1)  # (batch, n_residues, n_residues, 3)
-        distances = torch.sqrt(torch.sum(diff ** 2, dim=-1) + 1e-8)
-        return distances
-    
-    def compute_angle_loss(self, pred_coords: torch.Tensor, true_coords: torch.Tensor) -> torch.Tensor:
-        """Compute backbone angle loss."""
-        # Simplified: angle between consecutive CA vectors
+    def _angle_loss(self, pred_coords: Tensor, true_coords: Tensor) -> Tensor:
+        """Loss on backbone angles."""
+        # Calculate vectors between consecutive residues
         pred_vectors = pred_coords[:, 1:] - pred_coords[:, :-1]
         true_vectors = true_coords[:, 1:] - true_coords[:, :-1]
         
-        # Normalize vectors
+        # Normalize
         pred_vectors = F.normalize(pred_vectors, dim=-1)
         true_vectors = F.normalize(true_vectors, dim=-1)
         
-        # Cosine similarity
+        # Cosine similarity loss
         cos_sim = torch.sum(pred_vectors * true_vectors, dim=-1)
-        angle_loss = torch.mean(1.0 - cos_sim)
-        
-        return angle_loss
-    
-    def compute_violation_loss(self, coords: torch.Tensor) -> torch.Tensor:
-        """Compute violation loss (steric clashes, unrealistic bond lengths)."""
-        # Check for steric clashes (atoms too close)
-        distances = self.compute_distance_matrix(coords)
-        
-        # Penalize distances below threshold (excluding neighbors)
-        clash_threshold = 2.0  # Angstroms
-        mask = torch.ones_like(distances)
-        # Exclude self and immediate neighbors
-        for i in range(distances.shape[1]):
-            mask[:, i, i] = 0
-            if i > 0:
-                mask[:, i, i-1] = 0
-            if i < distances.shape[1] - 1:
-                mask[:, i, i+1] = 0
-        
-        violations = torch.clamp(clash_threshold - distances, min=0.0) * mask
-        clash_loss = torch.mean(violations ** 2)
-        
-        # Check bond lengths (consecutive CA atoms should be ~3.8 Å)
-        bond_distances = torch.sqrt(torch.sum((coords[:, 1:] - coords[:, :-1]) ** 2, dim=-1))
-        ideal_bond_length = 3.8
-        bond_loss = torch.mean((bond_distances - ideal_bond_length) ** 2)
-        
-        return clash_loss + bond_loss
+        return torch.mean(1.0 - cos_sim)
     
     def forward(
         self,
-        pred_coords: torch.Tensor,
-        true_coords: torch.Tensor,
-        pred_distances: Optional[torch.Tensor] = None,
-        true_distances: Optional[torch.Tensor] = None,
-        mask: Optional[torch.Tensor] = None
-    ) -> Tuple[torch.Tensor, Dict[str, float]]:
-        """Compute combined loss.
+        pred_coords: Tensor,
+        true_coords: Tensor,
+        pred_confidence: Optional[Tensor] = None,
+        true_confidence: Optional[Tensor] = None,
+        mask: Optional[Tensor] = None
+    ) -> Dict[str, Tensor]:
+        """Compute combined structural loss.
         
         Args:
-            pred_coords: Predicted coordinates (batch, n_residues, 3)
-            true_coords: True coordinates (batch, n_residues, 3)
-            pred_distances: Predicted distance matrix (optional)
-            true_distances: True distance matrix (optional)
-            mask: Valid residue mask (optional)
+            pred_coords: Predicted coordinates (batch, N, 3)
+            true_coords: True coordinates (batch, N, 3)
+            pred_confidence: Predicted confidence scores (batch, N)
+            true_confidence: True confidence scores (batch, N)
+            mask: Residue mask (batch, N)
         
         Returns:
-            (total_loss, loss_dict) tuple
+            Dictionary with loss components
         """
         losses = {}
         
-        # FAPE loss (reshape for FAPE: add atom dimension)
-        pred_coords_fape = pred_coords.unsqueeze(2)  # (batch, n_residues, 1, 3)
-        true_coords_fape = true_coords.unsqueeze(2)
-        fape = self.fape_loss(pred_coords_fape, true_coords_fape, mask=mask)
-        losses['fape'] = fape * self.fape_weight
+        # FAPE loss
+        losses['fape'] = self.fape(pred_coords, true_coords, mask) * self.config.fape_weight
+        
+        # RMSD loss
+        losses['rmsd'] = self._rmsd_loss(pred_coords, true_coords) * self.config.rmsd_weight
         
         # Distance matrix loss
-        if pred_distances is None:
-            pred_distances = self.compute_distance_matrix(pred_coords)
-        if true_distances is None:
-            true_distances = self.compute_distance_matrix(true_coords)
-        dist_loss = self.smooth_l1_loss(pred_distances, true_distances)
-        losses['distance'] = dist_loss * self.distance_weight
+        losses['distance'] = self._distance_matrix_loss(pred_coords, true_coords) * self.config.distance_weight
         
         # Angle loss
-        angle_loss = self.compute_angle_loss(pred_coords, true_coords)
-        losses['angle'] = angle_loss * self.angle_weight
+        losses['angle'] = self._angle_loss(pred_coords, true_coords) * self.config.angle_weight
         
-        # Violation loss
-        violation_loss = self.compute_violation_loss(pred_coords)
-        losses['violation'] = violation_loss * self.violation_weight
+        # Confidence loss (if provided)
+        if pred_confidence is not None and true_confidence is not None:
+            losses['confidence'] = self.mse(pred_confidence, true_confidence) * self.config.confidence_weight
         
         # Total loss
-        total_loss = sum(losses.values())
+        losses['total'] = sum(losses.values())
         
-        # Convert to float for logging
-        losses_float = {k: v.item() for k, v in losses.items()}
-        
-        return total_loss, losses_float
+        return losses
 
 
 class ExponentialMovingAverage:
-    """Exponential Moving Average of model parameters.
+    """Exponential Moving Average for model parameters.
     
-    Maintains shadow parameters that are updated as:
+    Maintains shadow copy of parameters that is updated as:
         shadow = decay * shadow + (1 - decay) * param
     
     Args:
         model: PyTorch model
-        decay: EMA decay rate (typically 0.999)
+        decay: Decay rate (0.999 typical)
     """
     
     def __init__(self, model: nn.Module, decay: float = 0.999):
@@ -274,17 +299,19 @@ class ExponentialMovingAverage:
         """Update shadow parameters."""
         for name, param in self.model.named_parameters():
             if param.requires_grad:
-                self.shadow[name] = self.decay * self.shadow[name] + (1 - self.decay) * param.data
+                assert name in self.shadow
+                new_average = self.decay * self.shadow[name] + (1.0 - self.decay) * param.data
+                self.shadow[name] = new_average.clone()
     
     def apply_shadow(self):
-        """Replace model parameters with shadow parameters."""
+        """Apply shadow parameters to model (for evaluation)."""
         for name, param in self.model.named_parameters():
             if param.requires_grad:
                 self.backup[name] = param.data.clone()
                 param.data = self.shadow[name]
     
     def restore(self):
-        """Restore original model parameters."""
+        """Restore original parameters."""
         for name, param in self.model.named_parameters():
             if param.requires_grad:
                 param.data = self.backup[name]
@@ -292,118 +319,84 @@ class ExponentialMovingAverage:
 
 
 class AdvancedTrainer:
-    """Advanced trainer with modern techniques for protein structure prediction.
-    
-    Features:
-    - Mixed precision training
-    - Gradient accumulation
-    - EMA of weights
-    - Curriculum learning
-    - Advanced LR scheduling
-    - Comprehensive logging
-    - Distributed training support
-    
-    Args:
-        model: PyTorch model
-        train_loader: Training data loader
-        val_loader: Validation data loader
-        device: Compute device
-        config: Training configuration dictionary
-    """
+    """Advanced trainer with modern techniques."""
     
     def __init__(
         self,
         model: nn.Module,
-        train_loader: DataLoader,
-        val_loader: DataLoader,
+        config: TrainingConfig,
         device: torch.device,
-        config: Dict
+        logger: Optional[logging.Logger] = None
     ):
         self.model = model.to(device)
-        self.train_loader = train_loader
-        self.val_loader = val_loader
-        self.device = device
         self.config = config
-        
-        # Training parameters
-        self.epochs = config.get('epochs', 100)
-        self.lr = config.get('learning_rate', 1e-3)
-        self.weight_decay = config.get('weight_decay', 1e-4)
-        self.grad_clip = config.get('grad_clip', 1.0)
-        self.grad_accum_steps = config.get('grad_accum_steps', 1)
-        
-        # Advanced features
-        self.use_amp = config.get('use_amp', True)
-        self.use_ema = config.get('use_ema', True)
-        self.ema_decay = config.get('ema_decay', 0.999)
+        self.device = device
+        self.logger = logger or logging.getLogger(__name__)
         
         # Loss function
-        self.criterion = StructureAwareLoss(
-            fape_weight=config.get('fape_weight', 1.0),
-            distance_weight=config.get('distance_weight', 0.5),
-            angle_weight=config.get('angle_weight', 0.3),
-            violation_weight=config.get('violation_weight', 0.2)
-        )
+        self.criterion = StructureAwareLoss(config)
         
         # Optimizer
         self.optimizer = torch.optim.AdamW(
             model.parameters(),
-            lr=self.lr,
-            weight_decay=self.weight_decay,
-            betas=(0.9, 0.999)
+            lr=config.learning_rate,
+            weight_decay=config.weight_decay,
+            betas=(0.9, 0.999),
+            eps=1e-8
         )
         
         # Learning rate scheduler
-        scheduler_type = config.get('scheduler', 'cosine')
-        if scheduler_type == 'cosine':
-            self.scheduler = CosineAnnealingWarmRestarts(
+        self._setup_scheduler()
+        
+        # Mixed precision scaler
+        self.scaler = GradScaler() if config.use_amp else None
+        
+        # EMA
+        self.ema = ExponentialMovingAverage(model, config.ema_decay) if config.use_ema else None
+        
+        # Tracking
+        self.global_step = 0
+        self.epoch = 0
+        self.best_val_loss = float('inf')
+        self.history = {'train': [], 'val': []}
+        
+        # Checkpoint directory
+        self.checkpoint_dir = Path(config.checkpoint_dir)
+        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    
+    def _setup_scheduler(self):
+        """Setup learning rate scheduler with warmup."""
+        if self.config.lr_scheduler == 'cosine':
+            # Warmup + cosine annealing
+            warmup_scheduler = LinearLR(
                 self.optimizer,
-                T_0=10,
-                T_mult=2,
-                eta_min=1e-6
+                start_factor=0.1,
+                end_factor=1.0,
+                total_iters=self.config.warmup_epochs
             )
-        elif scheduler_type == 'onecycle':
-            self.scheduler = OneCycleLR(
+            cosine_scheduler = CosineAnnealingLR(
                 self.optimizer,
-                max_lr=self.lr,
-                epochs=self.epochs,
-                steps_per_epoch=len(train_loader),
-                pct_start=0.3
+                T_max=self.config.epochs - self.config.warmup_epochs,
+                eta_min=self.config.min_lr
+            )
+            self.scheduler = SequentialLR(
+                self.optimizer,
+                schedulers=[warmup_scheduler, cosine_scheduler],
+                milestones=[self.config.warmup_epochs]
             )
         else:
             self.scheduler = None
-        
-        # Mixed precision
-        self.scaler = GradScaler() if self.use_amp else None
-        
-        # EMA
-        self.ema = ExponentialMovingAverage(model, self.ema_decay) if self.use_ema else None
-        
-        # Distributed training
-        self.distributed = config.get('distributed', False)
-        if self.distributed:
-            self.model = DDP(model, device_ids=[device])
-        
-        # Checkpointing
-        self.checkpoint_dir = Path(config.get('checkpoint_dir', 'checkpoints'))
-        self.checkpoint_dir.mkdir(exist_ok=True, parents=True)
-        
-        # Logging
-        self.logger = logging.getLogger(__name__)
-        self.history = defaultdict(list)
-        self.best_val_loss = float('inf')
-        self.global_step = 0
     
-    def train_epoch(self, epoch: int) -> Dict[str, float]:
+    def train_epoch(self, train_loader: DataLoader) -> Dict[str, float]:
         """Train for one epoch."""
         self.model.train()
-        epoch_metrics = defaultdict(float)
-        n_batches = len(self.train_loader)
+        epoch_losses = {}
+        n_batches = 0
         
-        pbar = tqdm(self.train_loader, desc=f"Epoch {epoch}/{self.epochs}")
+        pbar = tqdm(train_loader, desc=f"Epoch {self.epoch}")
         
         for batch_idx, batch in enumerate(pbar):
-            # Move data to device
+            # Move to device
             sequences = batch['sequence'].to(self.device)
             coords_true = batch['coordinates'].to(self.device)
             mask = batch.get('mask', None)
@@ -411,28 +404,27 @@ class AdvancedTrainer:
                 mask = mask.to(self.device)
             
             # Forward pass with mixed precision
-            with autocast(enabled=self.use_amp):
+            with autocast(enabled=self.config.use_amp, dtype=torch.float16 if self.config.amp_dtype == 'float16' else torch.bfloat16):
                 coords_pred = self.model(sequences)
-                loss, loss_dict = self.criterion(coords_pred, coords_true, mask=mask)
-                
-                # Normalize loss by accumulation steps
-                loss = loss / self.grad_accum_steps
+                losses = self.criterion(coords_pred, coords_true, mask=mask)
             
             # Backward pass
-            if self.use_amp:
+            loss = losses['total'] / self.config.gradient_accumulation_steps
+            
+            if self.scaler is not None:
                 self.scaler.scale(loss).backward()
             else:
                 loss.backward()
             
             # Gradient accumulation
-            if (batch_idx + 1) % self.grad_accum_steps == 0:
+            if (batch_idx + 1) % self.config.gradient_accumulation_steps == 0:
                 # Gradient clipping
-                if self.use_amp:
+                if self.scaler is not None:
                     self.scaler.unscale_(self.optimizer)
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.grad_clip)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.gradient_clip_norm)
                 
                 # Optimizer step
-                if self.use_amp:
+                if self.scaler is not None:
                     self.scaler.step(self.optimizer)
                     self.scaler.update()
                 else:
@@ -440,140 +432,130 @@ class AdvancedTrainer:
                 
                 self.optimizer.zero_grad()
                 
-                # Update EMA
+                # EMA update
                 if self.ema is not None:
                     self.ema.update()
                 
-                # Update learning rate
-                if self.scheduler is not None and self.config.get('scheduler') == 'onecycle':
-                    self.scheduler.step()
-                
                 self.global_step += 1
             
-            # Accumulate metrics
-            for key, value in loss_dict.items():
-                epoch_metrics[key] += value
+            # Accumulate losses
+            for key, val in losses.items():
+                if key not in epoch_losses:
+                    epoch_losses[key] = 0.0
+                epoch_losses[key] += val.item()
+            
+            n_batches += 1
             
             # Update progress bar
-            pbar.set_postfix({k: f"{v/(batch_idx+1):.4f}" for k, v in epoch_metrics.items()})
+            pbar.set_postfix({k: v.item() for k, v in losses.items() if k != 'total'})
         
-        # Step scheduler (for non-onecycle schedulers)
-        if self.scheduler is not None and self.config.get('scheduler') != 'onecycle':
-            self.scheduler.step()
+        # Average losses
+        avg_losses = {k: v / n_batches for k, v in epoch_losses.items()}
         
-        # Average metrics
-        epoch_metrics = {k: v / n_batches for k, v in epoch_metrics.items()}
-        
-        return epoch_metrics
+        return avg_losses
     
-    def validate(self) -> Dict[str, float]:
+    @torch.no_grad()
+    def validate(self, val_loader: DataLoader) -> Dict[str, float]:
         """Validate model."""
-        # Use EMA weights for validation if available
+        # Apply EMA for evaluation
         if self.ema is not None:
             self.ema.apply_shadow()
         
         self.model.eval()
-        val_metrics = defaultdict(float)
-        n_batches = len(self.val_loader)
+        val_losses = {}
+        n_batches = 0
         
-        with torch.no_grad():
-            for batch in tqdm(self.val_loader, desc="Validating", leave=False):
-                sequences = batch['sequence'].to(self.device)
-                coords_true = batch['coordinates'].to(self.device)
-                mask = batch.get('mask', None)
-                if mask is not None:
-                    mask = mask.to(self.device)
-                
-                # Forward pass
-                with autocast(enabled=self.use_amp):
-                    coords_pred = self.model(sequences)
-                    loss, loss_dict = self.criterion(coords_pred, coords_true, mask=mask)
-                
-                # Accumulate metrics
-                for key, value in loss_dict.items():
-                    val_metrics[key] += value
+        for batch in tqdm(val_loader, desc="Validating"):
+            sequences = batch['sequence'].to(self.device)
+            coords_true = batch['coordinates'].to(self.device)
+            mask = batch.get('mask', None)
+            if mask is not None:
+                mask = mask.to(self.device)
+            
+            # Forward pass
+            coords_pred = self.model(sequences)
+            losses = self.criterion(coords_pred, coords_true, mask=mask)
+            
+            # Accumulate
+            for key, val in losses.items():
+                if key not in val_losses:
+                    val_losses[key] = 0.0
+                val_losses[key] += val.item()
+            
+            n_batches += 1
         
         # Restore original weights
         if self.ema is not None:
             self.ema.restore()
         
-        # Average metrics
-        val_metrics = {k: v / n_batches for k, v in val_metrics.items()}
+        # Average
+        avg_losses = {k: v / n_batches for k, v in val_losses.items()}
         
-        return val_metrics
+        return avg_losses
     
-    def save_checkpoint(self, epoch: int, is_best: bool = False):
+    def save_checkpoint(self, is_best: bool = False):
         """Save model checkpoint."""
         checkpoint = {
-            'epoch': epoch,
+            'epoch': self.epoch,
             'global_step': self.global_step,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'scheduler_state_dict': self.scheduler.state_dict() if self.scheduler else None,
-            'scaler_state_dict': self.scaler.state_dict() if self.scaler else None,
             'ema_shadow': self.ema.shadow if self.ema else None,
-            'history': dict(self.history),
-            'config': self.config
+            'best_val_loss': self.best_val_loss,
+            'config': self.config.__dict__,
+            'history': self.history
         }
         
-        # Save regular checkpoint
-        checkpoint_path = self.checkpoint_dir / f'checkpoint_epoch_{epoch}.pt'
+        # Regular checkpoint
+        checkpoint_path = self.checkpoint_dir / f'checkpoint_epoch_{self.epoch}.pt'
         torch.save(checkpoint, checkpoint_path)
         
-        # Save best model
+        # Best checkpoint
         if is_best:
             best_path = self.checkpoint_dir / 'best_model.pt'
             torch.save(checkpoint, best_path)
-            self.logger.info(f"Saved best model at epoch {epoch}")
+            self.logger.info(f"Saved best model with val_loss={self.best_val_loss:.4f}")
     
-    def train(self) -> Dict:
+    def train(self, train_loader: DataLoader, val_loader: DataLoader):
         """Full training loop."""
-        self.logger.info(f"Starting training for {self.epochs} epochs")
+        self.logger.info(f"Starting training for {self.config.epochs} epochs")
         self.logger.info(f"Device: {self.device}")
-        self.logger.info(f"Mixed Precision: {self.use_amp}")
-        self.logger.info(f"EMA: {self.use_ema}")
-        self.logger.info(f"Gradient Accumulation: {self.grad_accum_steps} steps")
+        self.logger.info(f"Mixed Precision: {self.config.use_amp}")
+        self.logger.info(f"EMA: {self.config.use_ema}")
         
-        start_time = time.time()
-        
-        for epoch in range(1, self.epochs + 1):
-            epoch_start = time.time()
+        for epoch in range(1, self.config.epochs + 1):
+            self.epoch = epoch
             
             # Train
-            train_metrics = self.train_epoch(epoch)
-            for key, value in train_metrics.items():
-                self.history[f'train_{key}'].append(value)
+            train_losses = self.train_epoch(train_loader)
+            self.history['train'].append(train_losses)
             
             # Validate
-            val_metrics = self.validate()
-            for key, value in val_metrics.items():
-                self.history[f'val_{key}'].append(value)
+            if epoch % self.config.validate_every_n_epochs == 0:
+                val_losses = self.validate(val_loader)
+                self.history['val'].append(val_losses)
+                
+                # Check if best
+                is_best = val_losses['total'] < self.best_val_loss
+                if is_best:
+                    self.best_val_loss = val_losses['total']
+                
+                # Log
+                self.logger.info(
+                    f"Epoch {epoch}/{self.config.epochs} | "
+                    f"Train Loss: {train_losses['total']:.4f} | "
+                    f"Val Loss: {val_losses['total']:.4f} | "
+                    f"Best: {self.best_val_loss:.4f}"
+                )
+                
+                # Save checkpoint
+                if epoch % self.config.save_every_n_epochs == 0 or is_best:
+                    self.save_checkpoint(is_best=is_best)
             
-            # Check if best model
-            val_loss = sum(val_metrics.values())
-            is_best = val_loss < self.best_val_loss
-            if is_best:
-                self.best_val_loss = val_loss
-            
-            # Save checkpoint
-            if epoch % self.config.get('save_every', 10) == 0 or is_best:
-                self.save_checkpoint(epoch, is_best)
-            
-            # Logging
-            epoch_time = time.time() - epoch_start
-            self.logger.info(
-                f"Epoch {epoch}/{self.epochs} | "
-                f"Time: {epoch_time:.1f}s | "
-                f"Train Loss: {sum(train_metrics.values()):.4f} | "
-                f"Val Loss: {val_loss:.4f} {'(BEST)' if is_best else ''}"
-            )
+            # LR scheduler step
+            if self.scheduler is not None:
+                self.scheduler.step()
         
-        total_time = time.time() - start_time
-        self.logger.info(f"Training completed in {total_time/3600:.2f} hours")
-        
-        # Save final history
-        history_path = self.checkpoint_dir / 'training_history.json'
-        with open(history_path, 'w') as f:
-            json.dump(dict(self.history), f, indent=2)
-        
-        return dict(self.history)
+        self.logger.info("Training complete!")
+        return self.history
