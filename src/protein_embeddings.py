@@ -20,7 +20,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 import numpy as np
-from typing import Dict, List, Tuple, Optional, Union
+from typing import Dict, List, Tuple, Optional, Union, Sequence, Any
 import warnings
 from pathlib import Path
 
@@ -51,50 +51,80 @@ class ESM2Embedder(nn.Module):
         model_name: ESM-2 model variant
                    ('esm2_t6_8M_UR50D', 'esm2_t12_35M_UR50D',
                     'esm2_t30_150M_UR50D', 'esm2_t33_650M_UR50D')
-        repr_layers: Which layers to extract representations from
+        repr_layers: Which layers to extract representations from (default: final layer)
         freeze: Whether to freeze pre-trained weights
+        device: Device to load model on
     """
     
     def __init__(
         self,
         model_name: str = 'esm2_t33_650M_UR50D',
-        repr_layers: List[int] = [-1],
-        freeze: bool = True
-    ):
+        repr_layers: Optional[Sequence[int]] = None,
+        freeze: bool = True,
+        device: Optional[torch.device] = None,
+    ) -> None:
         super().__init__()
         
         if esm is None:
             raise ImportError("ESM not installed. Run: pip install fair-esm")
         
         self.model_name = model_name
-        self.repr_layers = repr_layers
-        self.freeze = freeze
+        self.device = device or torch.device("cpu")
         
-        # Load pre-trained model
+        # Load ESM-2 model and alphabet
         print(f"Loading ESM-2 model: {model_name}...")
         self.model, self.alphabet = esm.pretrained.load_model_and_alphabet(model_name)
-        self.batch_converter = self.alphabet.get_batch_converter()
+        self.model.eval()
+        self.model.to(self.device)
         
-        # Get embedding dimension
+        # Determine number of layers for this ESM2 variant
+        self.num_layers = getattr(self.model, "num_layers", None)
+        if self.num_layers is None:
+            # Fallback: parse from model_name like "esm2_t12_35M_UR50D"
+            try:
+                t_field = model_name.split("_")[1]  # e.g. "t12"
+                self.num_layers = int(t_field[1:])
+            except Exception as e:
+                raise ValueError(
+                    f"Could not infer num_layers for model {model_name}. "
+                    "Please pass repr_layers explicitly as valid layer indices."
+                ) from e
+        
+        # Normalize repr_layers:
+        #  - default: final layer [num_layers]
+        #  - map any -1 to num_layers
+        if repr_layers is None:
+            self.repr_layers = [self.num_layers]
+        else:
+            normalized: list[int] = []
+            for l in repr_layers:
+                if l == -1:
+                    normalized.append(self.num_layers)
+                else:
+                    normalized.append(int(l))
+            self.repr_layers = normalized
+        
+        # Embedding dimension depends on checkpoint (e.g. 480, 640, 1280, 2560)
         self.embed_dim = self.model.embed_dim
         
-        # Freeze if requested
         if freeze:
             for param in self.model.parameters():
                 param.requires_grad = False
             self.model.eval()
         
-        print(f"ESM-2 model loaded. Embedding dimension: {self.embed_dim}")
+        self.batch_converter = self.alphabet.get_batch_converter()
+        
+        print(f"ESM-2 model loaded. Embedding dimension: {self.embed_dim}, num_layers: {self.num_layers}, repr_layers: {self.repr_layers}")
     
     def forward(
         self,
-        sequences: Union[List[str], List[Tuple[str, str]]],
-        return_contacts: bool = False
-    ) -> Dict[str, Tensor]:
+        sequences: Sequence[str],
+        return_contacts: bool = False,
+    ) -> Dict[str, Any]:
         """Extract ESM-2 embeddings.
         
         Args:
-            sequences: List of protein sequences or (id, sequence) tuples
+            sequences: List of protein sequences (strings)
             return_contacts: Whether to return predicted contacts
         
         Returns:
@@ -103,26 +133,32 @@ class ESM2Embedder(nn.Module):
                 - 'mean_embedding': Sequence-level embedding (batch, embed_dim)
                 - 'contacts': Contact predictions if requested (batch, seq_len, seq_len)
         """
+        if len(sequences) == 0:
+            raise ValueError("ESM2Embedder.forward received an empty sequence list.")
+        
         # Format sequences
-        if isinstance(sequences[0], str):
-            sequences = [(f"protein_{i}", seq) for i, seq in enumerate(sequences)]
+        data = [("seq", s) for s in sequences]
+        _, _, batch_tokens = self.batch_converter(data)
+        batch_tokens = batch_tokens.to(self.device)
         
-        # Convert to batch
-        batch_labels, batch_strs, batch_tokens = self.batch_converter(sequences)
-        batch_tokens = batch_tokens.to(next(self.model.parameters()).device)
-        
-        # Forward pass
+        # repr_layers must be valid positive indices (e.g. [12])
         with torch.no_grad() if self.freeze else torch.enable_grad():
             results = self.model(
                 batch_tokens,
                 repr_layers=self.repr_layers,
-                return_contacts=return_contacts
+                return_contacts=return_contacts,
             )
         
-        # Extract representations
-        # results['representations'] is a dict: {layer: (batch, seq_len, embed_dim)}
+        # Use the first requested layer
         layer_idx = self.repr_layers[0]
-        embeddings = results['representations'][layer_idx]
+        reps = results["representations"]
+        if layer_idx not in reps:
+            raise KeyError(
+                f"Requested repr_layer {layer_idx} not in results['representations']; "
+                f"available: {list(reps.keys())}"
+            )
+        
+        embeddings = reps[layer_idx]  # (batch, seq_len, embed_dim)
         
         # Remove start/end tokens
         embeddings = embeddings[:, 1:-1, :]  # (batch, seq_len, embed_dim)
@@ -130,12 +166,12 @@ class ESM2Embedder(nn.Module):
         # Sequence-level embedding (mean pooling)
         mean_embedding = embeddings.mean(dim=1)  # (batch, embed_dim)
         
-        output = {
+        output: Dict[str, Any] = {
             'embeddings': embeddings,
             'mean_embedding': mean_embedding
         }
         
-        if return_contacts:
+        if return_contacts and "contacts" in results:
             # Contact predictions
             contacts = results['contacts']
             contacts = contacts[:, 1:-1, 1:-1]  # Remove special tokens
