@@ -1,11 +1,21 @@
 # QuantumFold-Advantage 🧬⚛️
 
+<!-- Build Status Badges -->
+[![CI](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/ci.yml/badge.svg)](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/ci.yml)
+[![Documentation](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/docs.yml/badge.svg)](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/docs.yml)
+[![codecov](https://codecov.io/gh/Tommaso-R-Marena/QuantumFold-Advantage/branch/main/graph/badge.svg)](https://codecov.io/gh/Tommaso-R-Marena/QuantumFold-Advantage)
+
+<!-- Technology Badges -->
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
 [![PennyLane](https://img.shields.io/badge/PennyLane-0.33+-green.svg)](https://pennylane.ai/)
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+<!-- Quick Links -->
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/colab_quickstart.ipynb)
+[![GitHub Stars](https://img.shields.io/github/stars/Tommaso-R-Marena/QuantumFold-Advantage?style=social)](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/Tommaso-R-Marena/QuantumFold-Advantage?style=social)](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/network/members)
 
 **State-of-the-art quantum-classical hybrid architecture for protein structure prediction**
 
@@ -124,10 +134,10 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -e .[dev,protein-lm]
 
-# Install ESM-2 (optional, for pre-trained embeddings)
-pip install fair-esm
+# Run tests to verify installation
+pytest tests/
 ```
 
 ### Option 2: Docker (Recommended for Production)
@@ -259,6 +269,8 @@ QuantumFold-Advantage/
 │   ├── protein_embeddings.py       # ESM-2, ProtT5, evolutionary features
 │   ├── statistical_validation.py   # Hypothesis tests, effect sizes, CI
 │   ├── benchmarks.py               # TM-score, RMSD, GDT-TS calculators
+│   ├── data/
+│   │   └── casp16_loader.py        # CASP16 dataset utilities
 │   └── utils/
 │       ├── data_loader.py          # Dataset utilities
 │       └── visualization.py        # Plotting functions
@@ -276,9 +288,18 @@ QuantumFold-Advantage/
 │   ├── default_config.yaml
 │   ├── advanced_config.yaml
 │   └── quantum_ablation.yaml
+├── .github/
+│   ├── workflows/
+│   │   ├── ci.yml                  # Continuous Integration
+│   │   ├── docs.yml                # Documentation building
+│   │   └── release.yml             # Release automation
+│   └── ISSUE_TEMPLATE/
+│       ├── bug_report.md
+│       └── feature_request.md
 ├── Dockerfile                      # Container configuration
 ├── docker-compose.yml              # Orchestration
-├── .dockerignore                   # Docker build optimization
+├── pyproject.toml                  # Modern Python packaging
+├── CONTRIBUTING.md                 # Contribution guidelines
 ├── train_advanced.py               # Main training script
 ├── requirements.txt                # Python dependencies
 └── README.md
@@ -305,7 +326,7 @@ Explore the examples with interactive notebooks:
 
 The **complete benchmark notebook** runs the entire research pipeline:
 
-✅ **Data Preparation** - Synthetic protein datasets  
+✅ **Data Preparation** - Synthetic protein datasets + CASP16 loading  
 ✅ **Quantum Model Training** - Full training with advanced features  
 ✅ **Classical Baseline Training** - Identical architecture without quantum  
 ✅ **Comprehensive Evaluation** - TM-score, RMSD, GDT-TS, pLDDT  
@@ -439,8 +460,9 @@ Checkpoints include:
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please:
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
+Quick overview:
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Run tests (`pytest tests/`)
@@ -455,7 +477,7 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file.
 ## 👤 Author
 
 **Tommaso R. Marena**  
-Undergraduate Researcher  
+Graduate Researcher  
 The Catholic University of America  
 📧 marena@cua.edu  
 🔗 [GitHub](https://github.com/Tommaso-R-Marena)
@@ -469,7 +491,7 @@ The Catholic University of America
 
 ## 🔮 Future Directions
 
-- [ ] Benchmark on CASP14/15 protein targets
+- [ ] Benchmark on CASP16 protein targets
 - [ ] Integration with fault-tolerant quantum devices
 - [ ] Multi-chain protein complex prediction
 - [ ] RNA structure prediction
