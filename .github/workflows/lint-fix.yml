@@ -1,0 +1,58 @@
+name: Auto-fix Linting
+
+# Automatically fix common linting issues
+on:
+  push:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  autofix:
+    name: Auto-fix Linting Issues
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          pip install autoflake isort black
+      
+      - name: Remove unused imports
+        run: |
+          autoflake --remove-all-unused-imports \
+            --remove-unused-variables \
+            --ignore-init-module-imports \
+            --in-place \
+            --recursive \
+            src/ tests/
+        continue-on-error: true
+      
+      - name: Sort imports
+        run: isort src/ tests/
+        continue-on-error: true
+      
+      - name: Format code
+        run: black src/ tests/
+        continue-on-error: true
+      
+      - name: Check for changes
+        id: verify_diff
+        run: |
+          git diff --quiet . || echo "changed=true" >> $GITHUB_OUTPUT
+      
+      - name: Commit changes
+        if: steps.verify_diff.outputs.changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add -A
+          git commit -m "style: Auto-fix linting issues [skip ci]" || exit 0
+          git push

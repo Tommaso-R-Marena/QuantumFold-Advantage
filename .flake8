@@ -1,0 +1,62 @@
+[flake8]
+# Flake8 configuration for QuantumFold-Advantage
+# Compatible with Black formatting
+
+max-line-length = 100
+max-complexity = 15
+
+# Ignore errors that conflict with Black or are acceptable
+extend-ignore = 
+    # Black compatibility
+    E203,  # whitespace before ':' (Black formats this way for slicing)
+    W503,  # line break before binary operator (Black preference)
+    # Acceptable patterns
+    E402,  # module level import not at top (sometimes needed for conditional imports)
+    F401,  # imported but unused (for __init__.py exports and TYPE_CHECKING)
+    F841,  # local variable assigned but never used (underscore prefix convention)
+
+# Files to exclude from checking
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    env,
+    .eggs,
+    *.egg,
+    build,
+    dist,
+    .tox,
+    .pytest_cache,
+    .mypy_cache,
+    docs,
+    examples,
+    notebooks,
+    scripts,
+
+# Per-file ignores for specific patterns
+per-file-ignores =
+    # __init__.py files can have unused imports (they're re-exported)
+    */__init__.py:F401,F403
+    # Test files can have unused imports for fixtures
+    tests/*.py:F401,F841
+    # Conftest can import fixtures that appear unused
+    tests/conftest.py:F401,F841,E402
+    # Scripts can be more relaxed
+    scripts/*.py:F401,E501
+
+# Specify which error codes to always check for (critical errors)
+select =
+    E,   # pycodestyle errors
+    F,   # pyflakes
+    W,   # pycodestyle warnings
+    C90, # mccabe complexity
+
+# Show source code for each error
+show-source = True
+
+# Count errors
+count = True
+
+# Statistics at the end
+statistics = True
