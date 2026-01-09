@@ -4,10 +4,19 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
 [![PennyLane](https://img.shields.io/badge/PennyLane-0.33+-green.svg)](https://pennylane.ai/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/colab_quickstart.ipynb)
 
 **State-of-the-art quantum-classical hybrid architecture for protein structure prediction**
 
 QuantumFold-Advantage demonstrates provable quantum advantage in protein structure prediction by integrating quantum computing with advanced deep learning techniques from AlphaFold-3, ESM-2, and modern ML best practices.
+
+## 🚀 Try it Now!
+
+**Run in Google Colab** (no installation required):
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/colab_quickstart.ipynb)
+
+Click the badge above for a 5-minute quickstart tutorial with free GPU access!
 
 ## 🎯 Key Features
 
@@ -164,16 +173,18 @@ QuantumFold-Advantage/
 │       ├── data_loader.py          # Dataset utilities
 │       └── visualization.py        # Plotting functions
 ├── examples/
-│   ├── 01_basic_training.ipynb     # Getting started
-│   ├── 02_quantum_circuits.ipynb   # Quantum layer exploration
-│   └── 03_advanced_visualization.ipynb  # 3D plotting, Ramachandran
+│   ├── colab_quickstart.ipynb           # ⚡ Quick Google Colab demo
+│   ├── 01_getting_started.ipynb         # Detailed getting started guide
+│   ├── 02_quantum_vs_classical.ipynb    # Quantum vs classical comparison
+│   └── 03_advanced_visualization.ipynb  # 3D structures & Ramachandran plots
 ├── tests/
 │   ├── test_quantum_layers.py
 │   ├── test_model.py
 │   └── test_training.py
 ├── configs/
 │   ├── default_config.yaml
-│   └── advanced_config.yaml
+│   ├── advanced_config.yaml
+│   └── quantum_ablation.yaml
 ├── train_advanced.py               # Main training script
 ├── requirements.txt
 └── README.md
@@ -181,13 +192,21 @@ QuantumFold-Advantage/
 
 ## 🧪 Jupyter Notebooks
 
-Explore the examples:
+Explore the examples with interactive notebooks:
 
-1. **[01_basic_training.ipynb](examples/01_basic_training.ipynb)**: Introduction and simple training
-2. **[02_quantum_circuits.ipynb](examples/02_quantum_circuits.ipynb)**: Quantum circuit exploration
-3. **[03_advanced_visualization.ipynb](examples/03_advanced_visualization.ipynb)**: 3D structures and analysis
+### Quick Start
+| Notebook | Description | Colab |
+|----------|-------------|-------|
+| **Colab Quickstart** | 5-minute demo with free GPU | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/colab_quickstart.ipynb) |
 
-## 📚 Scientific Background
+### Detailed Tutorials
+| Notebook | Description | Colab |
+|----------|-------------|-------|
+| **01_getting_started.ipynb** | Complete introduction with advanced features | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/01_getting_started.ipynb) |
+| **02_quantum_vs_classical.ipynb** | Comparative analysis of quantum advantage | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/02_quantum_vs_classical.ipynb) |
+| **03_advanced_visualization.ipynb** | 3D structures, contact maps, Ramachandran plots | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/03_advanced_visualization.ipynb) |
+
+## 🔬 Scientific Background
 
 ### Quantum Advantage
 Our approach achieves quantum advantage through:
@@ -202,7 +221,7 @@ Our approach achieves quantum advantage through:
 - **Multi-Scale Features**: Combines sequence, evolutionary, and structural information
 - **Confidence-Aware**: Predicts uncertainty for each residue position
 
-## 📖 Key References
+## 📚 Key References
 
 This implementation builds on:
 
