@@ -48,14 +48,53 @@ Click the badge above for a 5-minute quickstart tutorial with free GPU access!
 - **Multiple Comparison Correction**: Bonferroni and Benjamini-Hochberg FDR
 - **Power Analysis**: Statistical power calculation and sample size estimation
 
-## 📊 Results & Benchmarks
+## 🔬 Research Methodology
 
-QuantumFold-Advantage achieves:
-- **TM-score**: 0.85+ on CASP14 targets
-- **RMSD**: < 2.0 Å on validation set
-- **Statistical Significance**: p < 0.001 vs. classical baseline (Wilcoxon test)
-- **Effect Size**: Cohen's d > 0.8 (large effect)
-- **Computational Advantage**: 30% fewer parameters with comparable accuracy
+This project implements a rigorous experimental framework for evaluating quantum advantage in protein folding:
+
+### Evaluation Metrics
+The codebase supports comprehensive protein structure evaluation:
+- **TM-score**: Template Modeling score for structural similarity (0-1 scale)
+- **RMSD**: Root Mean Square Deviation in Ångströms
+- **GDT-TS**: Global Distance Test - Total Score
+- **pLDDT**: Per-residue confidence scores (0-100)
+- **Contact Precision**: Accuracy of predicted residue-residue contacts
+
+### Quantum Advantage Testing
+To rigorously test quantum advantage, the framework includes:
+
+**Paired Comparison Protocol**:
+1. Train quantum-enhanced model on protein dataset
+2. Train identical classical baseline (quantum layers disabled)
+3. Evaluate both on held-out test set
+4. Apply paired statistical tests (Wilcoxon, t-test)
+5. Compute effect sizes (Cohen's d) and confidence intervals
+6. Correct for multiple comparisons (Bonferroni/FDR)
+
+**Statistical Validation**:
+```python
+from src.statistical_validation import ComprehensiveBenchmark
+
+# After collecting predictions from both models
+benchmark = ComprehensiveBenchmark()
+results = benchmark.compare_methods(
+    quantum_scores=quantum_tm_scores,
+    classical_scores=classical_tm_scores,
+    metric_name='TM-score',
+    higher_is_better=True
+)
+# Generates: p-values, effect sizes, confidence intervals, power analysis
+```
+
+### Ablation Studies
+The architecture supports systematic ablation studies:
+- **Quantum vs. Classical**: Full model comparison
+- **Entanglement Topology**: Linear, circular, all-to-all
+- **Circuit Depth**: Varying number of quantum layers
+- **Noise Levels**: Testing robustness to quantum errors
+- **Number of Qubits**: Scaling analysis
+
+See `configs/quantum_ablation.yaml` for experimental configurations.
 
 ## 🚀 Quick Start
 
@@ -245,6 +284,10 @@ This implementation builds on:
    Benjamini & Hochberg, "Controlling the False Discovery Rate"  
    *J. Royal Stat. Soc.* (1995)
 
+6. **Frame Aligned Point Error (FAPE)**  
+   Jumper et al., "Highly accurate protein structure prediction with AlphaFold"  
+   *Nature* (2021) DOI: 10.1038/s41586-021-03819-2
+
 ## 🎓 Citation
 
 If you use QuantumFold-Advantage in your research, please cite:
@@ -259,7 +302,7 @@ If you use QuantumFold-Advantage in your research, please cite:
 }
 ```
 
-## 🔬 Reproducibility
+## 🔍 Reproducibility
 
 All experiments are fully reproducible:
 
@@ -299,7 +342,7 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file.
 ## 👤 Author
 
 **Tommaso R. Marena**  
-Graduate Researcher  
+Undergraduate Researcher  
 The Catholic University of America  
 📧 marena@cua.edu  
 🔗 [GitHub](https://github.com/Tommaso-R-Marena)
@@ -311,20 +354,9 @@ The Catholic University of America
 - Xanadu for PennyLane framework
 - The protein structure prediction community
 
-## 📊 Performance Metrics
-
-| Metric | Quantum | Classical | Improvement |
-|--------|---------|-----------|-------------|
-| TM-score | 0.856 ± 0.023 | 0.782 ± 0.031 | **+9.5%** |
-| RMSD (Å) | 1.92 ± 0.34 | 2.47 ± 0.41 | **-22.3%** |
-| GDT-TS | 0.813 ± 0.027 | 0.751 ± 0.035 | **+8.3%** |
-| Parameters | 12.4M | 17.8M | **-30.3%** |
-| Inference (ms) | 145 ± 12 | 198 ± 15 | **-26.8%** |
-
-*Results on CASP14 validation set. All differences statistically significant (p < 0.001).*
-
 ## 🔮 Future Directions
 
+- [ ] Benchmark on CASP14/15 protein targets
 - [ ] Integration with fault-tolerant quantum devices
 - [ ] Multi-chain protein complex prediction
 - [ ] RNA structure prediction
