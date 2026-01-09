@@ -1,7 +1,7 @@
 # QuantumFold-Advantage Docker Image
-# Optimized for size and build speed
+# GPU-accelerated container for protein structure prediction
 
-FROM python:3.10-slim AS base
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -10,65 +10,65 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install minimal system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3-pip \
+    python3-dev \
     git \
+    wget \
+    curl \
+    vim \
     build-essential \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+    libssl-dev \
+    libffi-dev \
+    libxml2-dev \
+    libxslt1-dev \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create symlinks for python
+RUN ln -sf /usr/bin/python3.10 /usr/bin/python && \
+    ln -sf /usr/bin/pip3 /usr/bin/pip
 
 # Upgrade pip
-RUN python3 -m pip install --upgrade pip setuptools wheel
+RUN pip install --upgrade pip setuptools wheel
 
-# Stage 2: Build environment
-FROM base AS builder
+# Set working directory
+WORKDIR /workspace
 
-WORKDIR /build
-
-# Copy requirements
+# Copy requirements first (for better caching)
 COPY requirements.txt .
 
-# Install CPU-only PyTorch first (much smaller, no CUDA packages)
-# This saves ~3GB by avoiding nvidia-* packages
-RUN pip install --user --no-warn-script-location \
-    torch --index-url https://download.pytorch.org/whl/cpu
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Install other dependencies
-RUN pip install --user --no-warn-script-location \
-    numpy scipy pennylane matplotlib pandas scikit-learn \
-    biopython requests tqdm psutil pytest
+# Install PyTorch with CUDA support
+RUN pip install --no-cache-dir torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cu118
 
-# Stage 3: Production image
-FROM base AS production
+# Install ESM-2
+RUN pip install --no-cache-dir fair-esm
 
-# Create non-root user
-RUN useradd -m -u 1000 quantumfold && \
-    mkdir -p /app /data /outputs /checkpoints && \
-    chown -R quantumfold:quantumfold /app /data /outputs /checkpoints
+# Copy the entire project
+COPY . .
 
-# Copy Python packages from builder
-COPY --from=builder --chown=quantumfold:quantumfold /root/.local /home/quantumfold/.local
+# Create directories for data and outputs
+RUN mkdir -p /workspace/data /workspace/outputs /workspace/models /workspace/logs
 
-# Set up Python path
-ENV PATH=/home/quantumfold/.local/bin:$PATH \
-    PYTHONPATH=/app
+# Set Python path
+ENV PYTHONPATH="${PYTHONPATH}:/workspace"
 
-WORKDIR /app
-
-# Copy only essential application code
-COPY --chown=quantumfold:quantumfold src/ ./src/
-
-# Switch to non-root user
-USER quantumfold
+# Expose ports for Jupyter and API
+EXPOSE 8888 8000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python3 -c "import torch; print('OK')" || exit 1
+    CMD python -c "import torch; assert torch.cuda.is_available()" || exit 1
 
-# Default command
-CMD ["python3", "--version"]
+# Default command: Start Jupyter Lab
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root", "--NotebookApp.token=''", "--NotebookApp.password=''"]
 
-# Labels
-LABEL maintainer="Tommaso R. Marena" \
-      version="1.0.0" \
-      description="QuantumFold-Advantage: Hybrid Quantum-Classical Protein Folding"
+# Alternative commands:
+# Training: docker run ... python train_advanced.py --config configs/advanced_config.yaml
+# API: docker run ... uvicorn api.main:app --host 0.0.0.0 --port 8000
+# Shell: docker run -it ... /bin/bash
