@@ -1,11 +1,12 @@
 """Pytest configuration and fixtures for QuantumFold-Advantage tests."""
 
-import pytest
-import torch
-import numpy as np
-from pathlib import Path
 import sys
 import warnings
+from pathlib import Path
+
+import numpy as np
+import pytest
+import torch
 
 # Suppress warnings during tests
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -16,9 +17,12 @@ warnings.filterwarnings("ignore", category=UserWarning)
 # Pytest Configuration
 # ====================
 
+
 def pytest_configure(config):
     """Configure pytest with custom markers."""
-    config.addinivalue_line("markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')")
+    config.addinivalue_line(
+        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+    )
     config.addinivalue_line("markers", "gpu: marks tests that require GPU")
     config.addinivalue_line("markers", "integration: marks integration tests")
     config.addinivalue_line("markers", "performance: marks performance/benchmark tests")
@@ -28,6 +32,7 @@ def pytest_configure(config):
 # ====================
 # Basic Fixtures
 # ====================
+
 
 @pytest.fixture(scope="session")
 def device():
@@ -44,6 +49,7 @@ def test_data_dir(tmp_path_factory):
 # ====================
 # Sequence Fixtures
 # ====================
+
 
 @pytest.fixture
 def sample_sequence():
@@ -76,6 +82,7 @@ def long_sequence():
 # ====================
 # Tensor Fixtures
 # ====================
+
 
 @pytest.fixture
 def sample_coordinates():
@@ -116,6 +123,7 @@ def sample_pair_embeddings():
 # Directory Fixtures
 # ====================
 
+
 @pytest.fixture
 def temp_output_dir(tmp_path):
     """Temporary output directory."""
@@ -136,16 +144,17 @@ def temp_checkpoint_dir(tmp_path):
 # Configuration Fixtures
 # ====================
 
+
 @pytest.fixture
 def config_dict():
     """Sample configuration dictionary."""
     return {
-        'epochs': 5,
-        'batch_size': 4,
-        'learning_rate': 1e-3,
-        'use_quantum': False,  # Disable for faster tests
-        'n_qubits': 4,
-        'quantum_depth': 2,
+        "epochs": 5,
+        "batch_size": 4,
+        "learning_rate": 1e-3,
+        "use_quantum": False,  # Disable for faster tests
+        "n_qubits": 4,
+        "quantum_depth": 2,
     }
 
 
@@ -154,6 +163,7 @@ def training_config():
     """Training configuration for tests."""
     try:
         from src.advanced_training import TrainingConfig
+
         return TrainingConfig(
             epochs=2,
             batch_size=2,
@@ -169,11 +179,13 @@ def training_config():
 # Model Fixtures
 # ====================
 
+
 @pytest.fixture
 def simple_model(sample_embeddings):
     """Simple model for testing."""
     try:
         from src.advanced_model import AdvancedProteinFoldingModel
+
         return AdvancedProteinFoldingModel(
             input_dim=sample_embeddings.shape[-1],
             c_s=32,
@@ -189,6 +201,7 @@ def quantum_model(sample_embeddings):
     """Quantum-enabled model for testing."""
     try:
         from src.advanced_model import AdvancedProteinFoldingModel
+
         return AdvancedProteinFoldingModel(
             input_dim=sample_embeddings.shape[-1],
             c_s=32,
@@ -203,6 +216,7 @@ def quantum_model(sample_embeddings):
 # ====================
 # Skip Conditions
 # ====================
+
 
 @pytest.fixture(scope="session")
 def skip_if_no_gpu():
@@ -224,19 +238,21 @@ def skip_if_no_esm():
 # Benchmark Fixtures
 # ====================
 
+
 @pytest.fixture
 def benchmark_data():
     """Data for benchmark tests."""
     return {
-        'sequences': [f"MKTAYIAK{i}" * 10 for i in range(10)],
-        'expected_rmsd': [1.5, 2.0, 1.8, 2.2, 1.9, 2.1, 1.7, 2.3, 1.6, 2.4],
-        'expected_tm': [0.85, 0.80, 0.83, 0.78, 0.82, 0.79, 0.84, 0.77, 0.86, 0.76],
+        "sequences": [f"MKTAYIAK{i}" * 10 for i in range(10)],
+        "expected_rmsd": [1.5, 2.0, 1.8, 2.2, 1.9, 2.1, 1.7, 2.3, 1.6, 2.4],
+        "expected_tm": [0.85, 0.80, 0.83, 0.78, 0.82, 0.79, 0.84, 0.77, 0.86, 0.76],
     }
 
 
 # ====================
 # Cleanup
 # ====================
+
 
 @pytest.fixture(autouse=True)
 def cleanup_after_test():
@@ -247,4 +263,5 @@ def cleanup_after_test():
         torch.cuda.empty_cache()
     # Clear any cached data
     import gc
+
     gc.collect()
