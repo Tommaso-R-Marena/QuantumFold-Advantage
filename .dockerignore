@@ -1,9 +1,9 @@
-# Git
-.git
+# Git files
+.git/
 .gitignore
 .gitattributes
 
-# Python
+# Python cache
 __pycache__/
 *.py[cod]
 *$py.class
@@ -26,15 +26,16 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-PIPFILE.lock
 
 # Virtual environments
 venv/
-ENV/
 env/
-.venv
+ENV/
+env.bak/
+venv.bak/
+.venv/
 
-# IDEs
+# IDE files
 .vscode/
 .idea/
 *.swp
@@ -44,46 +45,76 @@ env/
 
 # Jupyter
 .ipynb_checkpoints/
-*.ipynb_checkpoints
+*.ipynb_checkpoints/
 
-# Data and outputs (mount these as volumes)
+# Data and outputs (mount as volumes instead)
 data/
 outputs/
-models/
-logs/
 checkpoints/
+logs/
 results/
+*.pth
+*.pt
+*.ckpt
 *.h5
 *.hdf5
-*.pt
-*.pth
-*.ckpt
+
+# Large model files
+*.bin
+*.safetensors
+models/
+pretrained/
+
+# Documentation build
+docs/_build/
+docs/.doctrees/
+site/
 
 # Testing
 .pytest_cache/
 .coverage
+.coverage.*
+htmlcov/
 .tox/
+.nox/
 
-# Documentation
-docs/_build/
-site/
+# MyPy
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
-# OS
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
 Thumbs.db
-.DS_Store
 
 # Temporary files
 *.log
 *.tmp
 *.temp
+tmp/
+temp/
 
-# Large files
-*.zip
+# Archive files
 *.tar.gz
-*.tar.bz2
+*.zip
+*.rar
 
-# Secrets
-.env
-*.key
-*.pem
-secrets/
+# Backup files
+*.bak
+*.backup
+*.old
+
+# README images (if any)
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml

@@ -1,66 +1,108 @@
+# QuantumFold-Advantage Docker Compose Configuration
+# Provides orchestrated services for development and production
+
 version: '3.8'
 
 services:
+  # Main training and inference service
   quantumfold:
     build:
       context: .
       dockerfile: Dockerfile
     image: quantumfold-advantage:latest
-    container_name: quantumfold
-    runtime: nvidia
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-      - CUDA_VISIBLE_DEVICES=0
-    volumes:
-      # Mount local directories
-      - ./data:/workspace/data
-      - ./outputs:/workspace/outputs
-      - ./models:/workspace/models
-      - ./logs:/workspace/logs
-      # Mount source code for development
-      - ./src:/workspace/src
-      - ./configs:/workspace/configs
-    ports:
-      - "8888:8888"  # Jupyter Lab
-      - "8000:8000"  # FastAPI
-      - "6006:6006"  # TensorBoard
-    shm_size: '8gb'  # Shared memory for DataLoader workers
+    container_name: quantumfold-main
+    
+    # GPU support (requires nvidia-docker)
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
-              count: 1
+              count: all
               capabilities: [gpu]
-    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token='' --NotebookApp.password=''
-
-  # Training service (alternative)
-  training:
-    extends: quantumfold
-    container_name: quantumfold-training
-    command: python train_advanced.py --config configs/advanced_config.yaml --use-quantum --use-amp --use-ema
-    profiles:
-      - training
-
-  # API service (alternative)
-  api:
-    extends: quantumfold
-    container_name: quantumfold-api
-    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
-    profiles:
-      - api
-
-  # TensorBoard service
-  tensorboard:
-    extends: quantumfold
-    container_name: quantumfold-tensorboard
-    command: tensorboard --logdir=/workspace/logs --host=0.0.0.0 --port=6006
+    
+    # Port mappings
     ports:
-      - "6006:6006"
-    profiles:
-      - tensorboard
+      - "8888:8888"  # JupyterLab
+      - "6006:6006"  # TensorBoard
+      - "8000:8000"  # API (optional)
+    
+    # Volume mounts
+    volumes:
+      - ./data:/workspace/data
+      - ./outputs:/workspace/outputs
+      - ./checkpoints:/workspace/checkpoints
+      - ./logs:/workspace/logs
+      - ./configs:/workspace/configs
+      - ./notebooks:/workspace/notebooks  # Custom notebooks
+    
+    # Environment variables
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONPATH=/workspace
+      - WANDB_API_KEY=${WANDB_API_KEY:-}  # Optional W&B integration
+      - HF_TOKEN=${HF_TOKEN:-}  # HuggingFace token for ESM-2
+    
+    # Restart policy
+    restart: unless-stopped
+    
+    # Command (default: start JupyterLab)
+    command: jupyter
+    
+    # Healthcheck
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # TensorBoard service (separate container)
+  tensorboard:
+    image: quantumfold-advantage:latest
+    container_name: quantumfold-tensorboard
+    
+    ports:
+      - "6007:6006"
+    
+    volumes:
+      - ./logs:/workspace/logs:ro  # Read-only
+    
+    command: tensorboard
+    
+    depends_on:
+      - quantumfold
+    
+    restart: unless-stopped
+
+  # Optional: Jupyter notebook server (CPU-only for visualization)
+  notebook:
+    image: quantumfold-advantage:latest
+    container_name: quantumfold-notebook
+    
+    ports:
+      - "8889:8888"  # Different port
+    
+    volumes:
+      - ./examples:/workspace/examples:ro
+      - ./outputs:/workspace/outputs:ro
+    
+    command: jupyter
+    
+    restart: unless-stopped
+
+volumes:
+  # Persistent volumes
+  data:
+    driver: local
+  outputs:
+    driver: local
+  checkpoints:
+    driver: local
+  logs:
+    driver: local
 
 networks:
   default:
     name: quantumfold-network
+    driver: bridge
