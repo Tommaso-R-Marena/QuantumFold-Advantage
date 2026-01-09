@@ -1,30 +1,31 @@
-"""Statistical validation and hypothesis testing for quantum advantage claims.
+"""Statistical validation framework for quantum advantage claims.
 
-Implements rigorous statistical methods required for publication:
-- Paired statistical tests (t-test, Wilcoxon signed-rank)
+Implements rigorous statistical tests required for publication:
+- Paired hypothesis tests (Wilcoxon, t-tests)
 - Bootstrap confidence intervals
-- Effect size calculations (Cohen's d, Hedges' g)
+- Effect size calculations (Cohen's d, Cliff's delta)
 - Multiple comparison correction (Bonferroni, Benjamini-Hochberg)
-- Power analysis
+- Statistical power analysis
 - Cross-validation protocols
-- Reproducibility metrics
+- Significance testing with proper assumptions
 
 References:
-    - Statistical Testing: Wasserstein & Lazar, Am. Stat. 70, 129 (2016)
-    - Effect Sizes: Cohen, Statistical Power Analysis (1988)
-    - Bootstrap: Efron & Tibshirani, An Introduction to Bootstrap (1993)
-    - Multiple Testing: Benjamini & Hochberg, J. R. Stat. Soc. B 57, 289 (1995)
+    - Wilcoxon test: Wilcoxon, Biometrics Bulletin (1945)
+    - Bootstrap: Efron & Tibshirani, "An Introduction to the Bootstrap" (1993)
+    - Cohen's d: Cohen, "Statistical Power Analysis" (1988)
+    - Benjamini-Hochberg: Benjamini & Hochberg, J. Royal Stat. Soc. (1995)
+    - Power analysis: Cohen (1992) DOI: 10.1037/0033-2909.112.1.155
 """
 
 import numpy as np
 import torch
+from scipy import stats
+from scipy.stats import wilcoxon, ttest_rel, mannwhitneyu, friedmanchisquare
 from typing import Dict, List, Tuple, Optional, Union
 from dataclasses import dataclass
-from scipy import stats
-from scipy.stats import bootstrap
 import warnings
-from pathlib import Path
 import json
+from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -35,504 +36,509 @@ class StatisticalTestResult:
     test_name: str
     statistic: float
     p_value: float
-    confidence_interval: Tuple[float, float]
     effect_size: float
-    effect_size_name: str
+    confidence_interval: Tuple[float, float]
     significant: bool
-    alpha: float
     interpretation: str
     
     def to_dict(self) -> Dict:
         return {
             'test_name': self.test_name,
-            'statistic': self.statistic,
-            'p_value': self.p_value,
-            'confidence_interval': self.confidence_interval,
-            'effect_size': self.effect_size,
-            'effect_size_name': self.effect_size_name,
+            'statistic': float(self.statistic),
+            'p_value': float(self.p_value),
+            'effect_size': float(self.effect_size),
+            'confidence_interval': [float(self.confidence_interval[0]), float(self.confidence_interval[1])],
             'significant': self.significant,
-            'alpha': self.alpha,
             'interpretation': self.interpretation
         }
 
 
 class StatisticalValidator:
-    """Comprehensive statistical validation for model comparisons.
+    """Comprehensive statistical validation for model comparisons."""
     
-    Args:
-        alpha: Significance level (typically 0.05)
-        n_bootstrap: Number of bootstrap resamples
-        random_state: Random seed for reproducibility
-    """
-    
-    def __init__(self, alpha: float = 0.05, n_bootstrap: int = 10000, random_state: int = 42):
+    def __init__(self, alpha: float = 0.05, n_bootstrap: int = 10000):
+        """
+        Args:
+            alpha: Significance level (default 0.05)
+            n_bootstrap: Number of bootstrap samples
+        """
         self.alpha = alpha
         self.n_bootstrap = n_bootstrap
-        self.random_state = random_state
-        np.random.seed(random_state)
+    
+    def paired_wilcoxon_test(
+        self,
+        method_a: np.ndarray,
+        method_b: np.ndarray,
+        alternative: str = 'two-sided'
+    ) -> StatisticalTestResult:
+        """Paired Wilcoxon signed-rank test.
+        
+        Non-parametric test for paired samples. Use when data may not be normally distributed.
+        
+        Args:
+            method_a: Performance metrics for method A (n_samples,)
+            method_b: Performance metrics for method B (n_samples,)
+            alternative: 'two-sided', 'less', or 'greater'
+        
+        Returns:
+            Statistical test result
+        """
+        assert len(method_a) == len(method_b), "Samples must be paired"
+        
+        # Wilcoxon test
+        statistic, p_value = wilcoxon(method_a, method_b, alternative=alternative)
+        
+        # Effect size (rank-biserial correlation)
+        differences = method_a - method_b
+        n = len(differences)
+        r = 1 - (2 * statistic) / (n * (n + 1))
+        
+        # Bootstrap confidence interval
+        ci = self._bootstrap_ci(differences)
+        
+        # Interpretation
+        significant = p_value < self.alpha
+        if alternative == 'greater':
+            interpretation = f"Method A {'is' if significant else 'is not'} significantly better than Method B"
+        elif alternative == 'less':
+            interpretation = f"Method A {'is' if significant else 'is not'} significantly worse than Method B"
+        else:
+            interpretation = f"Methods {'differ' if significant else 'do not differ'} significantly"
+        
+        return StatisticalTestResult(
+            test_name='Wilcoxon Signed-Rank Test',
+            statistic=statistic,
+            p_value=p_value,
+            effect_size=r,
+            confidence_interval=ci,
+            significant=significant,
+            interpretation=interpretation
+        )
     
     def paired_t_test(
         self,
-        quantum_scores: np.ndarray,
-        classical_scores: np.ndarray,
+        method_a: np.ndarray,
+        method_b: np.ndarray,
         alternative: str = 'two-sided'
     ) -> StatisticalTestResult:
-        """Paired t-test for comparing two models on same test set.
+        """Paired t-test.
+        
+        Parametric test for paired samples. Assumes normal distribution of differences.
         
         Args:
-            quantum_scores: Scores from quantum model (n_samples,)
-            classical_scores: Scores from classical model (n_samples,)
-            alternative: 'two-sided', 'greater', or 'less'
+            method_a: Performance metrics for method A
+            method_b: Performance metrics for method B
+            alternative: 'two-sided', 'less', or 'greater'
         
         Returns:
-            StatisticalTestResult with test details
+            Statistical test result
         """
-        # Compute differences
-        differences = quantum_scores - classical_scores
+        assert len(method_a) == len(method_b), "Samples must be paired"
         
-        # Paired t-test
-        t_stat, p_value = stats.ttest_rel(quantum_scores, classical_scores, alternative=alternative)
+        # Check normality of differences
+        differences = method_a - method_b
+        _, normality_p = stats.shapiro(differences)
+        if normality_p < 0.05:
+            warnings.warn("Differences may not be normally distributed. Consider Wilcoxon test.")
         
-        # Confidence interval for mean difference
-        mean_diff = np.mean(differences)
-        se_diff = stats.sem(differences)
-        ci = stats.t.interval(1 - self.alpha, len(differences) - 1, mean_diff, se_diff)
+        # t-test
+        statistic, p_value = ttest_rel(method_a, method_b, alternative=alternative)
         
-        # Cohen's d (effect size)
-        cohens_d = self.compute_cohens_d(quantum_scores, classical_scores, paired=True)
+        # Cohen's d effect size
+        cohens_d = self._compute_cohens_d(method_a, method_b, paired=True)
         
-        # Interpretation
-        if p_value < self.alpha:
-            if alternative == 'greater':
-                interpretation = f"Quantum model significantly outperforms classical (p={p_value:.4f})"
-            elif alternative == 'less':
-                interpretation = f"Classical model significantly outperforms quantum (p={p_value:.4f})"
-            else:
-                interpretation = f"Significant difference detected (p={p_value:.4f})"
-        else:
-            interpretation = f"No significant difference (p={p_value:.4f})"
+        # Confidence interval
+        ci = self._bootstrap_ci(differences)
+        
+        significant = p_value < self.alpha
+        interpretation = self._interpret_effect_size(cohens_d)
         
         return StatisticalTestResult(
-            test_name='Paired t-test',
-            statistic=t_stat,
+            test_name='Paired t-Test',
+            statistic=statistic,
             p_value=p_value,
-            confidence_interval=ci,
             effect_size=cohens_d,
-            effect_size_name="Cohen's d",
-            significant=p_value < self.alpha,
-            alpha=self.alpha,
-            interpretation=interpretation
-        )
-    
-    def wilcoxon_test(
-        self,
-        quantum_scores: np.ndarray,
-        classical_scores: np.ndarray,
-        alternative: str = 'two-sided'
-    ) -> StatisticalTestResult:
-        """Wilcoxon signed-rank test (non-parametric alternative to t-test).
-        
-        More robust to outliers and non-normal distributions.
-        
-        Args:
-            quantum_scores: Scores from quantum model
-            classical_scores: Scores from classical model
-            alternative: 'two-sided', 'greater', or 'less'
-        
-        Returns:
-            StatisticalTestResult
-        """
-        # Wilcoxon signed-rank test
-        try:
-            stat, p_value = stats.wilcoxon(
-                quantum_scores,
-                classical_scores,
-                alternative=alternative,
-                zero_method='wilcox'
-            )
-        except ValueError as e:
-            warnings.warn(f"Wilcoxon test failed: {e}")
-            return None
-        
-        # Effect size (rank-biserial correlation)
-        differences = quantum_scores - classical_scores
-        n_pos = np.sum(differences > 0)
-        n_neg = np.sum(differences < 0)
-        r = (n_pos - n_neg) / len(differences)
-        
-        # Bootstrap confidence interval
-        ci = self.bootstrap_difference_ci(quantum_scores, classical_scores)
-        
-        # Interpretation
-        if p_value < self.alpha:
-            interpretation = f"Significant difference (Wilcoxon, p={p_value:.4f})"
-        else:
-            interpretation = f"No significant difference (Wilcoxon, p={p_value:.4f})"
-        
-        return StatisticalTestResult(
-            test_name='Wilcoxon signed-rank test',
-            statistic=stat,
-            p_value=p_value,
             confidence_interval=ci,
-            effect_size=r,
-            effect_size_name='Rank-biserial correlation',
-            significant=p_value < self.alpha,
-            alpha=self.alpha,
-            interpretation=interpretation
+            significant=significant,
+            interpretation=f"{interpretation} (p={'<' if significant else '='}{p_value:.4f})"
         )
     
-    def bootstrap_difference_ci(
+    def _compute_cohens_d(
         self,
-        quantum_scores: np.ndarray,
-        classical_scores: np.ndarray,
-        confidence_level: float = 0.95
-    ) -> Tuple[float, float]:
-        """Bootstrap confidence interval for mean difference.
-        
-        Args:
-            quantum_scores: Quantum model scores
-            classical_scores: Classical model scores
-            confidence_level: Confidence level (e.g., 0.95 for 95% CI)
-        
-        Returns:
-            (lower_bound, upper_bound) tuple
-        """
-        differences = quantum_scores - classical_scores
-        
-        # Bootstrap resampling
-        bootstrap_means = []
-        for _ in range(self.n_bootstrap):
-            sample = np.random.choice(differences, size=len(differences), replace=True)
-            bootstrap_means.append(np.mean(sample))
-        
-        # Compute percentile confidence interval
-        alpha_half = (1 - confidence_level) / 2
-        lower = np.percentile(bootstrap_means, alpha_half * 100)
-        upper = np.percentile(bootstrap_means, (1 - alpha_half) * 100)
-        
-        return (lower, upper)
-    
-    def compute_cohens_d(
-        self,
-        group1: np.ndarray,
-        group2: np.ndarray,
+        group_a: np.ndarray,
+        group_b: np.ndarray,
         paired: bool = True
     ) -> float:
         """Compute Cohen's d effect size.
         
         Args:
-            group1: First group scores
-            group2: Second group scores
-            paired: Whether data is paired
+            group_a: First group
+            group_b: Second group
+            paired: Whether samples are paired
         
         Returns:
             Cohen's d value
-            
-        Interpretation:
-            |d| < 0.2: negligible
-            0.2 <= |d| < 0.5: small
-            0.5 <= |d| < 0.8: medium
-            |d| >= 0.8: large
         """
         if paired:
-            # For paired data, use standard deviation of differences
-            differences = group1 - group2
-            d = np.mean(differences) / np.std(differences, ddof=1)
+            # For paired samples, use difference scores
+            diff = group_a - group_b
+            return np.mean(diff) / np.std(diff, ddof=1)
         else:
-            # For independent groups, use pooled standard deviation
-            mean_diff = np.mean(group1) - np.mean(group2)
-            n1, n2 = len(group1), len(group2)
-            var1, var2 = np.var(group1, ddof=1), np.var(group2, ddof=1)
+            # For independent samples
+            n1, n2 = len(group_a), len(group_b)
+            var1, var2 = np.var(group_a, ddof=1), np.var(group_b, ddof=1)
             pooled_std = np.sqrt(((n1 - 1) * var1 + (n2 - 1) * var2) / (n1 + n2 - 2))
-            d = mean_diff / pooled_std
-        
-        return float(d)
+            return (np.mean(group_a) - np.mean(group_b)) / pooled_std
     
-    def compute_hedges_g(self, group1: np.ndarray, group2: np.ndarray) -> float:
-        """Compute Hedges' g (corrected Cohen's d for small samples).
-        
-        Args:
-            group1: First group scores
-            group2: Second group scores
-        
-        Returns:
-            Hedges' g value
-        """
-        cohens_d = self.compute_cohens_d(group1, group2, paired=False)
-        n = len(group1) + len(group2)
-        correction = 1 - (3 / (4 * n - 9))
-        hedges_g = cohens_d * correction
-        return float(hedges_g)
+    def _interpret_effect_size(self, d: float) -> str:
+        """Interpret Cohen's d effect size."""
+        abs_d = abs(d)
+        if abs_d < 0.2:
+            return "Negligible effect"
+        elif abs_d < 0.5:
+            return "Small effect"
+        elif abs_d < 0.8:
+            return "Medium effect"
+        else:
+            return "Large effect"
     
-    def bonferroni_correction(self, p_values: List[float]) -> Tuple[List[float], List[bool]]:
-        """Bonferroni correction for multiple comparisons.
-        
-        Args:
-            p_values: List of p-values
-        
-        Returns:
-            (corrected_p_values, significant_flags) tuple
-        """
-        n_tests = len(p_values)
-        corrected_alpha = self.alpha / n_tests
-        corrected_p_values = [min(p * n_tests, 1.0) for p in p_values]
-        significant = [p < corrected_alpha for p in p_values]
-        return corrected_p_values, significant
-    
-    def benjamini_hochberg_correction(
+    def _bootstrap_ci(
         self,
-        p_values: List[float]
-    ) -> Tuple[List[float], List[bool]]:
-        """Benjamini-Hochberg FDR correction (less conservative than Bonferroni).
+        data: np.ndarray,
+        confidence: float = 0.95
+    ) -> Tuple[float, float]:
+        """Compute bootstrap confidence interval.
         
         Args:
-            p_values: List of p-values
+            data: Data array
+            confidence: Confidence level (default 0.95)
         
         Returns:
-            (corrected_p_values, significant_flags) tuple
+            (lower_bound, upper_bound) tuple
         """
-        n_tests = len(p_values)
-        sorted_indices = np.argsort(p_values)
-        sorted_p_values = np.array(p_values)[sorted_indices]
+        n = len(data)
+        bootstrap_means = []
         
-        # BH critical values
-        critical_values = (np.arange(1, n_tests + 1) / n_tests) * self.alpha
+        for _ in range(self.n_bootstrap):
+            # Resample with replacement
+            sample = np.random.choice(data, size=n, replace=True)
+            bootstrap_means.append(np.mean(sample))
         
-        # Find largest i where p_i <= (i/m)*alpha
-        significant = sorted_p_values <= critical_values
+        # Percentile method
+        alpha_half = (1 - confidence) / 2
+        lower = np.percentile(bootstrap_means, alpha_half * 100)
+        upper = np.percentile(bootstrap_means, (1 - alpha_half) * 100)
         
-        # Unsort
-        unsorted_significant = np.zeros(n_tests, dtype=bool)
-        unsorted_significant[sorted_indices] = significant
-        
-        # Adjusted p-values
-        adjusted_p = np.minimum.accumulate(sorted_p_values[::-1] * n_tests / np.arange(n_tests, 0, -1))[::-1]
-        adjusted_p = np.minimum(adjusted_p, 1.0)
-        unsorted_adjusted_p = np.zeros(n_tests)
-        unsorted_adjusted_p[sorted_indices] = adjusted_p
-        
-        return list(unsorted_adjusted_p), list(unsorted_significant)
+        return (lower, upper)
     
-    def power_analysis(
+    def multiple_comparison_correction(
+        self,
+        p_values: List[float],
+        method: str = 'bonferroni'
+    ) -> Tuple[List[float], List[bool]]:
+        """Correct for multiple comparisons.
+        
+        Args:
+            p_values: List of p-values from multiple tests
+            method: 'bonferroni' or 'fdr' (Benjamini-Hochberg)
+        
+        Returns:
+            (corrected_p_values, rejected) tuple
+        """
+        p_values = np.array(p_values)
+        n_tests = len(p_values)
+        
+        if method == 'bonferroni':
+            # Bonferroni correction
+            corrected = p_values * n_tests
+            corrected = np.minimum(corrected, 1.0)
+            rejected = corrected < self.alpha
+        
+        elif method == 'fdr':
+            # Benjamini-Hochberg FDR
+            sorted_idx = np.argsort(p_values)
+            sorted_p = p_values[sorted_idx]
+            
+            # Compute adjusted p-values
+            adjusted = np.zeros(n_tests)
+            for i in range(n_tests):
+                adjusted[sorted_idx[i]] = min(1.0, sorted_p[i] * n_tests / (i + 1))
+            
+            # Ensure monotonicity
+            for i in range(n_tests - 1, 0, -1):
+                adjusted[sorted_idx[i - 1]] = min(adjusted[sorted_idx[i - 1]], adjusted[sorted_idx[i]])
+            
+            corrected = adjusted
+            rejected = corrected < self.alpha
+        
+        else:
+            raise ValueError(f"Unknown method: {method}")
+        
+        return corrected.tolist(), rejected.tolist()
+    
+    def compute_statistical_power(
         self,
         effect_size: float,
         n_samples: int,
-        alpha: Optional[float] = None
+        alpha: float = 0.05,
+        test_type: str = 'paired-ttest'
     ) -> float:
-        """Compute statistical power for given effect size and sample size.
+        """Compute statistical power.
         
         Args:
-            effect_size: Expected Cohen's d
-            n_samples: Number of samples
-            alpha: Significance level (defaults to self.alpha)
+            effect_size: Expected effect size (Cohen's d)
+            n_samples: Sample size
+            alpha: Significance level
+            test_type: Type of test
         
         Returns:
-            Statistical power (probability of detecting effect)
+            Statistical power (0-1)
         """
-        if alpha is None:
-            alpha = self.alpha
-        
-        # Critical value for two-tailed test
-        critical_z = stats.norm.ppf(1 - alpha / 2)
+        from scipy.stats import nct, t
         
         # Non-centrality parameter
-        ncp = effect_size * np.sqrt(n_samples)
+        if test_type == 'paired-ttest':
+            ncp = effect_size * np.sqrt(n_samples)
+        else:
+            ncp = effect_size * np.sqrt(n_samples / 2)
+        
+        # Critical value
+        df = n_samples - 1
+        critical_value = t.ppf(1 - alpha / 2, df)
         
         # Power = P(reject H0 | H1 is true)
-        power = 1 - stats.norm.cdf(critical_z - ncp) + stats.norm.cdf(-critical_z - ncp)
+        power = 1 - nct.cdf(critical_value, df, ncp) + nct.cdf(-critical_value, df, ncp)
         
         return float(power)
     
-    def required_sample_size(
+    def sample_size_calculation(
         self,
         effect_size: float,
         power: float = 0.8,
-        alpha: Optional[float] = None
+        alpha: float = 0.05
     ) -> int:
-        """Compute required sample size for desired power.
+        """Calculate required sample size for desired power.
         
         Args:
-            effect_size: Expected Cohen's d
-            power: Desired statistical power (typically 0.8)
+            effect_size: Expected effect size (Cohen's d)
+            power: Desired statistical power
             alpha: Significance level
         
         Returns:
             Required sample size
         """
-        if alpha is None:
-            alpha = self.alpha
+        # Binary search for required n
+        n_low, n_high = 2, 10000
         
-        z_alpha = stats.norm.ppf(1 - alpha / 2)
-        z_beta = stats.norm.ppf(power)
+        while n_high - n_low > 1:
+            n_mid = (n_low + n_high) // 2
+            current_power = self.compute_statistical_power(effect_size, n_mid, alpha)
+            
+            if current_power < power:
+                n_low = n_mid
+            else:
+                n_high = n_mid
         
-        n = ((z_alpha + z_beta) / effect_size) ** 2
-        
-        return int(np.ceil(n))
+        return n_high
 
 
-class ComprehensiveComparison:
-    """Comprehensive comparison framework for quantum vs classical models.
+class ComprehensiveBenchmark:
+    """Comprehensive benchmarking with statistical validation."""
     
-    Performs full statistical analysis including:
-    - Multiple statistical tests
-    - Effect size calculations
-    - Confidence intervals
-    - Visualization
-    - Publication-ready report generation
-    
-    Args:
-        output_dir: Directory for saving results
-        alpha: Significance level
-    """
-    
-    def __init__(self, output_dir: str = 'statistical_results', alpha: float = 0.05):
-        self.output_dir = Path(output_dir)
-        self.output_dir.mkdir(exist_ok=True, parents=True)
-        self.validator = StatisticalValidator(alpha=alpha)
-        self.results = {}
-    
-    def compare(
+    def __init__(
         self,
-        quantum_metrics: Dict[str, np.ndarray],
-        classical_metrics: Dict[str, np.ndarray],
-        metric_names: Optional[List[str]] = None
-    ) -> Dict[str, Dict]:
-        """Perform comprehensive comparison.
+        output_dir: str = 'statistical_results',
+        alpha: float = 0.05
+    ):
+        self.output_dir = Path(output_dir)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.validator = StatisticalValidator(alpha=alpha)
+        self.results = {'tests': [], 'summary': {}}
+    
+    def compare_methods(
+        self,
+        quantum_scores: np.ndarray,
+        classical_scores: np.ndarray,
+        metric_name: str = 'TM-score',
+        higher_is_better: bool = True
+    ) -> Dict:
+        """Comprehensive statistical comparison of two methods.
         
         Args:
-            quantum_metrics: Dictionary of metric_name -> scores array
-            classical_metrics: Dictionary of metric_name -> scores array
-            metric_names: Subset of metrics to analyze (None = all)
+            quantum_scores: Scores for quantum method
+            classical_scores: Scores for classical method
+            metric_name: Name of the metric
+            higher_is_better: Whether higher scores are better
         
         Returns:
-            Dictionary of results per metric
+            Dictionary with all test results
         """
-        if metric_names is None:
-            metric_names = list(quantum_metrics.keys())
+        print(f"\n{'='*80}")
+        print(f"Statistical Comparison: Quantum vs Classical ({metric_name})")
+        print(f"{'='*80}\n")
         
-        results = {}
+        # Descriptive statistics
+        print("Descriptive Statistics:")
+        print(f"  Quantum:  mean={np.mean(quantum_scores):.4f}, std={np.std(quantum_scores):.4f}")
+        print(f"  Classical: mean={np.mean(classical_scores):.4f}, std={np.std(classical_scores):.4f}")
+        print(f"  Difference: {np.mean(quantum_scores - classical_scores):.4f}\n")
         
-        for metric in metric_names:
-            quantum_scores = quantum_metrics[metric]
-            classical_scores = classical_metrics[metric]
-            
-            # Paired t-test
-            t_test = self.validator.paired_t_test(
-                quantum_scores,
-                classical_scores,
-                alternative='greater'  # Test if quantum > classical
-            )
-            
-            # Wilcoxon test
-            wilcoxon = self.validator.wilcoxon_test(
-                quantum_scores,
-                classical_scores,
-                alternative='greater'
-            )
-            
-            # Effect size
-            cohens_d = self.validator.compute_cohens_d(quantum_scores, classical_scores)
-            
-            # Bootstrap CI
-            ci = self.validator.bootstrap_difference_ci(quantum_scores, classical_scores)
-            
-            # Power analysis
-            power = self.validator.power_analysis(abs(cohens_d), len(quantum_scores))
-            
-            results[metric] = {
-                't_test': t_test.to_dict(),
-                'wilcoxon': wilcoxon.to_dict() if wilcoxon else None,
-                'cohens_d': cohens_d,
-                'bootstrap_ci': ci,
-                'statistical_power': power,
-                'quantum_mean': float(np.mean(quantum_scores)),
-                'classical_mean': float(np.mean(classical_scores)),
-                'quantum_std': float(np.std(quantum_scores)),
-                'classical_std': float(np.std(classical_scores))
-            }
+        # Determine alternative hypothesis
+        alternative = 'greater' if higher_is_better else 'less'
         
-        self.results = results
-        return results
+        # Wilcoxon test (non-parametric)
+        wilcoxon_result = self.validator.paired_wilcoxon_test(
+            quantum_scores, classical_scores, alternative=alternative
+        )
+        print(f"Wilcoxon Signed-Rank Test:")
+        print(f"  Statistic: {wilcoxon_result.statistic:.4f}")
+        print(f"  P-value: {wilcoxon_result.p_value:.4e}")
+        print(f"  Effect size (r): {wilcoxon_result.effect_size:.4f}")
+        print(f"  Significant: {wilcoxon_result.significant}")
+        print(f"  {wilcoxon_result.interpretation}\n")
+        
+        # Paired t-test (parametric)
+        ttest_result = self.validator.paired_t_test(
+            quantum_scores, classical_scores, alternative=alternative
+        )
+        print(f"Paired t-Test:")
+        print(f"  Statistic: {ttest_result.statistic:.4f}")
+        print(f"  P-value: {ttest_result.p_value:.4e}")
+        print(f"  Cohen's d: {ttest_result.effect_size:.4f}")
+        print(f"  {ttest_result.interpretation}\n")
+        
+        # Bootstrap confidence interval
+        differences = quantum_scores - classical_scores
+        ci = self.validator._bootstrap_ci(differences)
+        print(f"Bootstrap 95% CI for difference: [{ci[0]:.4f}, {ci[1]:.4f}]\n")
+        
+        # Statistical power
+        power = self.validator.compute_statistical_power(
+            ttest_result.effect_size,
+            len(quantum_scores)
+        )
+        print(f"Statistical Power: {power:.4f}")
+        if power < 0.8:
+            print(f"  WARNING: Low statistical power. Consider more samples.")
+            required_n = self.validator.sample_size_calculation(ttest_result.effect_size)
+            print(f"  Required sample size for 80% power: {required_n}\n")
+        else:
+            print(f"  Sufficient statistical power.\n")
+        
+        # Store results
+        comparison_result = {
+            'metric': metric_name,
+            'quantum_mean': float(np.mean(quantum_scores)),
+            'classical_mean': float(np.mean(classical_scores)),
+            'quantum_std': float(np.std(quantum_scores)),
+            'classical_std': float(np.std(classical_scores)),
+            'wilcoxon': wilcoxon_result.to_dict(),
+            'ttest': ttest_result.to_dict(),
+            'bootstrap_ci': {'lower': ci[0], 'upper': ci[1]},
+            'statistical_power': float(power),
+            'n_samples': len(quantum_scores)
+        }
+        
+        self.results['tests'].append(comparison_result)
+        
+        return comparison_result
     
-    def generate_report(self, filename: str = 'statistical_report.txt'):
-        """Generate publication-ready text report."""
-        report_path = self.output_dir / filename
+    def plot_comparison(
+        self,
+        quantum_scores: np.ndarray,
+        classical_scores: np.ndarray,
+        metric_name: str = 'Score',
+        save_path: Optional[str] = None
+    ):
+        """Create visualization of method comparison."""
+        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
         
-        with open(report_path, 'w') as f:
-            f.write("=" * 80 + "\n")
-            f.write("STATISTICAL VALIDATION REPORT\n")
-            f.write("Quantum vs Classical Model Comparison\n")
-            f.write("=" * 80 + "\n\n")
-            
-            for metric, result in self.results.items():
-                f.write(f"\nMetric: {metric.upper()}\n")
-                f.write("-" * 60 + "\n")
-                f.write(f"Quantum Mean ± SD: {result['quantum_mean']:.4f} ± {result['quantum_std']:.4f}\n")
-                f.write(f"Classical Mean ± SD: {result['classical_mean']:.4f} ± {result['classical_std']:.4f}\n")
-                f.write(f"\nEffect Size (Cohen's d): {result['cohens_d']:.4f}\n")
-                
-                # Interpret effect size
-                d = abs(result['cohens_d'])
-                if d < 0.2:
-                    interpretation = "negligible"
-                elif d < 0.5:
-                    interpretation = "small"
-                elif d < 0.8:
-                    interpretation = "medium"
-                else:
-                    interpretation = "large"
-                f.write(f"Effect Size Interpretation: {interpretation}\n")
-                
-                # Statistical tests
-                f.write(f"\nPaired t-test:\n")
-                f.write(f"  t-statistic: {result['t_test']['statistic']:.4f}\n")
-                f.write(f"  p-value: {result['t_test']['p_value']:.6f}\n")
-                f.write(f"  Significant: {result['t_test']['significant']}\n")
-                f.write(f"  Interpretation: {result['t_test']['interpretation']}\n")
-                
-                if result['wilcoxon']:
-                    f.write(f"\nWilcoxon signed-rank test:\n")
-                    f.write(f"  W-statistic: {result['wilcoxon']['statistic']:.4f}\n")
-                    f.write(f"  p-value: {result['wilcoxon']['p_value']:.6f}\n")
-                    f.write(f"  Significant: {result['wilcoxon']['significant']}\n")
-                
-                f.write(f"\nBootstrap 95% CI: [{result['bootstrap_ci'][0]:.4f}, {result['bootstrap_ci'][1]:.4f}]\n")
-                f.write(f"Statistical Power: {result['statistical_power']:.4f}\n")
-                f.write("\n")
+        # 1. Box plot comparison
+        ax = axes[0, 0]
+        data = [quantum_scores, classical_scores]
+        ax.boxplot(data, labels=['Quantum', 'Classical'])
+        ax.set_ylabel(metric_name)
+        ax.set_title('Distribution Comparison')
+        ax.grid(True, alpha=0.3)
         
-        print(f"Report saved to {report_path}")
-    
-    def plot_comparison(self, filename: str = 'comparison_plots.png'):
-        """Generate comparison visualization."""
-        n_metrics = len(self.results)
-        fig, axes = plt.subplots(1, n_metrics, figsize=(5*n_metrics, 5))
+        # 2. Paired differences
+        ax = axes[0, 1]
+        differences = quantum_scores - classical_scores
+        ax.hist(differences, bins=30, alpha=0.7, edgecolor='black')
+        ax.axvline(0, color='red', linestyle='--', label='No difference')
+        ax.set_xlabel(f'Quantum - Classical ({metric_name})')
+        ax.set_ylabel('Frequency')
+        ax.set_title('Paired Differences')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
         
-        if n_metrics == 1:
-            axes = [axes]
+        # 3. Scatter plot
+        ax = axes[1, 0]
+        ax.scatter(classical_scores, quantum_scores, alpha=0.6)
+        lim = [min(classical_scores.min(), quantum_scores.min()),
+               max(classical_scores.max(), quantum_scores.max())]
+        ax.plot(lim, lim, 'r--', label='Equal performance')
+        ax.set_xlabel(f'Classical {metric_name}')
+        ax.set_ylabel(f'Quantum {metric_name}')
+        ax.set_title('Paired Samples')
+        ax.legend()
+        ax.grid(True, alpha=0.3)
         
-        for ax, (metric, result) in zip(axes, self.results.items()):
-            # Box plot
-            data = [
-                [result['quantum_mean']] * 100,  # Placeholder
-                [result['classical_mean']] * 100
-            ]
-            ax.boxplot(data, labels=['Quantum', 'Classical'])
-            ax.set_title(f"{metric}\np={result['t_test']['p_value']:.4f}")
-            ax.set_ylabel('Score')
-            
-            # Add significance marker
-            if result['t_test']['significant']:
-                ax.text(1.5, max(result['quantum_mean'], result['classical_mean']) * 1.1,
-                       '*', fontsize=20, ha='center')
+        # 4. Violin plot
+        ax = axes[1, 1]
+        parts = ax.violinplot([quantum_scores, classical_scores],
+                               positions=[1, 2],
+                               showmeans=True,
+                               showmedians=True)
+        ax.set_xticks([1, 2])
+        ax.set_xticklabels(['Quantum', 'Classical'])
+        ax.set_ylabel(metric_name)
+        ax.set_title('Distribution Shape')
+        ax.grid(True, alpha=0.3)
         
         plt.tight_layout()
-        plot_path = self.output_dir / filename
-        plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-        print(f"Plots saved to {plot_path}")
+        
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        else:
+            plt.savefig(self.output_dir / f'{metric_name}_comparison.png', dpi=300, bbox_inches='tight')
+        
+        plt.close()
     
-    def save_results(self, filename: str = 'results.json'):
-        """Save results to JSON."""
-        results_path = self.output_dir / filename
-        with open(results_path, 'w') as f:
+    def save_results(self, filename: str = 'statistical_validation_results.json'):
+        """Save all statistical results to JSON."""
+        output_path = self.output_dir / filename
+        with open(output_path, 'w') as f:
             json.dump(self.results, f, indent=2)
-        print(f"Results saved to {results_path}")
+        print(f"\nResults saved to {output_path}")
+    
+    def generate_report(self, filename: str = 'statistical_report.txt'):
+        """Generate human-readable statistical report."""
+        output_path = self.output_dir / filename
+        
+        with open(output_path, 'w') as f:
+            f.write("="*80 + "\n")
+            f.write("STATISTICAL VALIDATION REPORT\n")
+            f.write("="*80 + "\n\n")
+            
+            for test in self.results['tests']:
+                f.write(f"Metric: {test['metric']}\n")
+                f.write("-"*80 + "\n")
+                f.write(f"Sample size: {test['n_samples']}\n")
+                f.write(f"Quantum mean: {test['quantum_mean']:.4f} ± {test['quantum_std']:.4f}\n")
+                f.write(f"Classical mean: {test['classical_mean']:.4f} ± {test['classical_std']:.4f}\n\n")
+                
+                f.write("Wilcoxon Test:\n")
+                f.write(f"  P-value: {test['wilcoxon']['p_value']:.4e}\n")
+                f.write(f"  Significant: {test['wilcoxon']['significant']}\n")
+                f.write(f"  {test['wilcoxon']['interpretation']}\n\n")
+                
+                f.write("Paired t-Test:\n")
+                f.write(f"  P-value: {test['ttest']['p_value']:.4e}\n")
+                f.write(f"  Cohen's d: {test['ttest']['effect_size']:.4f}\n")
+                f.write(f"  {test['ttest']['interpretation']}\n\n")
+                
+                f.write(f"Statistical Power: {test['statistical_power']:.4f}\n")
+                f.write("\n" + "="*80 + "\n\n")
+        
+        print(f"Report saved to {output_path}")
