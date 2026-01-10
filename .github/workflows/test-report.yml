@@ -2,7 +2,7 @@ name: Test Report
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ["CI", "Comprehensive CI"]
     types:
       - completed
 
@@ -10,6 +10,7 @@ permissions:
   contents: read
   checks: write
   pull-requests: write
+  actions: read
 
 jobs:
   report:
@@ -22,25 +23,183 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
-      - name: Download test results
+      - name: Download all test artifacts
         uses: actions/download-artifact@v4
         with:
-          name: test-results
-          path: test-results
+          pattern: test-results-*
+          path: test-artifacts
+          merge-multiple: true
         continue-on-error: true
+      
+      - name: List downloaded artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          find test-artifacts -type f || echo "No artifacts found"
       
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
         with:
-          files: test-results/**/*.xml
-          check_name: Test Results
-          comment_mode: off
+          files: |
+            test-artifacts/**/*.xml
+            test-results/**/*.xml
+          check_name: Test Results (${{ github.event.workflow_run.name }})
+          comment_title: Test Results
+          comment_mode: always
+          compare_to_earlier_commit: true
+          report_individual_runs: true
+          report_suite_logs: error
         continue-on-error: true
       
-      - name: Generate summary
+      - name: Set up Python for analysis
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: Analyze test results
         run: |
-          echo "## Test Report" >> $GITHUB_STEP_SUMMARY
-          echo "Workflow: ${{ github.event.workflow_run.name }}" >> $GITHUB_STEP_SUMMARY
-          echo "Status: ${{ github.event.workflow_run.conclusion }}" >> $GITHUB_STEP_SUMMARY
-          echo "Branch: ${{ github.event.workflow_run.head_branch }}" >> $GITHUB_STEP_SUMMARY
+          python3 << 'EOF'
+          import json
+          import os
+          from pathlib import Path
+          from datetime import datetime
+          
+          def analyze_json_reports():
+              """Analyze JSON test reports."""
+              reports = list(Path('test-artifacts').glob('**/*.json'))
+              
+              if not reports:
+                  print("No JSON test reports found")
+                  return None
+              
+              total_tests = 0
+              total_passed = 0
+              total_failed = 0
+              total_skipped = 0
+              total_duration = 0.0
+              failures = []
+              
+              for report_path in reports:
+                  try:
+                      with open(report_path) as f:
+                          data = json.load(f)
+                      
+                      summary = data.get('summary', {})
+                      total_tests += summary.get('total', 0)
+                      total_passed += summary.get('passed', 0)
+                      total_failed += summary.get('failed', 0)
+                      total_skipped += summary.get('skipped', 0)
+                      total_duration += data.get('duration', 0.0)
+                      
+                      # Collect failures
+                      for test in data.get('tests', []):
+                          if test.get('outcome') == 'failed':
+                              failures.append({
+                                  'name': test.get('nodeid', 'unknown'),
+                                  'message': test.get('call', {}).get('longrepr', 'No message')
+                              })
+                  except Exception as e:
+                      print(f"Error reading {report_path}: {e}")
+              
+              return {
+                  'total': total_tests,
+                  'passed': total_passed,
+                  'failed': total_failed,
+                  'skipped': total_skipped,
+                  'duration': total_duration,
+                  'failures': failures
+              }
+          
+          # Analyze reports
+          results = analyze_json_reports()
+          
+          if results:
+              # Create summary
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+                  f.write("## 📊 Test Results Summary\n\n")
+                  
+                  # Overall stats
+                  f.write("### Overall Statistics\n\n")
+                  f.write(f"- **Total Tests:** {results['total']}\n")
+                  f.write(f"- **✅ Passed:** {results['passed']}\n")
+                  f.write(f"- **❌ Failed:** {results['failed']}\n")
+                  f.write(f"- **⏭️  Skipped:** {results['skipped']}\n")
+                  f.write(f"- **⏱️  Duration:** {results['duration']:.2f}s\n\n")
+                  
+                  # Pass rate
+                  if results['total'] > 0:
+                      pass_rate = (results['passed'] / results['total']) * 100
+                      f.write(f"**Pass Rate:** {pass_rate:.1f}%\n\n")
+                  
+                  # Failures detail
+                  if results['failures']:
+                      f.write("### ❌ Failed Tests\n\n")
+                      for i, failure in enumerate(results['failures'][:10], 1):
+                          f.write(f"{i}. `{failure['name']}`\n")
+                          # Truncate long error messages
+                          msg = failure['message'][:200]
+                          if len(failure['message']) > 200:
+                              msg += "..."
+                          f.write(f"   ```\n   {msg}\n   ```\n\n")
+                      
+                      if len(results['failures']) > 10:
+                          f.write(f"*... and {len(results['failures']) - 10} more failures*\n\n")
+                  else:
+                      f.write("### ✅ All Tests Passed!\n\n")
+                  
+                  # Status emoji
+                  if results['failed'] == 0:
+                      f.write("## 🎉 Success!\n")
+                  elif results['failed'] < 5:
+                      f.write("## ⚠️  Minor Issues\n")
+                  else:
+                      f.write("## 🚨 Attention Required\n")
+          else:
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+                  f.write("## ℹ️  No Test Results\n\n")
+                  f.write("No JSON test reports were found. ")
+                  f.write("Tests may not have run or results weren't uploaded.\n")
+          
+          EOF
+        continue-on-error: true
+      
+      - name: Comment on PR
+        if: github.event.workflow_run.event == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Find test result files
+            const artifactDir = 'test-artifacts';
+            let summary = '## 🧪 Test Results\n\n';
+            
+            try {
+              const files = fs.readdirSync(artifactDir, { recursive: true });
+              const jsonFiles = files.filter(f => f.endsWith('.json'));
+              
+              if (jsonFiles.length > 0) {
+                summary += `Found ${jsonFiles.length} test report(s)\n\n`;
+                summary += '✅ Tests completed. Check the Test Report for details.\n';
+              } else {
+                summary += 'ℹ️  No test results found\n';
+              }
+            } catch (e) {
+              summary += `⚠️  Could not read test results: ${e.message}\n`;
+            }
+            
+            summary += `\n[View full results →](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`;
+            
+            // Post comment (would need PR number from workflow_run event)
+            console.log(summary);
+        continue-on-error: true
+      
+      - name: Upload combined report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: combined-test-report
+          path: test-artifacts/
+          retention-days: 90
+        continue-on-error: true
