@@ -1,77 +1,69 @@
-"""QuantumFold-Advantage: Quantum-classical hybrid protein structure prediction.
-
-This package provides:
-- Quantum-enhanced deep learning models
-- Advanced protein folding architectures
-- Statistical validation tools
-- CASP benchmark utilities
-"""
+"""QuantumFold-Advantage: Quantum-enhanced protein folding prediction."""
 
 __version__ = "0.1.0"
 __author__ = "Tommaso R. Marena"
-__email__ = "marena@cua.edu"
 
-# Core imports with graceful error handling
-# These imports are optional and tests should handle their absence
+# Graceful imports with proper error handling
+import sys
+import warnings
 
-_QUANTUM_AVAILABLE = False
-_MODEL_AVAILABLE = False
-_EMBEDDINGS_AVAILABLE = False
-_TRAINING_AVAILABLE = False
-
+# Core modules that should always be available
 try:
-    from .quantum_layers import EntanglementType, QuantumHybridLayer, QuantumLayer
+    from . import data
+    from . import utils
+except ImportError as e:
+    warnings.warn(f"Some core modules could not be imported: {e}")
+    data = None
+    utils = None
 
-    _QUANTUM_AVAILABLE = True
-except (ImportError, AttributeError) as e:
-    # PennyLane/autoray compatibility issue - tests will skip quantum features
-    import warnings
-
-    warnings.filterwarnings("ignore", category=DeprecationWarning)
-    QuantumLayer = None
-    QuantumHybridLayer = None
-    EntanglementType = None
-
+# Optional modules - fail gracefully
 try:
-    from .advanced_model import AdvancedProteinFoldingModel
-
-    _MODEL_AVAILABLE = True
+    from . import model
 except ImportError:
-    AdvancedProteinFoldingModel = None
+    model = None
 
 try:
-    from .protein_embeddings import ESM2Embedder, ProtT5Embedder
-
-    _EMBEDDINGS_AVAILABLE = True
+    from . import advanced_model
 except ImportError:
-    ESM2Embedder = None
-    ProtT5Embedder = None
+    advanced_model = None
 
 try:
-    from .advanced_training import AdvancedTrainer, FrameAlignedPointError, TrainingConfig
-
-    _TRAINING_AVAILABLE = True
+    from . import quantum_layers
 except ImportError:
-    AdvancedTrainer = None
-    TrainingConfig = None
-    FrameAlignedPointError = None
+    quantum_layers = None
 
+try:
+    from . import training
+except ImportError:
+    training = None
+
+try:
+    from . import benchmarks
+except ImportError:
+    benchmarks = None
+
+# Export public API
 __all__ = [
     "__version__",
     "__author__",
-    "__email__",
-    "QuantumLayer",
-    "QuantumHybridLayer",
-    "EntanglementType",
-    "AdvancedProteinFoldingModel",
-    "ESM2Embedder",
-    "ProtT5Embedder",
-    "AdvancedTrainer",
-    "TrainingConfig",
-    "FrameAlignedPointError",
-    # Availability flags
-    "_QUANTUM_AVAILABLE",
-    "_MODEL_AVAILABLE",
-    "_EMBEDDINGS_AVAILABLE",
-    "_TRAINING_AVAILABLE",
+    "data",
+    "utils",
+    "model",
+    "advanced_model",
+    "quantum_layers",
+    "training",
+    "benchmarks",
 ]
+
+# Helpful error message if imports failed
+def _check_installation():
+    """Check if package is properly installed."""
+    missing = [name for name in __all__[2:] if globals()[name] is None]
+    if missing:
+        warnings.warn(
+            f"Some modules could not be imported: {', '.join(missing)}. "
+            "This may be due to missing dependencies. "
+            "Run: pip install -e .[dev] to install all dependencies."
+        )
+
+_check_installation()
