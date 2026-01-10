@@ -1,21 +1,31 @@
 [flake8]
 # Flake8 configuration for QuantumFold-Advantage
-# Compatible with Black formatting
+# Black-compatible settings
 
 max-line-length = 100
 max-complexity = 15
 
-# Ignore errors that conflict with Black or are acceptable
+# Extend ignore instead of ignore to combine with defaults
 extend-ignore = 
     # Black compatibility
-    E203,  # whitespace before ':' (Black formats this way for slicing)
-    W503,  # line break before binary operator (Black preference)
-    # Acceptable patterns
-    E402,  # module level import not at top (sometimes needed for conditional imports)
-    F401,  # imported but unused (for __init__.py exports and TYPE_CHECKING)
-    F841,  # local variable assigned but never used (underscore prefix convention)
+    E203,  # whitespace before ':' - Black formats this way
+    W503,  # line break before binary operator - Black preference
+    # Common patterns that are acceptable
+    E402,  # module level import not at top - needed for conditional imports
 
-# Files to exclude from checking
+# Per-file ignores
+per-file-ignores =
+    # __init__.py files export imports, so F401 is expected
+    */__init__.py:F401,F403,E402
+    # Test files import fixtures that appear unused
+    tests/*.py:F401,F841
+    tests/conftest.py:F401,F841,E402
+    # Tests can import but not use (for checking import works)
+    tests/test_*.py:F401,F841
+    # Property tests need special import handling  
+    tests/test_property.py:E402,F401
+
+# Exclude directories
 exclude =
     .git,
     __pycache__,
@@ -29,34 +39,17 @@ exclude =
     .tox,
     .pytest_cache,
     .mypy_cache,
-    docs,
-    examples,
-    notebooks,
-    scripts,
+    docs/_build,
+    notebooks/.ipynb_checkpoints,
 
-# Per-file ignores for specific patterns
-per-file-ignores =
-    # __init__.py files can have unused imports (they're re-exported)
-    */__init__.py:F401,F403
-    # Test files can have unused imports for fixtures
-    tests/*.py:F401,F841
-    # Conftest can import fixtures that appear unused
-    tests/conftest.py:F401,F841,E402
-    # Scripts can be more relaxed
-    scripts/*.py:F401,E501
+# Error codes to select (empty = all)
+select = E,F,W,C90
 
-# Specify which error codes to always check for (critical errors)
-select =
-    E,   # pycodestyle errors
-    F,   # pyflakes
-    W,   # pycodestyle warnings
-    C90, # mccabe complexity
-
-# Show source code for each error
+# Show source code for errors
 show-source = True
 
-# Count errors
+# Count number of errors
 count = True
 
-# Statistics at the end
+# Show statistics
 statistics = True
