@@ -477,7 +477,7 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file.
 ## 👤 Author
 
 **Tommaso R. Marena**  
-Graduate Researcher  
+Undergraduate Researcher  
 The Catholic University of America  
 📧 marena@cua.edu  
 🔗 [GitHub](https://github.com/Tommaso-R-Marena)
