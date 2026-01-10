@@ -16,23 +16,23 @@ except ImportError:
 class TestQuantumLayer:
     """Tests for QuantumLayer."""
 
-    def test_initialization(self, device):
+    def test_initialization(self):
         """Test layer initialization."""
-        layer = QuantumLayer(n_qubits=4, depth=2, device=device)
+        layer = QuantumLayer(n_qubits=4, depth=2)
         assert layer.n_qubits == 4
         assert layer.depth == 2
 
-    def test_forward_pass(self, device, sample_embeddings):
+    def test_forward_pass(self, sample_embeddings):
         """Test forward pass."""
-        layer = QuantumLayer(n_qubits=4, depth=2, device=device)
+        layer = QuantumLayer(n_qubits=4, depth=2)
         output = layer(sample_embeddings)
         assert output.shape == sample_embeddings.shape
         assert not torch.isnan(output).any()
 
-    def test_different_entanglements(self, device, sample_embeddings):
+    def test_different_entanglements(self, sample_embeddings):
         """Test different entanglement types."""
         for entanglement in [EntanglementType.LINEAR, EntanglementType.CIRCULAR]:
-            layer = QuantumLayer(n_qubits=4, depth=2, entanglement=entanglement, device=device)
+            layer = QuantumLayer(n_qubits=4, depth=2, entanglement=entanglement)
             output = layer(sample_embeddings)
             assert output.shape == sample_embeddings.shape
 
@@ -41,15 +41,15 @@ class TestQuantumLayer:
 class TestQuantumHybridLayer:
     """Tests for QuantumHybridLayer."""
 
-    def test_initialization(self, device):
+    def test_initialization(self):
         """Test hybrid layer initialization."""
-        layer = QuantumHybridLayer(input_dim=128, n_qubits=4, depth=2, device=device)
+        layer = QuantumHybridLayer(input_dim=128, n_qubits=4, depth=2)
         assert layer.n_qubits == 4
 
-    def test_forward_pass(self, device, sample_embeddings):
+    def test_forward_pass(self, sample_embeddings):
         """Test hybrid forward pass."""
         layer = QuantumHybridLayer(
-            input_dim=sample_embeddings.shape[-1], n_qubits=4, depth=2, device=device
+            input_dim=sample_embeddings.shape[-1], n_qubits=4, depth=2
         )
         output = layer(sample_embeddings)
         assert output.shape == sample_embeddings.shape
