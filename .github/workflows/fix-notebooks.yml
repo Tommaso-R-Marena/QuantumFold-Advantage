@@ -6,6 +6,9 @@ on:
       - 'examples/**/*.ipynb'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   fix-notebooks:
     runs-on: ubuntu-latest
