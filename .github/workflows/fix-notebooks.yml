@@ -2,20 +2,34 @@ name: Fix Notebook JSON Formatting
 
 on:
   push:
+    branches:
+      - main
+      - develop
     paths:
       - 'examples/**/*.ipynb'
+      - 'notebooks/**/*.ipynb'
   workflow_dispatch:
 
 permissions:
   contents: write
 
+# Prevent concurrent notebook fixes
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   fix-notebooks:
+    name: Fix Notebook Formatting
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
       
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -23,6 +37,7 @@ jobs:
           python-version: '3.10'
       
       - name: Fix notebook formatting
+        id: fix_notebooks
         run: |
           python3 << 'EOF'
           import json
@@ -60,13 +75,15 @@ jobs:
               """Fix a notebook file."""
               print(f"Checking {path}...")
               try:
-                  with open(path, 'r') as f:
+                  with open(path, 'r', encoding='utf-8') as f:
                       nb = json.load(f)
-              except:
-                  print(f"  Skipping (not valid JSON)")
+              except Exception as e:
+                  print(f"  ⚠️  Skipping {path}: {e}")
                   return False
               
               modified = False
+              cells_fixed = 0
+              
               for cell in nb.get('cells', []):
                   if cell.get('cell_type') == 'code' and 'source' in cell:
                       original = cell['source']
@@ -74,34 +91,71 @@ jobs:
                       if fixed != original:
                           cell['source'] = fixed
                           modified = True
-                          print(f"  Fixed cell in {path}")
+                          cells_fixed += 1
               
               if modified:
-                  with open(path, 'w') as f:
-                      json.dump(nb, f, indent=1, ensure_ascii=False)
-                      f.write('\n')  # trailing newline
-                  print(f"  ✅ Updated {path}")
-                  return True
+                  try:
+                      with open(path, 'w', encoding='utf-8') as f:
+                          json.dump(nb, f, indent=1, ensure_ascii=False)
+                          f.write('\n')  # trailing newline
+                      print(f"  ✅ Fixed {cells_fixed} cell(s) in {path}")
+                      return True
+                  except Exception as e:
+                      print(f"  ❌ Error writing {path}: {e}")
+                      return False
+              else:
+                  print(f"  ℹ️  No changes needed for {path}")
               return False
           
-          # Fix all notebooks
-          notebooks = list(Path('examples').glob('*.ipynb'))
+          # Find and fix all notebooks
+          notebook_dirs = ['examples', 'notebooks']
+          notebooks = []
+          for nb_dir in notebook_dirs:
+              nb_path = Path(nb_dir)
+              if nb_path.exists():
+                  notebooks.extend(nb_path.glob('**/*.ipynb'))
+          
+          if not notebooks:
+              print("No notebooks found")
+              sys.exit(0)
+          
+          print(f"\nFound {len(notebooks)} notebook(s) to check\n")
+          
           any_fixed = False
           for nb_path in notebooks:
               if fix_notebook(nb_path):
                   any_fixed = True
           
-          sys.exit(0 if any_fixed else 0)  # Always succeed
+          if any_fixed:
+              print("\n✅ Some notebooks were fixed")
+          else:
+              print("\nℹ️  All notebooks are already correctly formatted")
+          
+          sys.exit(0)  # Always succeed
           EOF
       
-      - name: Commit fixes
+      - name: Check for changes
+        id: verify_changes
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add examples/*.ipynb
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
+          if git diff --quiet; then
+            echo "No changes detected"
+            echo "changed=false" >> $GITHUB_OUTPUT
           else
-            git commit -m "Auto-fix: Merge multi-line f-strings in notebooks"
-            git push
+            echo "Changes detected"
+            echo "changed=true" >> $GITHUB_OUTPUT
           fi
+      
+      - name: Commit and push fixes
+        if: steps.verify_changes.outputs.changed == 'true'
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git add examples/**/*.ipynb notebooks/**/*.ipynb || true
+          git commit -m "fix: Auto-fix multi-line f-strings in notebooks [skip ci]"
+          git push
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Notebook Formatting" >> $GITHUB_STEP_SUMMARY
+          echo "Status: ${{ steps.verify_changes.outputs.changed == 'true' && '✅ Fixed' || 'ℹ️ No changes needed' }}" >> $GITHUB_STEP_SUMMARY
