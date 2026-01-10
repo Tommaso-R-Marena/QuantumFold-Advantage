@@ -1,0 +1,104 @@
+name: Fix Notebook JSON Formatting
+
+on:
+  push:
+    paths:
+      - 'examples/**/*.ipynb'
+  workflow_dispatch:
+
+jobs:
+  fix-notebooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      
+      - name: Fix notebook formatting
+        run: |
+          python3 << 'EOF'
+          import json
+          import sys
+          from pathlib import Path
+          
+          def fix_multiline_fstrings_in_cell(source_lines):
+              """Fix multi-line f-strings in a single cell."""
+              fixed = []
+              i = 0
+              while i < len(source_lines):
+                  line = source_lines[i]
+                  # Check for f-string continuation pattern
+                  if i < len(source_lines) - 1:
+                      curr = line.rstrip()
+                      next_line = source_lines[i + 1]
+                      next_stripped = next_line.lstrip()
+                      
+                      # If current line ends with quote and next starts with f'
+                      if (curr.endswith("'") or curr.endswith('"')):
+                          if next_stripped.startswith("f'") or next_stripped.startswith('f"'):
+                              # Merge them
+                              merged = curr[:-1] + " " + next_stripped[2:]
+                              # Keep original indentation
+                              indent = len(line) - len(line.lstrip())
+                              fixed.append(" " * indent + merged.lstrip() + "\n")
+                              i += 2
+                              continue
+                  
+                  fixed.append(line)
+                  i += 1
+              return fixed
+          
+          def fix_notebook(path):
+              """Fix a notebook file."""
+              print(f"Checking {path}...")
+              try:
+                  with open(path, 'r') as f:
+                      nb = json.load(f)
+              except:
+                  print(f"  Skipping (not valid JSON)")
+                  return False
+              
+              modified = False
+              for cell in nb.get('cells', []):
+                  if cell.get('cell_type') == 'code' and 'source' in cell:
+                      original = cell['source']
+                      fixed = fix_multiline_fstrings_in_cell(original)
+                      if fixed != original:
+                          cell['source'] = fixed
+                          modified = True
+                          print(f"  Fixed cell in {path}")
+              
+              if modified:
+                  with open(path, 'w') as f:
+                      json.dump(nb, f, indent=1, ensure_ascii=False)
+                      f.write('\n')  # trailing newline
+                  print(f"  ✅ Updated {path}")
+                  return True
+              return False
+          
+          # Fix all notebooks
+          notebooks = list(Path('examples').glob('*.ipynb'))
+          any_fixed = False
+          for nb_path in notebooks:
+              if fix_notebook(nb_path):
+                  any_fixed = True
+          
+          sys.exit(0 if any_fixed else 0)  # Always succeed
+          EOF
+      
+      - name: Commit fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add examples/*.ipynb
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Auto-fix: Merge multi-line f-strings in notebooks"
+            git push
+          fi
