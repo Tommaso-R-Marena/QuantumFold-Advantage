@@ -9,8 +9,7 @@ import warnings
 
 # Core modules that should always be available
 try:
-    from . import data
-    from . import utils
+    from . import data, utils
 except ImportError as e:
     warnings.warn(f"Some core modules could not be imported: {e}")
     data = None
@@ -55,6 +54,7 @@ __all__ = [
     "benchmarks",
 ]
 
+
 # Helpful error message if imports failed
 def _check_installation():
     """Check if package is properly installed."""
@@ -65,5 +65,6 @@ def _check_installation():
             "This may be due to missing dependencies. "
             "Run: pip install -e .[dev] to install all dependencies."
         )
+
 
 _check_installation()
