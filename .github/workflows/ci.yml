@@ -6,15 +6,27 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+  workflow_dispatch:
+
+# Cancel in-progress runs for same PR/branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   PYTHONUNBUFFERED: "1"
   FORCE_COLOR: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PIP_NO_PYTHON_VERSION_WARNING: "1"
 
 jobs:
   code-quality:
     name: Code Quality
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    
     steps:
       - uses: actions/checkout@v4
       
@@ -23,9 +35,18 @@ jobs:
         with:
           python-version: '3.10'
           cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
+      
+      - name: Cache linting tools
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: lint-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
       
       - name: Install linting tools
-        run: pip install black isort flake8
+        run: |
+          pip install --upgrade pip
+          pip install black isort flake8
       
       - name: Check formatting (Black)
         run: black --check src tests || true
@@ -42,11 +63,14 @@ jobs:
   test:
     name: Test - Python ${{ matrix.python-version }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ['3.10']
+        python-version: ['3.10', '3.11']
     
     steps:
       - uses: actions/checkout@v4
@@ -56,27 +80,39 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
       
       - name: Install system dependencies
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
+          sudo apt-get update -qq
           sudo apt-get install -y libopenblas-dev
       
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
           pip install -e . || echo "Package install had issues, continuing..."
-          pip install pytest pytest-cov pytest-xdist || true
+          pip install pytest pytest-cov pytest-xdist pytest-timeout
       
-      - name: Run basic tests
+      - name: Run tests with coverage
         run: |
-          pytest tests/ -v --maxfail=1 -x || echo "Some tests failed"
+          pytest tests/ -v --maxfail=3 --tb=short --cov=src --cov-report=xml --cov-report=term || echo "Some tests failed"
+        continue-on-error: true
+      
+      - name: Upload coverage
+        if: matrix.python-version == '3.10'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
         continue-on-error: true
 
   docker:
     name: Docker Build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       
@@ -84,11 +120,13 @@ jobs:
         uses: docker/setup-buildx-action@v3
       
       - name: Build Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: false
           tags: quantumfold-advantage:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
         continue-on-error: true
 
   success:
@@ -96,6 +134,8 @@ jobs:
     needs: [code-quality, test, docker]
     runs-on: ubuntu-latest
     if: always()
+    permissions:
+      contents: read
     steps:
       - name: Report Status
         run: |

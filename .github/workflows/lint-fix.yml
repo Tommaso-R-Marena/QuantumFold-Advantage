@@ -1,58 +1,72 @@
-name: Auto-fix Linting
+name: Auto-fix Linting Issues
 
 on:
-  push:
-    branches: [ main, develop ]
   workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
 
 jobs:
-  autofix:
-    name: Auto-fix Code Style
+  auto-fix:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
       
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+          cache: 'pip'
+      
+      - name: Cache tools
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: lint-fix-${{ runner.os }}
       
       - name: Install tools
-        run: pip install autoflake isort black
-      
-      - name: Remove unused imports
         run: |
-          autoflake \
-            --remove-all-unused-imports \
-            --remove-unused-variables \
-            --ignore-init-module-imports \
-            --in-place \
-            --recursive \
-            src/ tests/ || true
+          pip install --upgrade pip
+          pip install black isort autoflake autopep8
       
-      - name: Sort imports
-        run: isort src/ tests/ --profile black || true
+      - name: Run autoflake (remove unused imports)
+        run: |
+          autoflake --in-place --remove-all-unused-imports --remove-unused-variables -r src tests
       
-      - name: Format code
-        run: black src/ tests/ --line-length 100 || true
+      - name: Run autopep8
+        run: |
+          autopep8 --in-place --aggressive --aggressive -r src tests
+      
+      - name: Run isort
+        run: |
+          isort src tests --profile black
+      
+      - name: Run black
+        run: |
+          black src tests
       
       - name: Check for changes
-        id: verify
+        id: verify_diff
         run: |
-          if git diff --quiet; then
-            echo "changed=false" >> $GITHUB_OUTPUT
-          else
-            echo "changed=true" >> $GITHUB_OUTPUT
-          fi
+          git diff --quiet . || echo "changed=true" >> $GITHUB_OUTPUT
       
-      - name: Commit fixes
-        if: steps.verify.outputs.changed == 'true'
+      - name: Commit changes
+        if: steps.verify_diff.outputs.changed == 'true'
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
           git add -A
-          git commit -m "style: Auto-fix linting issues [skip ci]" || true
-          git push || true
+          git commit -m "fix: Auto-fix linting issues [skip ci]"
+          git push

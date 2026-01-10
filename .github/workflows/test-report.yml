@@ -1,82 +1,46 @@
-name: Test Results Report
+name: Test Report
 
-# Generate comprehensive test reports and badges
 on:
   workflow_run:
-    workflows: ["Comprehensive CI", "Advanced Testing Suite"]
+    workflows: ["CI"]
     types:
       - completed
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
 
 jobs:
   report:
     name: Generate Test Report
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion != 'cancelled' }}
+    timeout-minutes: 10
+    if: ${{ github.event.workflow_run.conclusion != 'skipped' }}
     
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
       
       - name: Download test results
         uses: actions/download-artifact@v4
-        continue-on-error: true
-      
-      - name: Generate summary report
-        run: |
-          cat << 'EOF' > test-summary.md
-          # Test Results Summary
-          
-          ## Status
-          - Workflow: ${{ github.event.workflow_run.name }}
-          - Conclusion: ${{ github.event.workflow_run.conclusion }}
-          - Commit: ${{ github.event.workflow_run.head_sha }}
-          
-          ## Test Suites
-          
-          ### Unit Tests
-          - ✅ Python 3.8-3.11 on Ubuntu, macOS, Windows
-          - ✅ Core functionality covered
-          
-          ### Integration Tests  
-          - ✅ Full pipeline testing
-          - ✅ End-to-end workflows
-          
-          ### Advanced Tests
-          - ✅ Mutation testing
-          - ✅ Property-based testing
-          - ✅ Stress testing
-          - ✅ Notebook validation
-          
-          ### Code Quality
-          - ✅ Black formatting
-          - ✅ isort import sorting
-          - ✅ flake8 linting
-          - ✅ mypy type checking
-          - ✅ Security scanning
-          
-          ## Coverage
-          Target: 70%+
-          
-          See [Codecov](https://codecov.io/gh/${{ github.repository }}) for detailed coverage reports.
-          EOF
-          
-          cat test-summary.md >> $GITHUB_STEP_SUMMARY
-      
-      - name: Create status badge
-        run: |
-          echo "Test badge generation placeholder"
-      
-      - name: Comment on PR
-        if: github.event.workflow_run.event == 'pull_request'
-        uses: actions/github-script@v7
         with:
-          script: |
-            const fs = require('fs');
-            const summary = fs.readFileSync('test-summary.md', 'utf8');
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: summary
-            });
+          name: test-results
+          path: test-results
         continue-on-error: true
+      
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: test-results/**/*.xml
+          check_name: Test Results
+          comment_mode: off
+        continue-on-error: true
+      
+      - name: Generate summary
+        run: |
+          echo "## Test Report" >> $GITHUB_STEP_SUMMARY
+          echo "Workflow: ${{ github.event.workflow_run.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "Status: ${{ github.event.workflow_run.conclusion }}" >> $GITHUB_STEP_SUMMARY
+          echo "Branch: ${{ github.event.workflow_run.head_branch }}" >> $GITHUB_STEP_SUMMARY
