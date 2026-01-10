@@ -48,9 +48,7 @@ class TestQuantumHybridLayer:
 
     def test_forward_pass(self, sample_embeddings):
         """Test hybrid forward pass."""
-        layer = QuantumHybridLayer(
-            input_dim=sample_embeddings.shape[-1], n_qubits=4, depth=2
-        )
+        layer = QuantumHybridLayer(input_dim=sample_embeddings.shape[-1], n_qubits=4, depth=2)
         output = layer(sample_embeddings)
         assert output.shape == sample_embeddings.shape
         assert not torch.isnan(output).any()

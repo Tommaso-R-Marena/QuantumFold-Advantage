@@ -24,9 +24,7 @@ class TestAdvancedProteinFoldingModel:
 
     def test_initialization_classical(self):
         """Test classical model initialization."""
-        model = AdvancedProteinFoldingModel(
-            input_dim=128, c_s=64, c_z=32, use_quantum=False
-        )
+        model = AdvancedProteinFoldingModel(input_dim=128, c_s=64, c_z=32, use_quantum=False)
         assert not model.use_quantum
 
     def test_forward_pass(self, sample_embeddings):
@@ -47,9 +45,7 @@ class TestAdvancedProteinFoldingModel:
 
     def test_output_contains_required_keys(self, sample_embeddings):
         """Test that output contains all required keys."""
-        model = AdvancedProteinFoldingModel(
-            input_dim=sample_embeddings.shape[-1], c_s=64, c_z=32
-        )
+        model = AdvancedProteinFoldingModel(input_dim=sample_embeddings.shape[-1], c_s=64, c_z=32)
 
         output = model(sample_embeddings)
 
