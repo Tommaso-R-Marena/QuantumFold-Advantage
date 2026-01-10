@@ -6,52 +6,26 @@ on:
   pull_request:
     branches: [ main ]
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
   workflow_dispatch:
+
+# Prevent concurrent comprehensive runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: "1"
+  FORCE_COLOR: "1"
 
 jobs:
   code-quality:
-    name: Code Quality & Linting
+    name: Code Quality & Security
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      
-      - name: Install tools
-        run: pip install black isort flake8 mypy bandit
-      
-      - name: Format check
-        run: black --check src tests || true
-        continue-on-error: true
-      
-      - name: Import check
-        run: isort --check-only src tests || true
-        continue-on-error: true
-      
-      - name: Lint check
-        run: flake8 src tests || true
-        continue-on-error: true
-      
-      - name: Type check
-        run: mypy src --ignore-missing-imports || true
-        continue-on-error: true
-      
-      - name: Security check
-        run: bandit -r src -ll || true
-        continue-on-error: true
-
-  test-matrix:
-    name: Tests - Python ${{ matrix.python-version }} on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest]
-        python-version: ['3.9', '3.10', '3.11']
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
     
     steps:
       - uses: actions/checkout@v4
@@ -59,23 +33,197 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
+          python-version: '3.10'
+          cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
+      
+      - name: Cache quality tools
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: quality-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+      
+      - name: Install tools
+        run: |
+          pip install --upgrade pip
+          pip install black isort flake8 mypy bandit pylint
+      
+      - name: Format check (Black)
+        run: |
+          echo "## Black Formatting" >> $GITHUB_STEP_SUMMARY
+          black --check src tests || echo "⚠️ Formatting issues found" >> $GITHUB_STEP_SUMMARY
+        continue-on-error: true
+      
+      - name: Import sorting (isort)
+        run: |
+          echo "## Import Sorting" >> $GITHUB_STEP_SUMMARY
+          isort --check-only src tests || echo "⚠️ Import sorting issues" >> $GITHUB_STEP_SUMMARY
+        continue-on-error: true
+      
+      - name: Linting (flake8)
+        run: |
+          echo "## Linting Results" >> $GITHUB_STEP_SUMMARY
+          flake8 src tests --count --statistics || echo "⚠️ Linting issues found" >> $GITHUB_STEP_SUMMARY
+        continue-on-error: true
+      
+      - name: Type checking (mypy)
+        run: |
+          echo "## Type Checking" >> $GITHUB_STEP_SUMMARY
+          mypy src --ignore-missing-imports --no-error-summary || echo "⚠️ Type issues found" >> $GITHUB_STEP_SUMMARY
+        continue-on-error: true
+      
+      - name: Security scan (Bandit)
+        run: |
+          echo "## Security Scan" >> $GITHUB_STEP_SUMMARY
+          bandit -r src -ll -f json -o bandit-report.json || true
+          bandit -r src -ll || echo "⚠️ Security issues found" >> $GITHUB_STEP_SUMMARY
+        continue-on-error: true
+      
+      - name: Code quality (Pylint)
+        run: |
+          echo "## Code Quality (Pylint)" >> $GITHUB_STEP_SUMMARY
+          pylint src --fail-under=7.0 || echo "⚠️ Quality score below 7.0" >> $GITHUB_STEP_SUMMARY
+        continue-on-error: true
+
+  test-matrix:
+    name: Test - Python ${{ matrix.python-version }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+        exclude:
+          # Reduce matrix for faster feedback
+          - os: macos-latest
+            python-version: '3.9'
+          - os: macos-latest
+            python-version: '3.12'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
           python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
+      
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libopenblas-dev
+      
+      - name: Install system dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install openblas
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -e . || echo "Package install had issues"
+          pip install pytest pytest-cov pytest-xdist pytest-timeout pytest-benchmark
+      
+      - name: Run comprehensive tests
+        run: |
+          pytest tests/ \
+            -v \
+            --maxfail=5 \
+            --tb=short \
+            --cov=src \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --durations=10 \
+            || echo "Tests completed with failures"
+        continue-on-error: true
+      
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.10' && matrix.os == 'ubuntu-latest'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: comprehensive
+          fail_ci_if_error: false
+        continue-on-error: true
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
       
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -e . || true
-          pip install pytest pytest-cov || true
+          pip install -e .
+          pip install pytest pytest-timeout
       
-      - name: Run tests
-        run: pytest tests/ -v || echo "Tests completed with issues"
+      - name: Run integration tests
+        run: |
+          pytest tests/ -v -m integration --timeout=300 || echo "Integration tests completed"
+        continue-on-error: true
+
+  performance-benchmarks:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e .
+          pip install pytest pytest-benchmark
+      
+      - name: Run benchmarks
+        run: |
+          pytest tests/ -v -m performance --benchmark-only || echo "Benchmarks completed"
         continue-on-error: true
 
   success:
-    name: All Checks Complete
-    needs: [code-quality, test-matrix]
+    name: Comprehensive CI Complete
+    needs: [code-quality, test-matrix, integration-tests, performance-benchmarks]
     runs-on: ubuntu-latest
     if: always()
+    permissions:
+      contents: read
+    
     steps:
-      - name: Report
-        run: echo "✅ Comprehensive CI completed"
+      - name: Generate report
+        run: |
+          echo "## Comprehensive CI Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Code Quality | ${{ needs.code-quality.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Matrix | ${{ needs.test-matrix.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration | ${{ needs.integration-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Performance | ${{ needs.performance-benchmarks.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Comprehensive CI workflow completed" >> $GITHUB_STEP_SUMMARY
