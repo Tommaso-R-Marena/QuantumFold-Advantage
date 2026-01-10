@@ -142,6 +142,7 @@ jobs:
             echo "changed=false" >> $GITHUB_OUTPUT
           else
             echo "Changes detected"
+            git diff --stat
             echo "changed=true" >> $GITHUB_OUTPUT
           fi
       
@@ -150,7 +151,12 @@ jobs:
         run: |
           git config --local user.name "github-actions[bot]"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git add examples/**/*.ipynb notebooks/**/*.ipynb || true
+          # Add files using find to avoid glob issues
+          find examples notebooks -name '*.ipynb' -type f 2>/dev/null | xargs git add || true
+          if git diff --staged --quiet; then
+            echo "No staged changes to commit"
+            exit 0
+          fi
           git commit -m "fix: Auto-fix multi-line f-strings in notebooks [skip ci]"
           git push
       

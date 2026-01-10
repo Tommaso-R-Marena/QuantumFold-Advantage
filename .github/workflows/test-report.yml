@@ -23,6 +23,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: Wait for artifacts (up to 30s)
+        run: |
+          echo "Waiting for artifacts to be available..."
+          for i in {1..6}; do
+            echo "Attempt $i/6..."
+            sleep 5
+          done
+      
       - name: Download all test artifacts
         uses: actions/download-artifact@v4
         with:
@@ -31,18 +39,24 @@ jobs:
           merge-multiple: true
         continue-on-error: true
       
-      - name: List downloaded artifacts
+      - name: Check for artifacts
+        id: check_artifacts
         run: |
-          echo "Downloaded artifacts:"
-          find test-artifacts -type f || echo "No artifacts found"
+          if [ -d "test-artifacts" ] && [ -n "$(ls -A test-artifacts 2>/dev/null)" ]; then
+            echo "artifacts_found=true" >> $GITHUB_OUTPUT
+            echo "✅ Artifacts found:"
+            find test-artifacts -type f
+          else
+            echo "artifacts_found=false" >> $GITHUB_OUTPUT
+            echo "⚠️  No artifacts found"
+          fi
       
       - name: Publish test results
+        if: steps.check_artifacts.outputs.artifacts_found == 'true'
         uses: EnricoMi/publish-unit-test-result-action@v2
-        if: always()
         with:
           files: |
             test-artifacts/**/*.xml
-            test-results/**/*.xml
           check_name: Test Results (${{ github.event.workflow_run.name }})
           comment_title: Test Results
           comment_mode: always
@@ -52,11 +66,13 @@ jobs:
         continue-on-error: true
       
       - name: Set up Python for analysis
+        if: steps.check_artifacts.outputs.artifacts_found == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       
       - name: Analyze test results
+        if: steps.check_artifacts.outputs.artifacts_found == 'true'
         run: |
           python3 << 'EOF'
           import json
@@ -156,50 +172,30 @@ jobs:
                       f.write("## 🚨 Attention Required\n")
           else:
               with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
-                  f.write("## ℹ️  No Test Results\n\n")
-                  f.write("No JSON test reports were found. ")
-                  f.write("Tests may not have run or results weren't uploaded.\n")
+                  f.write("## ℹ️  No JSON Test Reports\n\n")
+                  f.write("JSON test reports not found. ")
+                  f.write("Check XML reports for basic test counts.\n")
           
           EOF
         continue-on-error: true
       
-      - name: Comment on PR
-        if: github.event.workflow_run.event == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const path = require('path');
-            
-            // Find test result files
-            const artifactDir = 'test-artifacts';
-            let summary = '## 🧪 Test Results\n\n';
-            
-            try {
-              const files = fs.readdirSync(artifactDir, { recursive: true });
-              const jsonFiles = files.filter(f => f.endsWith('.json'));
-              
-              if (jsonFiles.length > 0) {
-                summary += `Found ${jsonFiles.length} test report(s)\n\n`;
-                summary += '✅ Tests completed. Check the Test Report for details.\n';
-              } else {
-                summary += 'ℹ️  No test results found\n';
-              }
-            } catch (e) {
-              summary += `⚠️  Could not read test results: ${e.message}\n`;
-            }
-            
-            summary += `\n[View full results →](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`;
-            
-            // Post comment (would need PR number from workflow_run event)
-            console.log(summary);
-        continue-on-error: true
+      - name: No artifacts found message
+        if: steps.check_artifacts.outputs.artifacts_found == 'false'
+        run: |
+          echo "## ℹ️  No Test Artifacts Found" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Test artifacts were not available. This can happen if:" >> $GITHUB_STEP_SUMMARY
+          echo "- Tests didn't run in the triggering workflow" >> $GITHUB_STEP_SUMMARY
+          echo "- Tests are still running" >> $GITHUB_STEP_SUMMARY
+          echo "- Artifacts failed to upload" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check the [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.event.workflow_run.id }}) for details." >> $GITHUB_STEP_SUMMARY
       
       - name: Upload combined report
-        if: always()
+        if: always() && steps.check_artifacts.outputs.artifacts_found == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: combined-test-report
+          name: combined-test-report-${{ github.event.workflow_run.id }}
           path: test-artifacts/
           retention-days: 90
         continue-on-error: true
