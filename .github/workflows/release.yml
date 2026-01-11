@@ -5,16 +5,19 @@ on:
     tags:
       - 'v*.*.*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release'
+        required: true
+        type: string
 
 permissions:
   contents: write
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  packages: write
+  id-token: write
 
 jobs:
-  release:
+  create-release:
     name: Create Release
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -31,20 +34,125 @@ jobs:
           python-version: '3.10'
           cache: 'pip'
       
-      - name: Install build tools
+      - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          pip install --upgrade pip
           pip install build twine
       
-      - name: Build distribution
-        run: python -m build
+      - name: Get tag
+        id: get_tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+      
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 ${{ steps.get_tag.outputs.tag }}^ 2>/dev/null || echo "")
+          
+          if [ -z "$PREV_TAG" ]; then
+            echo "First release - including all commits"
+            COMMITS=$(git log --pretty=format:"- %s (%h)" ${{ steps.get_tag.outputs.tag }})
+          else
+            echo "Changes since $PREV_TAG"
+            COMMITS=$(git log --pretty=format:"- %s (%h)" ${PREV_TAG}..${{ steps.get_tag.outputs.tag }})
+          fi
+          
+          # Create changelog
+          cat > CHANGELOG.md << EOF
+          # Release ${{ steps.get_tag.outputs.tag }}
+          
+          ## 🚀 What's New
+          
+          ### Changes
+          
+          $COMMITS
+          
+          ## 📦 Installation
+          
+          ### PyPI
+          \`\`\`bash
+          pip install quantumfold-advantage==${{ steps.get_tag.outputs.version }}
+          \`\`\`
+          
+          ### Docker
+          \`\`\`bash
+          docker pull ghcr.io/${{ github.repository }}:${{ steps.get_tag.outputs.tag }}
+          \`\`\`
+          
+          ### From Source
+          \`\`\`bash
+          git clone https://github.com/${{ github.repository }}.git
+          cd QuantumFold-Advantage
+          git checkout ${{ steps.get_tag.outputs.tag }}
+          pip install -e .
+          \`\`\`
+          
+          ## 📚 Documentation
+          
+          - [README](https://github.com/${{ github.repository }}/blob/${{ steps.get_tag.outputs.tag }}/README.md)
+          - [Examples](https://github.com/${{ github.repository }}/tree/${{ steps.get_tag.outputs.tag }}/examples)
+          - [API Reference](https://github.com/${{ github.repository }}/tree/${{ steps.get_tag.outputs.tag }}/docs)
+          
+          ## ⭐ Contributors
+          
+          Thank you to all contributors who made this release possible!
+          EOF
+          
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          cat CHANGELOG.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Build Python package
+        run: |
+          python -m build
+          ls -lh dist/
       
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
-          generate_release_notes: true
+          tag_name: ${{ steps.get_tag.outputs.tag }}
+          name: Release ${{ steps.get_tag.outputs.tag }}
+          body: ${{ steps.changelog.outputs.changelog }}
           draft: false
           prerelease: false
+          generate_release_notes: true
+          files: |
+            dist/*
+            LICENSE
+            README.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Publish to PyPI
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          if [ -n "$TWINE_PASSWORD" ]; then
+            echo "📦 Publishing to PyPI..."
+            twine upload dist/*
+          else
+            echo "⚠️  PYPI_API_TOKEN not set - skipping PyPI upload"
+            echo "Set it in Settings > Secrets > Actions"
+          fi
+        continue-on-error: true
+      
+      - name: Summary
+        run: |
+          echo "## 🎉 Release Created!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Release Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** ${{ steps.get_tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** ${{ steps.get_tag.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
+          echo "- [Release Page](https://github.com/${{ github.repository }}/releases/tag/${{ steps.get_tag.outputs.tag }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [Docker Image](https://ghcr.io/${{ github.repository }}:${{ steps.get_tag.outputs.tag }})" >> $GITHUB_STEP_SUMMARY
