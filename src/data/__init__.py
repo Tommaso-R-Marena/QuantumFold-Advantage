@@ -7,8 +7,6 @@ This module provides:
 - Custom collate functions for DataLoader
 """
 
-from pathlib import Path
-
 try:
     from .casp16_loader import (
         CASP16Config,

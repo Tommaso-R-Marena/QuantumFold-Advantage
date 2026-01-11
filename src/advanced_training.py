@@ -18,14 +18,11 @@ References:
     - EMA: Polyak & Juditsky, SIAM J. Control Optim. (1992)
 """
 
-import json
 import logging
-import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

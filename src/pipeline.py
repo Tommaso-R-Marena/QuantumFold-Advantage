@@ -109,7 +109,7 @@ def run_pipeline(
             # Take first sample
             sample_seq = sequences[0].cpu().numpy()
             sample_pred = pred_coords[0].cpu().numpy()
-            sample_true = coords[0].cpu().numpy()
+            coords[0].cpu().numpy()
 
             # Convert sequence indices to amino acids (simplified)
             aa_map = "ACDEFGHIKLMNPQRSTVWY"

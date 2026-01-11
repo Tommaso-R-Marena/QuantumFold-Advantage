@@ -21,14 +21,12 @@ import json
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
-import torch
 from scipy import stats
-from scipy.stats import friedmanchisquare, mannwhitneyu, ttest_rel, wilcoxon
+from scipy.stats import ttest_rel, wilcoxon
 
 
 @dataclass

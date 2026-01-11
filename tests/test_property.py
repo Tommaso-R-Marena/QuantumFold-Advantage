@@ -7,13 +7,11 @@ torch = pytest.importorskip("torch")
 try:
     from hypothesis import given, settings
     from hypothesis import strategies as st
-    from hypothesis.extra.numpy import arrays as np_arrays
 
     HYPOTHESIS_AVAILABLE = True
 except ImportError:
     HYPOTHESIS_AVAILABLE = False
 
-import numpy as np
 
 try:
     from src.benchmarks import calculate_rmsd

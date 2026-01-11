@@ -1,7 +1,6 @@
 """Tests for protein folding model."""
 
 import pytest
-import torch
 
 try:
     from src.advanced_model import AdvancedProteinFoldingModel

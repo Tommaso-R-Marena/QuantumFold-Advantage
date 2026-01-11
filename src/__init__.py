@@ -4,7 +4,6 @@ __version__ = "0.1.0"
 __author__ = "Tommaso R. Marena"
 
 # Graceful imports with proper error handling
-import sys
 import warnings
 
 # Core modules that should always be available

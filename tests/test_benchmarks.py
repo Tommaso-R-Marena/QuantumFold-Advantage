@@ -7,9 +7,7 @@ import torch
 try:
     from src.benchmarks import (
         BenchmarkMetrics,
-        calculate_gdt_ts,
         calculate_rmsd,
-        calculate_tm_score,
     )
 
     BENCHMARKS_AVAILABLE = True

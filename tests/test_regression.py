@@ -1,6 +1,5 @@
 """Regression tests to catch breaking changes."""
 
-import json
 from pathlib import Path
 
 import pytest

@@ -11,20 +11,14 @@ References:
     - CASP Database: https://www.predictioncenter.org/download_area/
 """
 
-import gzip
 import logging
-import os
-import re
-import shutil
-import warnings
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
-from urllib.request import urlopen, urlretrieve
+from typing import Dict, List, Optional, Union
+from urllib.request import urlretrieve
 
 import numpy as np
 import torch
-from Bio import PDB, SeqIO
-from Bio.PDB import PDBIO, Select
+from Bio import PDB
 from torch.utils.data import Dataset
 from tqdm import tqdm
 

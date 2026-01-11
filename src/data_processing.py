@@ -5,16 +5,12 @@ feature engineering, and data augmentation for protein folding.
 """
 
 import gzip
-import pickle
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-import torch
 
 try:
-    from Bio import SeqIO
-    from Bio.PDB import PDBIO, PDBParser, Select
+    from Bio.PDB import PDBParser
     from Bio.PDB.Polypeptide import is_aa, three_to_one
 except ImportError:
     print("Warning: Biopython not installed. Install with: pip install biopython")

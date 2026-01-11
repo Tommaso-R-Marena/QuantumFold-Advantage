@@ -1,14 +1,11 @@
 """Integration tests for full pipeline."""
 
-import sys
-
 import pytest
 import torch
 
 # Skip all tests if imports fail
 try:
     from src.advanced_model import AdvancedProteinFoldingModel
-    from src.advanced_training import AdvancedTrainer, TrainingConfig
     from src.benchmarks import BenchmarkMetrics
 
     IMPORTS_OK = True

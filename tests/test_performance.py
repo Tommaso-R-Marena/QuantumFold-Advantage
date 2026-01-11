@@ -52,7 +52,7 @@ class TestPerformance:
 
         # Forward pass
         with torch.no_grad():
-            output = model(sample_embeddings)
+            model(sample_embeddings)
 
         if torch.cuda.is_available():
             memory_mb = torch.cuda.max_memory_allocated() / 1024 / 1024
@@ -78,7 +78,7 @@ class TestPerformance:
 
             start = time.time()
             with torch.no_grad():
-                output = model(embeddings)
+                model(embeddings)
             elapsed = time.time() - start
 
             timings[seq_len] = elapsed

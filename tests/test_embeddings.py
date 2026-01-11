@@ -1,7 +1,6 @@
 """Tests for protein embeddings."""
 
 import pytest
-import torch
 
 try:
     from src.protein_embeddings import ESM2Embedder

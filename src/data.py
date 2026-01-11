@@ -12,7 +12,6 @@ References:
 """
 
 import logging
-import random
 from pathlib import Path
 from typing import Dict, List, Tuple
 

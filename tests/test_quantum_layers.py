@@ -1,6 +1,5 @@
 """Tests for quantum layers."""
 
-import numpy as np
 import pytest
 import torch
 

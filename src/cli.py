@@ -11,7 +11,6 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
 
 import torch
 
@@ -75,8 +74,7 @@ def train_cli():
 
     # Import training module
     try:
-        from src.advanced_model import AdvancedProteinFoldingModel
-        from src.advanced_training import AdvancedTrainer, TrainingConfig
+        pass
     except ImportError as e:
         logger.error(f"Failed to import modules: {e}")
         sys.exit(1)
@@ -102,7 +100,7 @@ def predict_cli():
         "--device", type=str, default="auto", choices=["auto", "cuda", "cpu"], help="Device to use"
     )
 
-    args = parser.parse_args()
+    parser.parse_args()
 
     # TODO: Implement prediction pipeline
     print("Prediction not yet implemented in CLI")
@@ -129,7 +127,7 @@ def evaluate_cli():
         "--output", type=Path, default="evaluation_results.json", help="Output JSON file"
     )
 
-    args = parser.parse_args()
+    parser.parse_args()
 
     # TODO: Implement evaluation pipeline
     print("Evaluation not yet implemented in CLI")

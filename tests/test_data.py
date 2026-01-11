@@ -1,7 +1,5 @@
 """Tests for data loading utilities."""
 
-from pathlib import Path
-
 import pytest
 
 try:

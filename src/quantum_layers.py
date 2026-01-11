@@ -15,14 +15,12 @@ References:
     - Parameter Initialization: Grant et al., Quantum 3, 214 (2019)
 """
 
-import warnings
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import List, Optional
 
 import numpy as np
 import pennylane as qml
 import torch
 import torch.nn as nn
-from scipy.linalg import sqrtm
 from torch import Tensor
 
 

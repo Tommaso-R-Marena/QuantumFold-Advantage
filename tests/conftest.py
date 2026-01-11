@@ -1,10 +1,7 @@
 """Pytest configuration and fixtures for QuantumFold-Advantage tests."""
 
-import sys
 import warnings
-from pathlib import Path
 
-import numpy as np
 import pytest
 import torch
 
@@ -229,7 +226,7 @@ def skip_if_no_gpu():
 def skip_if_no_esm():
     """Skip test if ESM not available."""
     try:
-        import esm
+        pass
     except ImportError:
         pytest.skip("ESM not installed")
 

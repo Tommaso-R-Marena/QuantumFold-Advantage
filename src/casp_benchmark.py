@@ -12,19 +12,16 @@ References:
     - Kryshtafovych et al., Proteins (2021) DOI: 10.1002/prot.26237
 """
 
-import gzip
-import os
-import tarfile
 import urllib.request
 import warnings
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 
 try:
     from Bio import PDB
-    from Bio.PDB import MMCIFParser, PDBParser
+    from Bio.PDB import PDBParser
 except ImportError:
     warnings.warn("Biopython not installed. Install with: pip install biopython")
     PDB = None
@@ -359,7 +356,7 @@ class CASPDataset:
 
                                     aa = three_to_one(residue.resname)
                                     sequence.append(aa)
-                                except:
+                                except BaseException:
                                     sequence.append("X")
                         break  # Only first chain
                     break  # Only first model

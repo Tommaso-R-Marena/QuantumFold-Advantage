@@ -8,14 +8,12 @@ import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-import torch
 
 try:
-    from Bio.PDB import PDBParser, Superimposer
-    from Bio.PDB.Polypeptide import three_to_one
+    pass
 except ImportError:
     print("Warning: Biopython not installed. Install with: pip install biopython")
 
@@ -184,7 +182,7 @@ class ProteinStructureEvaluator:
         if thresholds is None:
             thresholds = [0.5, 1.0, 2.0, 4.0]
 
-        n_residues = len(coords_true)
+        len(coords_true)
 
         # Calculate all pairwise distances
         dist_true = np.sqrt(
