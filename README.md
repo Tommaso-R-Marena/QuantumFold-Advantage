@@ -3,7 +3,7 @@
 <!-- Build Status Badges -->
 [![CI](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/ci.yml/badge.svg)](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/ci.yml)
 [![Test Notebooks](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/test-notebooks-execution.yml/badge.svg)](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/test-notebooks-execution.yml)
-[![Comprehensive CI](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/comprehensive-ci.yml/badge.svg)](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/comprehensive-ci.yml)
+[![Comprehensive CI](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/ci-comprehensive.yml/badge.svg)](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/ci-comprehensive.yml)
 [![Docker](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/docker-publish.yml)
 [![Documentation](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/docs.yml/badge.svg)](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/docs.yml)
 [![codecov](https://codecov.io/gh/Tommaso-R-Marena/QuantumFold-Advantage/branch/main/graph/badge.svg)](https://codecov.io/gh/Tommaso-R-Marena/QuantumFold-Advantage)
@@ -294,7 +294,7 @@ QuantumFold-Advantage/
 ├── .github/
 │   ├── workflows/
 │   │   ├── ci.yml                  # Continuous Integration
-│   │   ├── comprehensive-ci.yml    # Full test suite
+│   │   ├── ci-comprehensive.yml    # Full test suite
 │   │   ├── test-notebooks-execution.yml  # Notebook validation
 │   │   ├── docker-publish.yml      # Docker CI/CD
 │   │   └── docs.yml                # Documentation building
