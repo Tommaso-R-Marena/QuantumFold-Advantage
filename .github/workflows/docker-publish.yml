@@ -21,13 +21,36 @@ jobs:
   build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    timeout-minutes: 45  # Increased from 30 for safety
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: write
       id-token: write
     
     steps:
+      - name: Free Disk Space
+        run: |
+          echo "=== Before cleanup ==="
+          df -h
+          echo "======================="
+          
+          # Remove unnecessary tools and files (~30GB)
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          
+          # Clean apt cache
+          sudo apt-get clean
+          
+          # Clean Docker system
+          docker system prune -af --volumes
+          
+          echo "=== After cleanup ==="
+          df -h
+          echo "====================="
+      
       - name: Checkout repository
         uses: actions/checkout@v6
       
@@ -37,6 +60,8 @@ jobs:
           driver-opts: |
             image=moby/buildkit:latest
             network=host
+          # Cleanup builder to save space
+          cleanup: true
       
       - name: Log in to GitHub Container Registry
         if: github.event_name != 'pull_request'
@@ -73,9 +98,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           # Enhanced caching strategy
-          cache-from: |
-            type=gha
-            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+          cache-from: type=gha
           cache-to: type=gha,mode=max
           # Single platform for faster builds (linux/amd64 is most common)
           platforms: linux/amd64
@@ -84,29 +107,19 @@ jobs:
             BUILD_DATE=${{ github.event.repository.updated_at }}
             VCS_REF=${{ github.sha }}
             VERSION=${{ steps.meta.outputs.version }}
-          # Show build progress
+          # Disable to save space and time
           provenance: false
           sbom: false
       
-      - name: Generate SBOM
-        if: github.event_name != 'pull_request'
-        uses: anchore/sbom-action@v0
-        with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
-          format: spdx-json
-          output-file: sbom.spdx.json
-        continue-on-error: true
-      
-      - name: Upload SBOM
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v6
-        with:
-          name: sbom
-          path: sbom.spdx.json
-          retention-days: 90
-        continue-on-error: true
+      - name: Check disk space after build
+        if: always()
+        run: |
+          echo "=== Disk usage after build ==="
+          df -h
+          echo "=============================="
       
       - name: Summary
+        if: always()
         run: |
           echo "## 🐳 Docker Build Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -131,6 +144,7 @@ jobs:
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Build Optimizations" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Disk cleanup (~30GB freed)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Multi-stage build with pre-built wheels" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ GitHub Actions cache enabled" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Layer caching optimized" >> $GITHUB_STEP_SUMMARY
