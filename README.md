@@ -22,7 +22,7 @@
 
 **State-of-the-art quantum-classical hybrid architecture for protein structure prediction**
 
-QuantumFold-Advantage demonstrates provable quantum advantage in protein structure prediction by integrating quantum computing with advanced deep learning techniques from AlphaFold-3, ESM-2, and modern ML best practices.
+QuantumFold-Advantage seeks to demonstrate provable quantum advantage in protein structure prediction by integrating quantum computing with advanced deep learning techniques from AlphaFold-3, ESM-2, and modern ML best practices.
 
 ## 🚀 Try it Now!
 
@@ -387,7 +387,7 @@ Data persists in these directories:
 ## 🔬 Scientific Background
 
 ### Quantum Advantage
-Our approach achieves quantum advantage through:
+Our approach hopes to achieve quantum advantage through:
 1. **Exponential Hilbert Space**: Quantum kernels access \(2^n\) dimensional feature space
 2. **Entanglement-Based Features**: Capture long-range correlations in protein sequences
 3. **Hardware Efficiency**: Optimized ansatz reduces circuit depth
