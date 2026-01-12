@@ -5,10 +5,7 @@ import pytest
 import torch
 
 try:
-    from src.benchmarks import (
-        BenchmarkMetrics,
-        calculate_rmsd,
-    )
+    from src.benchmarks import BenchmarkMetrics, calculate_rmsd
 
     BENCHMARKS_AVAILABLE = True
 except ImportError:
