@@ -3,18 +3,16 @@ name: Test Notebook Execution
 on:
   push:
     branches: [ main, develop ]
+    # Run on ALL pushes to main/develop (no path filters)
+  pull_request:
+    branches: [ main ]
     paths:
+      # Only run on PRs if notebooks or relevant code changes
       - 'examples/*.ipynb'
       - 'src/**'
       - 'tests/test_notebook_execution.py'
       - '.github/workflows/test-notebooks-execution.yml'
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'examples/*.ipynb'
-      - 'src/**'
-      - 'tests/test_notebook_execution.py'
-  workflow_dispatch:
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
   test-notebooks:
@@ -156,17 +154,34 @@ jobs:
     steps:
     - name: 📊 Check test results
       run: |
-        echo "## Notebook Execution Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "## 📓 Notebook Execution Test Results" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
         if [[ "${{ needs.test-notebooks.result }}" == "success" ]]; then
-          echo "✅ All notebooks executed successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **All notebooks executed successfully!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Tested Notebooks" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ colab_quickstart.ipynb" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ 01_getting_started.ipynb" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ 02_quantum_vs_classical.ipynb" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ 03_advanced_visualization.ipynb" >> $GITHUB_STEP_SUMMARY
         else
-          echo "❌ Some notebooks failed execution" >> $GITHUB_STEP_SUMMARY
+          echo "❌ **Some notebooks failed execution**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check individual job logs for details." >> $GITHUB_STEP_SUMMARY
         fi
         
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
         if [[ "${{ needs.test-notebook-structure.result }}" == "success" ]]; then
-          echo "✅ Notebook structure tests passed!" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Notebook structure tests passed!**" >> $GITHUB_STEP_SUMMARY
         else
-          echo "❌ Notebook structure tests failed" >> $GITHUB_STEP_SUMMARY
+          echo "❌ **Notebook structure tests failed**" >> $GITHUB_STEP_SUMMARY
         fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📥 Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "Executed notebooks are available as workflow artifacts for 7 days." >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🔧 NumPy Fix Applied" >> $GITHUB_STEP_SUMMARY
+        echo "All notebooks executed with NumPy <2.0 to prevent compatibility issues." >> $GITHUB_STEP_SUMMARY
