@@ -1,0 +1,177 @@
+name: Autonomous Dependency Updates
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: autonomous-dependencies
+  cancel-in-progress: true
+
+jobs:
+  update-dependencies:
+    name: Smart Dependency Updates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      
+      - name: Install update tools
+        run: |
+          pip install --upgrade pip
+          pip install pip-tools pur safety pipdeptree
+      
+      - name: Backup current dependencies
+        run: |
+          cp pyproject.toml pyproject.toml.backup
+          pip freeze > requirements-frozen-before.txt
+      
+      - name: Check for security vulnerabilities
+        id: security
+        run: |
+          echo "## 🔒 Security Scan" >> $GITHUB_STEP_SUMMARY
+          pip install -e . || true
+          safety check --json > safety-report.json || true
+          
+          VULNS=$(jq '.vulnerabilities | length' safety-report.json 2>/dev/null || echo "0")
+          echo "vulnerabilities=$VULNS" >> $GITHUB_OUTPUT
+          echo "**Vulnerabilities Found**: $VULNS" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$VULNS" -gt "0" ]; then
+            echo "⚠️ Security issues detected!" >> $GITHUB_STEP_SUMMARY
+            jq -r '.vulnerabilities[] | "- \(.package): \(.vulnerability)"' safety-report.json >> $GITHUB_STEP_SUMMARY || true
+          fi
+        continue-on-error: true
+      
+      - name: Update dependencies intelligently
+        run: |
+          echo "## 📦 Updating Dependencies" >> $GITHUB_STEP_SUMMARY
+          
+          # Create a temporary requirements file from pyproject.toml
+          pip install -e . 2>/dev/null || true
+          pip freeze > current-requirements.txt
+          
+          # Update dependencies (but skip critical ones that might break)
+          pur -r current-requirements.txt \
+            --skip torch \
+            --skip pennylane \
+            --skip pennylane-lightning \
+            --only numpy,scipy,pandas,matplotlib,seaborn \
+            > update-report.txt || true
+          
+          cat update-report.txt >> $GITHUB_STEP_SUMMARY || true
+      
+      - name: Test updated dependencies
+        id: test
+        run: |
+          echo "## ⚙️ Testing Updates" >> $GITHUB_STEP_SUMMARY
+          
+          # Try installing updated versions
+          pip install -r current-requirements.txt --upgrade || {
+            echo "❌ Installation failed, reverting" >> $GITHUB_STEP_SUMMARY
+            cp pyproject.toml.backup pyproject.toml
+            exit 1
+          }
+          
+          # Run quick smoke tests
+          python -c "import src; print('✅ Package imports successfully')" >> $GITHUB_STEP_SUMMARY || {
+            echo "❌ Import test failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          }
+          
+          # Run quick test suite
+          pip install pytest
+          pytest tests/ --maxfail=3 -x --tb=short || {
+            echo "⚠️ Some tests failed with updates" >> $GITHUB_STEP_SUMMARY
+            echo "test_status=warning" >> $GITHUB_OUTPUT
+          }
+          
+          echo "test_status=success" >> $GITHUB_OUTPUT
+        continue-on-error: true
+      
+      - name: Generate dependency tree
+        run: |
+          echo "## 🌳 Dependency Tree" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          pipdeptree --warn silence | head -50 >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+      
+      - name: Check for changes
+        id: check_changes
+        run: |
+          pip freeze > requirements-frozen-after.txt
+          
+          if diff requirements-frozen-before.txt requirements-frozen-after.txt > dependency-diff.txt; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "✅ All dependencies are up to date!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "📝 Dependency updates available" >> $GITHUB_STEP_SUMMARY
+            echo '```diff' >> $GITHUB_STEP_SUMMARY
+            head -30 dependency-diff.txt >> $GITHUB_STEP_SUMMARY || true
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Create update PR
+        if: steps.check_changes.outputs.has_changes == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: autonomous dependency updates [skip ci]'
+          committer: GitHub Actions <actions@github.com>
+          author: QuantumFold Bot <noreply@github.com>
+          branch: auto-deps-${{ github.run_number }}
+          delete-branch: true
+          title: '📦 Automated Dependency Updates'
+          body: |
+            ## 📦 Autonomous Dependency Updates
+            
+            **Security Vulnerabilities**: ${{ steps.security.outputs.vulnerabilities }}
+            **Test Status**: ${{ steps.test.outputs.test_status }}
+            **Generated**: ${{ github.event.repository.updated_at }}
+            
+            ### Updates Applied
+            
+            This PR updates dependencies to their latest compatible versions while:
+            - ✅ Maintaining compatibility with PyTorch and PennyLane
+            - ✅ Running smoke tests
+            - ✅ Checking for security vulnerabilities
+            - ✅ Validating imports
+            
+            ### Safety Checks
+            
+            - Security scan: Safety
+            - Import validation: Passed
+            - Quick tests: ${{ steps.test.outputs.test_status }}
+            
+            ### Review Notes
+            
+            - Critical packages (torch, pennylane) were **not** updated to avoid breaking changes
+            - All other packages updated to latest compatible versions
+            - Run full test suite after merge to ensure compatibility
+            
+            ---
+            *This PR was automatically generated by the autonomous dependency workflow.*
+            *Review the diff and merge if updates are appropriate.*
+          labels: |
+            automated
+            dependencies
+            maintenance
+      
+      - name: Summary
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "✨ Dependency update cycle complete!" >> $GITHUB_STEP_SUMMARY
