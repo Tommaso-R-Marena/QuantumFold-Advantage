@@ -1,6 +1,13 @@
 name: Autonomous Documentation
 
 on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'src/**/*.py'
+      - 'docs/**'
+      - 'README.md'
+      - '.github/workflows/autonomous-documentation.yml'
   schedule:
     - cron: '0 3 * * *'  # Daily at 3 AM UTC
   workflow_dispatch:
@@ -10,7 +17,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: autonomous-docs
+  group: autonomous-docs-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -205,6 +212,7 @@ EOF
             
             **Documentation Coverage**: ${{ steps.coverage.outputs.coverage }}
             **Generated**: ${{ github.event.repository.updated_at }}
+            **Triggered by**: ${{ github.event_name }}
             
             ### Improvements Applied
             
@@ -241,3 +249,7 @@ EOF
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "✨ Documentation improvement cycle complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Coverage**: ${{ steps.coverage.outputs.coverage }}" >> $GITHUB_STEP_SUMMARY
