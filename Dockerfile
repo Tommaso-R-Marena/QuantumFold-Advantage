@@ -1,4 +1,4 @@
-FROM python:3.14-slim
+FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
@@ -13,14 +13,17 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements first for better caching
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies with cleanup
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    rm -rf ~/.cache/pip
 
 # Copy application code
 COPY . .
 
-# Install package in development mode
-RUN pip install -e .
+# Install package in development mode with cleanup
+RUN pip install --no-cache-dir -e . && \
+    rm -rf ~/.cache/pip
 
 # HTTP port
 EXPOSE 8000
