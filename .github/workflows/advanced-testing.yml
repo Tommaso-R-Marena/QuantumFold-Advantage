@@ -148,7 +148,7 @@ jobs:
         continue-on-error: true
       
       - name: Upload mutation report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: mutation-report
@@ -195,7 +195,7 @@ jobs:
           coverage report --format=markdown >> $GITHUB_STEP_SUMMARY || true
       
       - name: Upload coverage artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: coverage-report
