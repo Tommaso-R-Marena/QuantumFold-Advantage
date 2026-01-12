@@ -29,16 +29,16 @@ jobs:
           - 03_advanced_visualization.ipynb
     
     steps:
-    - name: 📥 Checkout repository
+    - name: Checkout repository
       uses: actions/checkout@v6
     
-    - name: 🐍 Set up Python 3.10
+    - name: Set up Python 3.10
       uses: actions/setup-python@v6
       with:
         python-version: '3.10'
         cache: 'pip'
     
-    - name: 💾 Cache pip packages
+    - name: Cache pip packages
       uses: actions/cache@v5
       with:
         path: ~/.cache/pip
@@ -47,7 +47,7 @@ jobs:
           ${{ runner.os }}-pip-notebooks-
           ${{ runner.os }}-pip-
     
-    - name: 🔧 Install dependencies
+    - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         
@@ -63,12 +63,12 @@ jobs:
         # Install notebook execution tools
         pip install nbconvert nbformat jupyter ipykernel
     
-    - name: 🔍 Verify NumPy version
+    - name: Verify NumPy version
       run: |
         python -c "import numpy; print(f'NumPy version: {numpy.__version__}')"
         python -c "import numpy; assert numpy.__version__ < '2.0', 'NumPy 2.0+ detected!'"
     
-    - name: 📝 Execute notebook: ${{ matrix.notebook }}
+    - name: Execute notebook
       run: |
         echo "Testing ${{ matrix.notebook }}..."
         jupyter nbconvert --to notebook --execute \
@@ -77,9 +77,9 @@ jobs:
           --output-dir=/tmp/executed \
           examples/${{ matrix.notebook }}
         
-        echo "✅ Notebook executed successfully!"
+        echo "Notebook executed successfully!"
     
-    - name: 🔍 Validate outputs
+    - name: Validate outputs
       run: |
         python -c "
         import nbformat
@@ -99,17 +99,17 @@ jobs:
         print(f'Cells with errors: {errors}')
         
         if errors > 0:
-            print('❌ Notebook has errors!')
+            print('Notebook has errors!')
             sys.exit(1)
         
         if cells_with_output == 0:
-            print('⚠️  No outputs generated!')
+            print('No outputs generated!')
             sys.exit(1)
         
-        print('✅ Notebook validation passed!')
+        print('Notebook validation passed!')
         "
     
-    - name: 📊 Upload executed notebook
+    - name: Upload executed notebook
       if: always()
       uses: actions/upload-artifact@v6
       with:
@@ -123,49 +123,49 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     
     steps:
-    - name: 📥 Checkout repository
+    - name: Checkout repository
       uses: actions/checkout@v6
     
-    - name: 🐍 Set up Python 3.10
+    - name: Set up Python 3.10
       uses: actions/setup-python@v6
       with:
         python-version: '3.10'
     
-    - name: 🔧 Install dependencies
+    - name: Install dependencies
       run: |
         pip install --upgrade pip
         pip install pytest nbformat
     
-    - name: 🧪 Run structure tests
+    - name: Run structure tests
       run: |
         pytest tests/test_notebook_execution.py::TestNotebookStructure -v
     
-    - name: 🧪 Run content tests
+    - name: Run content tests
       run: |
         pytest tests/test_notebook_execution.py::TestNotebookContent -v
   
   summary:
-    name: 📊 Test Summary
+    name: Test Summary
     if: always()
     needs: [test-notebooks, test-notebook-structure]
     runs-on: ubuntu-latest
     
     steps:
-    - name: 📊 Check test results
+    - name: Check test results
       run: |
-        echo "## 📓 Notebook Execution Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "## Notebook Execution Test Results" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
         if [[ "${{ needs.test-notebooks.result }}" == "success" ]]; then
-          echo "✅ **All notebooks executed successfully!**" >> $GITHUB_STEP_SUMMARY
+          echo "All notebooks executed successfully!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Tested Notebooks" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ colab_quickstart.ipynb" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ 01_getting_started.ipynb" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ 02_quantum_vs_classical.ipynb" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ 03_advanced_visualization.ipynb" >> $GITHUB_STEP_SUMMARY
+          echo "- colab_quickstart.ipynb" >> $GITHUB_STEP_SUMMARY
+          echo "- 01_getting_started.ipynb" >> $GITHUB_STEP_SUMMARY
+          echo "- 02_quantum_vs_classical.ipynb" >> $GITHUB_STEP_SUMMARY
+          echo "- 03_advanced_visualization.ipynb" >> $GITHUB_STEP_SUMMARY
         else
-          echo "❌ **Some notebooks failed execution**" >> $GITHUB_STEP_SUMMARY
+          echo "Some notebooks failed execution" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Check individual job logs for details." >> $GITHUB_STEP_SUMMARY
         fi
@@ -173,14 +173,14 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         
         if [[ "${{ needs.test-notebook-structure.result }}" == "success" ]]; then
-          echo "✅ **Notebook structure tests passed!**" >> $GITHUB_STEP_SUMMARY
+          echo "Notebook structure tests passed!" >> $GITHUB_STEP_SUMMARY
         else
-          echo "❌ **Notebook structure tests failed**" >> $GITHUB_STEP_SUMMARY
+          echo "Notebook structure tests failed" >> $GITHUB_STEP_SUMMARY
         fi
         
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 📥 Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
         echo "Executed notebooks are available as workflow artifacts for 7 days." >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 🔧 NumPy Fix Applied" >> $GITHUB_STEP_SUMMARY
+        echo "### NumPy Fix Applied" >> $GITHUB_STEP_SUMMARY
         echo "All notebooks executed with NumPy <2.0 to prevent compatibility issues." >> $GITHUB_STEP_SUMMARY
