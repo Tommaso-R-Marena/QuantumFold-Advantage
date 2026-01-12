@@ -3,22 +3,21 @@ name: Test Notebook Execution
 on:
   push:
     branches: [ main, develop ]
-    # Run on ALL pushes to main/develop (no path filters)
   pull_request:
     branches: [ main ]
     paths:
-      # Only run on PRs if notebooks or relevant code changes
       - 'examples/*.ipynb'
       - 'src/**'
       - 'tests/test_notebook_execution.py'
       - '.github/workflows/test-notebooks-execution.yml'
-  workflow_dispatch:  # Allow manual triggering
+  workflow_dispatch:
 
 jobs:
   test-notebooks:
     name: Execute Notebooks
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     
     strategy:
       fail-fast: false
@@ -28,20 +27,19 @@ jobs:
           - 01_getting_started.ipynb
           - 02_quantum_vs_classical.ipynb
           - 03_advanced_visualization.ipynb
-          # complete_benchmark.ipynb is too long, skip in CI
     
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     
     - name: 🐍 Set up Python 3.10
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.10'
         cache: 'pip'
     
     - name: 💾 Cache pip packages
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-notebooks-${{ hashFiles('requirements.txt') }}
@@ -113,7 +111,7 @@ jobs:
     
     - name: 📊 Upload executed notebook
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: executed-${{ matrix.notebook }}
         path: /tmp/executed/${{ matrix.notebook }}
@@ -122,13 +120,14 @@ jobs:
   test-notebook-structure:
     name: Test Notebook Structure
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     
     steps:
     - name: 📥 Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     
     - name: 🐍 Set up Python 3.10
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.10'
     
