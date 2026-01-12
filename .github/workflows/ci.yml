@@ -75,6 +75,21 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       
+      - name: Free up disk space
+        if: runner.os == 'Linux'
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+          echo "Disk space after cleanup:"
+          df -h
+      
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:
@@ -93,6 +108,8 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install -e . || echo "Package install had issues, continuing..."
           pip install pytest pytest-cov pytest-xdist pytest-timeout pytest-json-report
+          # Clean up pip cache
+          pip cache purge || true
       
       - name: Run tests with reporting
         run: |
