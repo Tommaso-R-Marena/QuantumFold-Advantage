@@ -150,7 +150,7 @@ jobs:
   docker:
     name: Docker Build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30  # Increased from 15 to 30 minutes
     permissions:
       contents: read
     
