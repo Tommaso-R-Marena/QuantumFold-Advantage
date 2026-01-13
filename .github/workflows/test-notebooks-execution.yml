@@ -137,7 +137,8 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install pytest nbformat torch
+        # Add nbconvert for ExecutePreprocessor import in test file
+        pip install pytest nbformat nbconvert torch
     
     - name: Run structure tests
       run: |
