@@ -214,6 +214,9 @@ class AdvancedQuantumCircuitLayer(nn.Module):
         batch_size = x.shape[0]
         feature_dim = x.shape[1]
 
+        # Ensure float32 dtype to match Linear layers
+        x = x.float()
+
         # Feature preprocessing
         if feature_dim > self.n_qubits:
             # Trainable dimension reduction
@@ -232,7 +235,8 @@ class AdvancedQuantumCircuitLayer(nn.Module):
         outputs = []
         for i in range(batch_size):
             result = self.qnode(x[i], self.weights, self.param_scaling)
-            outputs.append(torch.stack(result))
+            # Cast to float32 to match PyTorch Linear layer expectations
+            outputs.append(torch.stack([torch.tensor(r, dtype=torch.float32) for r in result]))
 
         return torch.stack(outputs)
 
@@ -263,7 +267,8 @@ class AdvancedQuantumCircuitLayer(nn.Module):
             out2 = self.qnode(inputs, params2, torch.ones(self.n_layers))
 
             # Compute fidelity
-            fidelity = torch.abs(torch.dot(torch.tensor(out1), torch.tensor(out2)))
+            fidelity = torch.abs(torch.dot(torch.tensor(out1, dtype=torch.float32), 
+                                           torch.tensor(out2, dtype=torch.float32)))
             fidelities.append(fidelity.item())
 
         # Expressibility is measured by comparing to Haar random distribution
@@ -293,7 +298,7 @@ class AdvancedQuantumCircuitLayer(nn.Module):
             with torch.no_grad():
                 outputs = self.qnode(inputs, params, torch.ones(self.n_layers))
                 # Variance of outputs indicates entanglement
-                variance = torch.var(torch.tensor(outputs)).item()
+                variance = torch.var(torch.tensor(outputs, dtype=torch.float32)).item()
                 entanglement_scores.append(variance)
 
         self.entangling_capability = float(np.mean(entanglement_scores))
@@ -374,9 +379,9 @@ class QuantumKernelLayer(nn.Module):
         """
         result = self.kernel_circuit(x1, x2, self.feature_params)
         if self.kernel_type in ["Z", "ZZ"]:
-            return torch.mean(torch.abs(torch.tensor(result)))
+            return torch.mean(torch.abs(torch.tensor(result, dtype=torch.float32)))
         else:
-            return torch.tensor(result[0])  # Probability of |00...0⟩
+            return torch.tensor(result[0], dtype=torch.float32)  # Probability of |00...0⟩
 
     def forward(self, X: Tensor) -> Tensor:
         """Compute Gram matrix for batch of samples.
@@ -510,8 +515,8 @@ class QuantumAttentionLayer(nn.Module):
                 # Quantum processing
                 q_output = quantum_circuit(q_input)  # (batch, n_qubits)
 
-                # Learnable modulation
-                modulation = self.modulation_gate(q_output)[:, head_idx : head_idx + 1]
+                # Learnable modulation - ensure float32
+                modulation = self.modulation_gate(q_output.float())[:, head_idx : head_idx + 1]
                 modulation = 1.0 + (modulation - 0.5) * self.modulation_strength
 
                 # Apply modulation (non-inplace)
@@ -614,10 +619,10 @@ class HybridQuantumClassicalBlock(nn.Module):
         # Classical branch
         classical_out = self.classical_branch(x_flat)
 
-        # Quantum branch
+        # Quantum branch - ensure float32
         q_in = self.quantum_proj_in(x_flat)
         q_features = self.quantum_circuit(q_in)
-        quantum_out = self.quantum_proj_out(q_features)
+        quantum_out = self.quantum_proj_out(q_features.float())
         quantum_out = self.quantum_norm(quantum_out)
 
         # Fusion
