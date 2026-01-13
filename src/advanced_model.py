@@ -201,7 +201,9 @@ class StructureModule(nn.Module):
         self.n_layers = n_layers
 
         # IPA layers
-        self.ipa_layers = nn.ModuleList([InvariantPointAttention(c_s=c_s, c_z=c_z) for _ in range(n_layers)])
+        self.ipa_layers = nn.ModuleList(
+            [InvariantPointAttention(c_s=c_s, c_z=c_z) for _ in range(n_layers)]
+        )
 
         # Transition layers
         self.transitions = nn.ModuleList(
