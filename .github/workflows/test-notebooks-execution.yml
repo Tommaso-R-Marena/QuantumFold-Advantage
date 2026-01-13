@@ -51,11 +51,14 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         
-        # NumPy 2.0 fix
-        pip uninstall -y numpy jax jaxlib autograd pennylane 2>/dev/null || true
-        pip install --force-reinstall --no-deps 'numpy>=1.23.0,<2.0.0'
-        pip install --no-deps 'autograd>=1.6.2'
-        pip install --no-deps 'pennylane>=0.32.0'
+        # Critical version pinning for autoray/PennyLane compatibility
+        pip uninstall -y numpy jax jaxlib autograd pennylane autoray 2>/dev/null || true
+        
+        # Install in correct order with strict versions
+        pip install 'numpy>=1.23.0,<2.0.0'
+        pip install 'autoray>=0.6.1,<0.7.0'  # Compatible with PennyLane NumpyMimic
+        pip install 'autograd>=1.6.2'
+        pip install 'pennylane>=0.33.0,<0.35.0'
         
         # Install package with test dependencies
         pip install -e .[dev,protein-lm]
@@ -134,7 +137,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install pytest nbformat
+        pip install pytest nbformat torch
     
     - name: Run structure tests
       run: |
@@ -182,5 +185,6 @@ jobs:
         echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
         echo "Executed notebooks are available as workflow artifacts for 7 days." >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### NumPy Fix Applied" >> $GITHUB_STEP_SUMMARY
-        echo "All notebooks executed with NumPy <2.0 to prevent compatibility issues." >> $GITHUB_STEP_SUMMARY
+        echo "### Compatibility Fixes Applied" >> $GITHUB_STEP_SUMMARY
+        echo "- NumPy <2.0 for stability" >> $GITHUB_STEP_SUMMARY
+        echo "- Autoray <0.7.0 for PennyLane compatibility" >> $GITHUB_STEP_SUMMARY
