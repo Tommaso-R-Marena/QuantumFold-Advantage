@@ -190,16 +190,18 @@ class StructureModule(nn.Module):
 
     Args:
         c_s: Single representation dimension
+        c_z: Pair representation dimension
         n_layers: Number of refinement iterations
     """
 
-    def __init__(self, c_s: int = 384, n_layers: int = 8):
+    def __init__(self, c_s: int = 384, c_z: int = 128, n_layers: int = 8):
         super().__init__()
         self.c_s = c_s
+        self.c_z = c_z
         self.n_layers = n_layers
 
         # IPA layers
-        self.ipa_layers = nn.ModuleList([InvariantPointAttention(c_s=c_s) for _ in range(n_layers)])
+        self.ipa_layers = nn.ModuleList([InvariantPointAttention(c_s=c_s, c_z=c_z) for _ in range(n_layers)])
 
         # Transition layers
         self.transitions = nn.ModuleList(
@@ -409,8 +411,8 @@ class AdvancedProteinFoldingModel(nn.Module):
                 use_gated_fusion=True,
             )
 
-        # Structure module
-        self.structure_module = StructureModule(c_s=c_s, n_layers=n_structure_layers)
+        # Structure module - pass c_z parameter
+        self.structure_module = StructureModule(c_s=c_s, c_z=c_z, n_layers=n_structure_layers)
 
         # Confidence head
         self.confidence_head = ConfidenceHead(c_s=c_s)
