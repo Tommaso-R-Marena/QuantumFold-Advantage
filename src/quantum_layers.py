@@ -267,8 +267,11 @@ class AdvancedQuantumCircuitLayer(nn.Module):
             out2 = self.qnode(inputs, params2, torch.ones(self.n_layers))
 
             # Compute fidelity
-            fidelity = torch.abs(torch.dot(torch.tensor(out1, dtype=torch.float32), 
-                                           torch.tensor(out2, dtype=torch.float32)))
+            fidelity = torch.abs(
+                torch.dot(
+                    torch.tensor(out1, dtype=torch.float32), torch.tensor(out2, dtype=torch.float32)
+                )
+            )
             fidelities.append(fidelity.item())
 
         # Expressibility is measured by comparing to Haar random distribution
