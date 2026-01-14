@@ -26,7 +26,7 @@ QuantumFold-Advantage seeks to demonstrate provable quantum advantage in protein
 
 ---
 
-## 🚀 **PRODUCTION BENCHMARK - RUN NOW!**
+## 🚀 **PRODUCTION BENCHMARK - In Development!**
 
 ### **🔥 Complete Production Training & Benchmarking on Colab Pro A100**
 
@@ -34,6 +34,7 @@ QuantumFold-Advantage seeks to demonstrate provable quantum advantage in protein
 
 **Full end-to-end training pipeline optimized for Google Colab Pro with A100 GPU**
 
+The goal:
 ✅ **Complete Training Pipeline** - Quantum + Classical models from scratch  
 ✅ **Real CASP Benchmarking** - Actual protein folding challenge targets  
 ✅ **Statistical Validation** - Publication-ready hypothesis testing  
@@ -43,10 +44,10 @@ QuantumFold-Advantage seeks to demonstrate provable quantum advantage in protein
 ✅ **Results Archive** - Downloadable benchmark data  
 
 **Requirements:** Google Colab Pro with A100 GPU (~40GB VRAM), High RAM  
-**Runtime:** ~2-4 hours for complete benchmarking  
-**Output:** Trained models, statistical analysis, publication-ready results
+**Estimated Runtime:** ~2-4 hours for complete benchmarking  
+**Anticipated Output:** Trained models, statistical analysis, publication-ready results
 
-**This notebook will generate REAL publication-quality results!**
+**This notebook will hopefully produce publication-quality results once it's finished!**
 
 ---
 
