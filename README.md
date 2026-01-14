@@ -345,10 +345,10 @@ QuantumFold-Advantage/
 
 Explore the examples with interactive notebooks:
 
-### Production Ready
+### InDevelopment: Production Ready Notebook
 | Notebook | Description | Runtime | Colab |
 |----------|-------------|---------|-------|
-| **complete_production_run.ipynb** | 🔥 **FULL A100 BENCHMARK** - Real training! | ~2-4 hours | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/complete_production_run.ipynb) |
+| **complete_production_run.ipynb** | 🔥 **FULL A100 BENCHMARK** - The real deal! | ~2-4 hours | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/complete_production_run.ipynb) |
 
 ### Quick Start
 | Notebook | Description | Runtime | Colab |
