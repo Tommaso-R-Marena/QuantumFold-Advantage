@@ -4,18 +4,19 @@ This module implements standardized benchmarking protocols for fair comparison
 with state-of-the-art protein structure prediction methods.
 """
 
-import numpy as np
-import torch
-import requests
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional
-from dataclasses import dataclass
 import json
+import logging
 import subprocess
 import tempfile
-from Bio.PDB import PDBParser, PDBIO
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+import requests
+import torch
+from Bio.PDB import PDBIO, PDBParser
 from scipy.spatial.distance import cdist
-import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class BenchmarkResult:
     """Container for benchmark results."""
+
     method: str
     pdb_id: str
     rmsd: float
@@ -97,7 +99,9 @@ class BaselineComparator:
 
         return tm_score
 
-    def compute_gdt(self, pred: np.ndarray, target: np.ndarray, cutoffs: List[float] = [1, 2, 4, 8]) -> Dict[str, float]:
+    def compute_gdt(
+        self, pred: np.ndarray, target: np.ndarray, cutoffs: List[float] = [1, 2, 4, 8]
+    ) -> Dict[str, float]:
         """Compute GDT (Global Distance Test) scores.
 
         Args:
@@ -113,21 +117,23 @@ class BaselineComparator:
 
         gdt_scores = {}
         for cutoff in cutoffs:
-            gdt_scores[f'GDT_{cutoff}A'] = (distances < cutoff).mean() * 100
+            gdt_scores[f"GDT_{cutoff}A"] = (distances < cutoff).mean() * 100
 
         # GDT_TS (Total Score): average of 1, 2, 4, 8Å cutoffs
-        gdt_scores['GDT_TS'] = np.mean([gdt_scores[f'GDT_{c}A'] for c in [1, 2, 4, 8]])
+        gdt_scores["GDT_TS"] = np.mean([gdt_scores[f"GDT_{c}A"] for c in [1, 2, 4, 8]])
 
         # GDT_HA (High Accuracy): average of 0.5, 1, 2, 4Å cutoffs
         ha_cutoffs = [0.5, 1, 2, 4]
         ha_scores = []
         for cutoff in ha_cutoffs:
             ha_scores.append((distances < cutoff).mean() * 100)
-        gdt_scores['GDT_HA'] = np.mean(ha_scores)
+        gdt_scores["GDT_HA"] = np.mean(ha_scores)
 
         return gdt_scores
 
-    def compute_lddt(self, pred: np.ndarray, target: np.ndarray, inclusion_radius: float = 15.0) -> float:
+    def compute_lddt(
+        self, pred: np.ndarray, target: np.ndarray, inclusion_radius: float = 15.0
+    ) -> float:
         """Compute lDDT (local Distance Difference Test).
 
         Args:
@@ -181,7 +187,7 @@ class BaselineComparator:
             response = requests.post(url, data=sequence, timeout=300)
 
             if response.status_code == 200:
-                with open(cache_file, 'w') as f:
+                with open(cache_file, "w") as f:
                     f.write(response.text)
 
                 structure = self.parser.get_structure(pdb_id, str(cache_file))
@@ -201,11 +207,13 @@ class BaselineComparator:
         for model in structure:
             for chain in model:
                 for residue in chain:
-                    if 'CA' in residue:
-                        coords.append(residue['CA'].get_coord())
+                    if "CA" in residue:
+                        coords.append(residue["CA"].get_coord())
         return np.array(coords)
 
-    def benchmark_against_esmfold(self, sequence: str, target_coords: np.ndarray, pdb_id: str) -> BenchmarkResult:
+    def benchmark_against_esmfold(
+        self, sequence: str, target_coords: np.ndarray, pdb_id: str
+    ) -> BenchmarkResult:
         """Benchmark against ESMFold.
 
         Args:
@@ -217,6 +225,7 @@ class BaselineComparator:
             BenchmarkResult object
         """
         import time
+
         start_time = time.time()
 
         pred_coords = self.get_esmfold_prediction(sequence, pdb_id)
@@ -226,14 +235,14 @@ class BaselineComparator:
             return BenchmarkResult(
                 method="ESMFold",
                 pdb_id=pdb_id,
-                rmsd=float('inf'),
+                rmsd=float("inf"),
                 tm_score=0.0,
                 gdt_ts=0.0,
                 gdt_ha=0.0,
                 lddt=0.0,
                 inference_time=time.time() - start_time,
                 memory_usage=0.0,
-                sequence_length=len(sequence)
+                sequence_length=len(sequence),
             )
 
         _, rmsd = self.kabsch_align(pred_coords, target_coords)
@@ -246,15 +255,17 @@ class BaselineComparator:
             pdb_id=pdb_id,
             rmsd=rmsd,
             tm_score=tm_score,
-            gdt_ts=gdt['GDT_TS'],
-            gdt_ha=gdt['GDT_HA'],
+            gdt_ts=gdt["GDT_TS"],
+            gdt_ha=gdt["GDT_HA"],
             lddt=lddt,
             inference_time=time.time() - start_time,
             memory_usage=0.0,  # Not tracked for API calls
-            sequence_length=len(sequence)
+            sequence_length=len(sequence),
         )
 
-    def run_comprehensive_benchmark(self, test_proteins: List[Tuple[str, str, np.ndarray]], model, device) -> Dict:
+    def run_comprehensive_benchmark(
+        self, test_proteins: List[Tuple[str, str, np.ndarray]], model, device
+    ) -> Dict:
         """Run comprehensive benchmark suite.
 
         Args:
@@ -265,10 +276,7 @@ class BaselineComparator:
         Returns:
             Dictionary with benchmark results
         """
-        results = {
-            'QuantumFold': [],
-            'ESMFold': []
-        }
+        results = {"QuantumFold": [], "ESMFold": []}
 
         for pdb_id, sequence, target_coords in test_proteins:
             logger.info(f"Benchmarking {pdb_id} ({len(sequence)} residues)")
@@ -276,13 +284,14 @@ class BaselineComparator:
             # Benchmark QuantumFold
             try:
                 import time
+
                 start_time = time.time()
 
                 with torch.no_grad():
                     # Get prediction from model
                     # This assumes your model has appropriate interface
                     output = model.predict(sequence, device=device)
-                    pred_coords = output['coords'].cpu().numpy()
+                    pred_coords = output["coords"].cpu().numpy()
 
                 inference_time = time.time() - start_time
 
@@ -292,25 +301,31 @@ class BaselineComparator:
                     gdt = self.compute_gdt(pred_coords, target_coords)
                     lddt = self.compute_lddt(pred_coords, target_coords)
 
-                    results['QuantumFold'].append(BenchmarkResult(
-                        method="QuantumFold-Advantage",
-                        pdb_id=pdb_id,
-                        rmsd=rmsd,
-                        tm_score=tm_score,
-                        gdt_ts=gdt['GDT_TS'],
-                        gdt_ha=gdt['GDT_HA'],
-                        lddt=lddt,
-                        inference_time=inference_time,
-                        memory_usage=torch.cuda.max_memory_allocated() / 1e9 if torch.cuda.is_available() else 0.0,
-                        sequence_length=len(sequence)
-                    ))
+                    results["QuantumFold"].append(
+                        BenchmarkResult(
+                            method="QuantumFold-Advantage",
+                            pdb_id=pdb_id,
+                            rmsd=rmsd,
+                            tm_score=tm_score,
+                            gdt_ts=gdt["GDT_TS"],
+                            gdt_ha=gdt["GDT_HA"],
+                            lddt=lddt,
+                            inference_time=inference_time,
+                            memory_usage=(
+                                torch.cuda.max_memory_allocated() / 1e9
+                                if torch.cuda.is_available()
+                                else 0.0
+                            ),
+                            sequence_length=len(sequence),
+                        )
+                    )
 
             except Exception as e:
                 logger.error(f"QuantumFold prediction failed for {pdb_id}: {e}")
 
             # Benchmark ESMFold
             esmfold_result = self.benchmark_against_esmfold(sequence, target_coords, pdb_id)
-            results['ESMFold'].append(esmfold_result)
+            results["ESMFold"].append(esmfold_result)
 
             # Clear GPU cache
             if torch.cuda.is_available():
@@ -327,20 +342,20 @@ class BaselineComparator:
                 continue
 
             metrics = {
-                'rmsd': [r.rmsd for r in result_list if r.rmsd != float('inf')],
-                'tm_score': [r.tm_score for r in result_list],
-                'gdt_ts': [r.gdt_ts for r in result_list],
-                'gdt_ha': [r.gdt_ha for r in result_list],
-                'lddt': [r.lddt for r in result_list],
-                'inference_time': [r.inference_time for r in result_list]
+                "rmsd": [r.rmsd for r in result_list if r.rmsd != float("inf")],
+                "tm_score": [r.tm_score for r in result_list],
+                "gdt_ts": [r.gdt_ts for r in result_list],
+                "gdt_ha": [r.gdt_ha for r in result_list],
+                "lddt": [r.lddt for r in result_list],
+                "inference_time": [r.inference_time for r in result_list],
             }
 
             aggregated[method] = {
-                'mean': {k: np.mean(v) if v else float('nan') for k, v in metrics.items()},
-                'std': {k: np.std(v) if v else float('nan') for k, v in metrics.items()},
-                'median': {k: np.median(v) if v else float('nan') for k, v in metrics.items()},
-                'n_proteins': len(result_list),
-                'raw_results': result_list
+                "mean": {k: np.mean(v) if v else float("nan") for k, v in metrics.items()},
+                "std": {k: np.std(v) if v else float("nan") for k, v in metrics.items()},
+                "median": {k: np.median(v) if v else float("nan") for k, v in metrics.items()},
+                "n_proteins": len(result_list),
+                "raw_results": result_list,
             }
 
         return aggregated
@@ -368,12 +383,12 @@ class BaselineComparator:
         serializable = {}
         for method, data in results.items():
             serializable[method] = data.copy()
-            if 'raw_results' in serializable[method]:
-                serializable[method]['raw_results'] = [
-                    vars(r) for r in serializable[method]['raw_results']
+            if "raw_results" in serializable[method]:
+                serializable[method]["raw_results"] = [
+                    vars(r) for r in serializable[method]["raw_results"]
                 ]
 
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             json.dump(serializable, f, indent=2)
 
         logger.info(f"Results saved to {output_path}")
