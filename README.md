@@ -56,7 +56,7 @@ The goal:
 ### 1. **Production Benchmark** (Colab Pro A100) 🔥 NEW!
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/complete_production_run.ipynb)
 
-**Full training pipeline with real benchmarking** - Generate publication results!
+**Full training pipeline with complete benchmarking** - What I'll use to generate (hopeful) publication results!
 
 ### 2. **Quick Demo** (Free Colab)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/colab_quickstart.ipynb)
