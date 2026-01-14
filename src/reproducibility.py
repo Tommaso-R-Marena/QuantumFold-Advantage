@@ -1,11 +1,12 @@
 """Tools for ensuring reproducibility across runs."""
 
-import torch
-import numpy as np
-import random
-import os
-from typing import Optional
 import logging
+import os
+import random
+from typing import Optional
+
+import numpy as np
+import torch
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -35,7 +36,7 @@ def set_seed(seed: int, deterministic: bool = True):
         torch.backends.cudnn.benchmark = True
 
     # Set environment variable for CUDA
-    os.environ['PYTHONHASHSEED'] = str(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
 
     logger.info(f"Random seed set to {seed} (deterministic={deterministic})")
 
@@ -49,28 +50,30 @@ def save_reproducibility_info(config_dict: dict, save_path: str):
     """
     import json
     import sys
+
     import torch
 
     repro_info = {
-        'config': config_dict,
-        'environment': {
-            'python_version': sys.version,
-            'pytorch_version': torch.__version__,
-            'cuda_version': torch.version.cuda if torch.cuda.is_available() else None,
-            'cudnn_version': torch.backends.cudnn.version() if torch.cuda.is_available() else None,
+        "config": config_dict,
+        "environment": {
+            "python_version": sys.version,
+            "pytorch_version": torch.__version__,
+            "cuda_version": torch.version.cuda if torch.cuda.is_available() else None,
+            "cudnn_version": torch.backends.cudnn.version() if torch.cuda.is_available() else None,
         },
-        'packages': {}
+        "packages": {},
     }
 
     # Try to get package versions
     try:
         import pkg_resources
+
         installed_packages = {pkg.key: pkg.version for pkg in pkg_resources.working_set}
-        repro_info['packages'] = installed_packages
+        repro_info["packages"] = installed_packages
     except:
         logger.warning("Could not retrieve package versions")
 
-    with open(save_path, 'w') as f:
+    with open(save_path, "w") as f:
         json.dump(repro_info, f, indent=2)
 
     logger.info(f"Reproducibility information saved to {save_path}")
