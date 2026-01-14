@@ -9,6 +9,7 @@ on:
       - 'examples/*.ipynb'
       - 'src/**'
       - 'tests/test_notebook_execution.py'
+      - 'tests/test_production_notebook.py'
       - '.github/workflows/test-notebooks-execution.yml'
   workflow_dispatch:
 
@@ -148,10 +149,73 @@ jobs:
       run: |
         pytest tests/test_notebook_execution.py::TestNotebookContent -v
   
+  test-production-notebook:
+    name: Test Production Notebook
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v6
+    
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil
+    
+    - name: Test notebook structure
+      run: |
+        pytest tests/test_production_notebook.py::TestNotebookStructure -v
+    
+    - name: Test configuration cells
+      run: |
+        pytest tests/test_production_notebook.py::TestConfigurationCells -v
+    
+    - name: Test data processing
+      run: |
+        pytest tests/test_production_notebook.py::TestDataProcessing -v
+    
+    - name: Test model training
+      run: |
+        pytest tests/test_production_notebook.py::TestModelTraining -v
+    
+    - name: Test evaluation
+      run: |
+        pytest tests/test_production_notebook.py::TestEvaluation -v
+    
+    - name: Test visualization
+      run: |
+        pytest tests/test_production_notebook.py::TestVisualization -v
+    
+    - name: Test results export
+      run: |
+        pytest tests/test_production_notebook.py::TestResultsExport -v
+    
+    - name: Test memory management
+      run: |
+        pytest tests/test_production_notebook.py::TestMemoryManagement -v
+    
+    - name: Test error handling
+      run: |
+        pytest tests/test_production_notebook.py::TestErrorHandling -v
+    
+    - name: Test reproducibility
+      run: |
+        pytest tests/test_production_notebook.py::TestReproducibility -v
+    
+    - name: Test documentation
+      run: |
+        pytest tests/test_production_notebook.py::TestDocumentation -v
+  
   summary:
     name: Test Summary
     if: always()
-    needs: [test-notebooks, test-notebook-structure]
+    needs: [test-notebooks, test-notebook-structure, test-production-notebook]
     runs-on: ubuntu-latest
     
     steps:
@@ -161,7 +225,7 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         
         if [[ "${{ needs.test-notebooks.result }}" == "success" ]]; then
-          echo "All notebooks executed successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "✅ All tutorial notebooks executed successfully!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Tested Notebooks" >> $GITHUB_STEP_SUMMARY
           echo "- colab_quickstart.ipynb" >> $GITHUB_STEP_SUMMARY
@@ -169,7 +233,7 @@ jobs:
           echo "- 02_quantum_vs_classical.ipynb" >> $GITHUB_STEP_SUMMARY
           echo "- 03_advanced_visualization.ipynb" >> $GITHUB_STEP_SUMMARY
         else
-          echo "Some notebooks failed execution" >> $GITHUB_STEP_SUMMARY
+          echo "❌ Some notebooks failed execution" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Check individual job logs for details." >> $GITHUB_STEP_SUMMARY
         fi
@@ -177,9 +241,32 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         
         if [[ "${{ needs.test-notebook-structure.result }}" == "success" ]]; then
-          echo "Notebook structure tests passed!" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Notebook structure tests passed!" >> $GITHUB_STEP_SUMMARY
         else
-          echo "Notebook structure tests failed" >> $GITHUB_STEP_SUMMARY
+          echo "❌ Notebook structure tests failed" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [[ "${{ needs.test-production-notebook.result }}" == "success" ]]; then
+          echo "✅ Production notebook tests passed!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Production Notebook Validation" >> $GITHUB_STEP_SUMMARY
+          echo "- Structure and metadata ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Configuration cells ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Data processing ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Model training ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Evaluation and statistics ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Visualization ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Results export ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Memory management ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Error handling ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Reproducibility ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Documentation ✅" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Production notebook tests failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check test logs for details." >> $GITHUB_STEP_SUMMARY
         fi
         
         echo "" >> $GITHUB_STEP_SUMMARY
