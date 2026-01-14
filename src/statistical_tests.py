@@ -1,10 +1,11 @@
 """Rigorous statistical validation and hypothesis testing."""
 
-import numpy as np
-from scipy import stats
-from typing import List, Dict, Tuple, Optional
 import logging
 from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+from scipy import stats
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class StatisticalTestResult:
     """Container for statistical test results."""
+
     test_name: str
     statistic: float
     p_value: float
@@ -34,9 +36,13 @@ class StatisticalValidator:
         """
         self.alpha = alpha
 
-    def paired_t_test(self, method_a: List[float], method_b: List[float],
-                     method_a_name: str = "Method A",
-                     method_b_name: str = "Method B") -> StatisticalTestResult:
+    def paired_t_test(
+        self,
+        method_a: List[float],
+        method_b: List[float],
+        method_a_name: str = "Method A",
+        method_b_name: str = "Method B",
+    ) -> StatisticalTestResult:
         """Perform paired t-test to compare two methods.
 
         Args:
@@ -55,8 +61,9 @@ class StatisticalValidator:
         effect_size = np.mean(diff) / np.std(diff)
 
         # Confidence interval for mean difference
-        ci = stats.t.interval(1 - self.alpha, len(diff) - 1,
-                             loc=np.mean(diff), scale=stats.sem(diff))
+        ci = stats.t.interval(
+            1 - self.alpha, len(diff) - 1, loc=np.mean(diff), scale=stats.sem(diff)
+        )
 
         significant = p_value < self.alpha
 
@@ -75,12 +82,16 @@ class StatisticalValidator:
             significant=significant,
             effect_size=effect_size,
             confidence_interval=ci,
-            interpretation=interpretation
+            interpretation=interpretation,
         )
 
-    def wilcoxon_test(self, method_a: List[float], method_b: List[float],
-                     method_a_name: str = "Method A",
-                     method_b_name: str = "Method B") -> StatisticalTestResult:
+    def wilcoxon_test(
+        self,
+        method_a: List[float],
+        method_b: List[float],
+        method_a_name: str = "Method A",
+        method_b_name: str = "Method B",
+    ) -> StatisticalTestResult:
         """Perform Wilcoxon signed-rank test (non-parametric alternative to paired t-test).
 
         Args:
@@ -109,11 +120,12 @@ class StatisticalValidator:
             statistic=statistic,
             p_value=p_value,
             significant=significant,
-            interpretation=interpretation
+            interpretation=interpretation,
         )
 
-    def bootstrap_confidence_interval(self, data: List[float], n_bootstrap: int = 10000,
-                                     confidence: float = 0.95) -> Tuple[float, float, float]:
+    def bootstrap_confidence_interval(
+        self, data: List[float], n_bootstrap: int = 10000, confidence: float = 0.95
+    ) -> Tuple[float, float, float]:
         """Compute bootstrap confidence interval for mean.
 
         Args:
@@ -156,17 +168,18 @@ class StatisticalValidator:
         ci = stats.t.interval(0.95, len(cv_scores) - 1, loc=mean_score, scale=sem_score)
 
         return {
-            'mean': mean_score,
-            'std': std_score,
-            'sem': sem_score,
-            'min': np.min(cv_scores),
-            'max': np.max(cv_scores),
-            'cv_scores': cv_scores,
-            'confidence_interval_95': ci
+            "mean": mean_score,
+            "std": std_score,
+            "sem": sem_score,
+            "min": np.min(cv_scores),
+            "max": np.max(cv_scores),
+            "cv_scores": cv_scores,
+            "confidence_interval_95": ci,
         }
 
-    def multiple_testing_correction(self, p_values: List[float],
-                                   method: str = 'bonferroni') -> List[bool]:
+    def multiple_testing_correction(
+        self, p_values: List[float], method: str = "bonferroni"
+    ) -> List[bool]:
         """Apply multiple testing correction.
 
         Args:
@@ -205,8 +218,9 @@ class StatisticalValidator:
         else:
             return "large"
 
-    def comprehensive_comparison(self, method_results: Dict[str, List[float]],
-                                baseline_name: str) -> Dict:
+    def comprehensive_comparison(
+        self, method_results: Dict[str, List[float]], baseline_name: str
+    ) -> Dict:
         """Perform comprehensive statistical comparison against baseline.
 
         Args:
@@ -236,12 +250,12 @@ class StatisticalValidator:
             mean, lower, upper = self.bootstrap_confidence_interval(values)
 
             comparisons[method_name] = {
-                't_test': t_test,
-                'wilcoxon_test': w_test,
-                'bootstrap_ci': (mean, lower, upper),
-                'mean': np.mean(values),
-                'std': np.std(values),
-                'median': np.median(values)
+                "t_test": t_test,
+                "wilcoxon_test": w_test,
+                "bootstrap_ci": (mean, lower, upper),
+                "mean": np.mean(values),
+                "std": np.std(values),
+                "median": np.median(values),
             }
 
         return comparisons
@@ -271,17 +285,19 @@ class StatisticalValidator:
             report.append(f"  Median: {results['median']:.4f}")
 
             # Bootstrap CI
-            mean, lower, upper = results['bootstrap_ci']
+            mean, lower, upper = results["bootstrap_ci"]
             report.append(f"  95% Bootstrap CI: [{lower:.4f}, {upper:.4f}]")
 
             # t-test
-            t_test = results['t_test']
+            t_test = results["t_test"]
             report.append(f"\n  Paired t-test:")
             report.append(f"    {t_test.interpretation}")
-            report.append(f"    Effect size (Cohen's d): {t_test.effect_size:.3f} ({self.effect_size_interpretation(t_test.effect_size)})")
+            report.append(
+                f"    Effect size (Cohen's d): {t_test.effect_size:.3f} ({self.effect_size_interpretation(t_test.effect_size)})"
+            )
 
             # Wilcoxon
-            w_test = results['wilcoxon_test']
+            w_test = results["wilcoxon_test"]
             report.append(f"\n  Wilcoxon test:")
             report.append(f"    {w_test.interpretation}")
 
