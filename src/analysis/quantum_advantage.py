@@ -12,10 +12,9 @@ Implements:
 """
 
 import json
-import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 import scipy.stats as stats
@@ -305,7 +304,7 @@ class QuantumAdvantageAnalyzer:
         try:
             n_required = brentq(power_diff, 2, 10000)
             return int(np.ceil(n_required))
-        except:
+        except BaseException:
             return -1  # Cannot achieve desired power
 
     def bonferroni_correction(self, pvalue: float, n_comparisons: int) -> float:

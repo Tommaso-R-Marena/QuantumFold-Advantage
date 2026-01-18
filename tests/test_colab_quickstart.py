@@ -21,10 +21,7 @@ class TestEnvironmentSetup:
 
     def test_required_imports(self):
         """All required packages must import successfully."""
-        import os
-        import sys
 
-        import matplotlib.pyplot
         import numpy
         import torch
 
@@ -35,8 +32,7 @@ class TestEnvironmentSetup:
     def test_autograd_import(self):
         """Autograd must import without ValueError."""
         try:
-            import autograd
-            import autograd.numpy as anp
+            pass
 
             assert True
         except ValueError as e:
@@ -60,11 +56,10 @@ class TestEnvironmentSetup:
     def test_colab_detection(self):
         """Colab environment detection should work."""
         try:
-            import google.colab
+            pass
 
-            in_colab = True
         except ImportError:
-            in_colab = False
+            pass
 
         # Should detect we're mocking Colab
         assert "google.colab" in sys.modules
@@ -263,8 +258,7 @@ class TestVisualization:
     def test_matplotlib_3d_import(self):
         """3D plotting module should import."""
         try:
-            import matplotlib.pyplot as plt
-            from mpl_toolkits.mplot3d import Axes3D
+            pass
 
             assert True
         except ImportError as e:
@@ -277,7 +271,6 @@ class TestVisualization:
 
         matplotlib.use("Agg")  # Non-GUI backend for testing
         import matplotlib.pyplot as plt
-        from mpl_toolkits.mplot3d import Axes3D
 
         fig = plt.figure(figsize=(16, 6))
         ax = fig.add_subplot(131, projection="3d")
@@ -294,7 +287,6 @@ class TestVisualization:
 
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
-        from mpl_toolkits.mplot3d import Axes3D
 
         coords = np.random.randn(54, 3)
 

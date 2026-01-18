@@ -4,7 +4,6 @@ These tests actually execute the Jupyter notebooks to ensure they run
 without errors from start to finish.
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -21,8 +20,6 @@ TIMEOUT = 600  # 10 minutes per notebook (increase for complete_benchmark)
 
 class NotebookExecutionError(Exception):
     """Custom exception for notebook execution failures."""
-
-    pass
 
 
 def execute_notebook(notebook_path, timeout=TIMEOUT, kernel_name="python3"):
@@ -296,7 +293,7 @@ class TestNotebookContent:
                 assert (
                     "colab" in first_cell.source.lower()
                 ), f"{name} missing Colab badge in first cell"
-            except:
+            except BaseException:
                 # Skip if notebook doesn't exist
                 pass
 
@@ -322,7 +319,7 @@ class TestNotebookContent:
                     assert (
                         f"import {package}" in all_code or f"import numpy as np" in all_code
                     ), f"{name} missing import for {package}"
-            except:
+            except BaseException:
                 # Skip if notebook doesn't exist
                 pass
 

@@ -2,14 +2,12 @@
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import seaborn as sns
 from matplotlib.gridspec import GridSpec
-from mpl_toolkits.mplot3d import Axes3D
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -437,7 +435,7 @@ class PublicationFigures:
             # Add statistics
             mean_val = np.mean(values)
             median_val = np.median(values)
-            std_val = np.std(values)
+            np.std(values)
 
             ax.axvline(
                 mean_val, color="red", linestyle="--", linewidth=2, label=f"Mean: {mean_val:.2f}"

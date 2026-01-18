@@ -11,14 +11,11 @@ References:
 """
 
 import json
-import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
-import torch
-from scipy.optimize import linear_sum_assignment
 from scipy.spatial.distance import cdist
 
 

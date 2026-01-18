@@ -1,13 +1,13 @@
 """Tests for 03_advanced_visualization.ipynb functionality."""
 
 import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
-
-matplotlib.use("Agg")  # Non-interactive backend
-import matplotlib.pyplot as plt
 import seaborn as sns
 from mpl_toolkits.mplot3d import Axes3D
+
+matplotlib.use("Agg")  # Non-interactive backend
 
 
 class TestDataGeneration:
@@ -476,7 +476,7 @@ class TestVisualizationIntegration:
         """Should apply seaborn styling."""
         try:
             plt.style.use("seaborn-v0_8-darkgrid")
-        except:
+        except BaseException:
             plt.style.use("default")
 
         # Should not raise error

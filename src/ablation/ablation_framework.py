@@ -4,16 +4,13 @@ Provides tools for conducting comprehensive ablation studies to isolate
 the contribution of individual model components.
 """
 
-import itertools
 import json
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
-import torch
-import torch.nn as nn
 
 
 @dataclass

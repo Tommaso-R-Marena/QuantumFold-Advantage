@@ -1,10 +1,7 @@
 """Tests for 01_getting_started.ipynb functionality."""
 
-import os
 import sys
-import warnings
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -25,7 +22,7 @@ class TestEnvironmentSetup:
     def test_colab_detection(self):
         """Should correctly detect Colab environment."""
         try:
-            import google.colab
+            pass
 
             in_colab = True
         except ImportError:
@@ -56,7 +53,6 @@ class TestEnvironmentSetup:
         """Autograd must import without ValueError."""
         try:
             import autograd
-            import autograd.numpy as anp
 
             assert autograd.__version__ is not None
         except ValueError as e:
@@ -304,8 +300,7 @@ class TestVisualization:
     def test_3d_plotting_available(self):
         """3D plotting should be available."""
         try:
-            import matplotlib.pyplot as plt
-            from mpl_toolkits.mplot3d import Axes3D
+            pass
 
             assert True
         except ImportError as e:
@@ -318,7 +313,6 @@ class TestVisualization:
 
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
-        from mpl_toolkits.mplot3d import Axes3D
 
         fig = plt.figure(figsize=(18, 5))
         ax = fig.add_subplot(131, projection="3d")

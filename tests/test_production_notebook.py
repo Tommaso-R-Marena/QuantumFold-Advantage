@@ -8,8 +8,6 @@ This test suite validates:
 5. Output validation
 """
 
-import json
-import os
 from pathlib import Path
 
 import nbformat

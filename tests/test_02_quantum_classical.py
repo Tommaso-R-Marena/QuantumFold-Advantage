@@ -1,7 +1,6 @@
 """Tests for 02_quantum_vs_classical.ipynb functionality."""
 
 import time
-from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -295,7 +294,7 @@ class TestTrainingFunctionality:
         model = TestModelDefinitions.create_classical_model()
 
         model.train()
-        assert model.training == True
+        assert model.training
 
         model.eval()
         assert model.training == False

@@ -7,7 +7,6 @@ and system information for full reproducibility.
 import hashlib
 import json
 import logging
-import os
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -307,7 +306,6 @@ class ExperimentTracker:
             return
 
         import matplotlib.pyplot as plt
-        from mpl_toolkits.mplot3d import Axes3D
 
         n_samples = min(len(predictions), max_samples)
 

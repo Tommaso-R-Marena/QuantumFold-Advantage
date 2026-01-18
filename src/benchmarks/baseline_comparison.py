@@ -6,8 +6,6 @@ with state-of-the-art protein structure prediction methods.
 
 import json
 import logging
-import subprocess
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -15,7 +13,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import requests
 import torch
-from Bio.PDB import PDBIO, PDBParser
+from Bio.PDB import PDBParser
 from scipy.spatial.distance import cdist
 
 logging.basicConfig(level=logging.INFO)
@@ -144,7 +142,7 @@ class BaselineComparator:
         Returns:
             lDDT score (0-100)
         """
-        N = len(pred)
+        len(pred)
         target_dists = cdist(target, target)
         pred_dists = cdist(pred, pred)
 

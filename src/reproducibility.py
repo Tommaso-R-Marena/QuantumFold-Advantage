@@ -3,7 +3,6 @@
 import logging
 import os
 import random
-from typing import Optional
 
 import numpy as np
 import torch
@@ -70,7 +69,7 @@ def save_reproducibility_info(config_dict: dict, save_path: str):
 
         installed_packages = {pkg.key: pkg.version for pkg in pkg_resources.working_set}
         repro_info["packages"] = installed_packages
-    except:
+    except BaseException:
         logger.warning("Could not retrieve package versions")
 
     with open(save_path, "w") as f:
