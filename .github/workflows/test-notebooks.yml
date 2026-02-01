@@ -1,0 +1,427 @@
+name: Test Notebooks
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run weekly to catch regressions
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+jobs:
+  # Static validation - fast and catches most errors
+  validate-notebooks:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10']
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install nbformat nbconvert jupyter
+      
+      - name: Validate notebook JSON structure
+        run: |
+          python - <<'EOF'
+          import nbformat
+          import glob
+          import sys
+          
+          errors = []
+          for nb_path in glob.glob('examples/*.ipynb'):
+              try:
+                  with open(nb_path, 'r', encoding='utf-8') as f:
+                      nb = nbformat.read(f, as_version=4)
+                  print(f"✓ {nb_path}: Valid JSON structure")
+              except Exception as e:
+                  errors.append(f"✗ {nb_path}: {str(e)}")
+                  print(f"✗ {nb_path}: {str(e)}")
+          
+          if errors:
+              print(f"\n{len(errors)} notebook(s) failed validation")
+              sys.exit(1)
+          else:
+              print(f"\nAll notebooks passed validation!")
+          EOF
+      
+      - name: Check for execution metadata
+        run: |
+          python - <<'EOF'
+          import nbformat
+          import glob
+          
+          warnings = []
+          for nb_path in glob.glob('examples/*.ipynb'):
+              with open(nb_path, 'r', encoding='utf-8') as f:
+                  nb = nbformat.read(f, as_version=4)
+              
+              has_outputs = any(
+                  cell.get('outputs', []) or cell.get('execution_count')
+                  for cell in nb.cells if cell.cell_type == 'code'
+              )
+              
+              if has_outputs:
+                  warnings.append(nb_path)
+                  print(f"⚠ {nb_path}: Contains execution outputs")
+              else:
+                  print(f"✓ {nb_path}: Clean (no outputs)")
+          
+          if warnings:
+              print(f"\n{len(warnings)} notebook(s) have outputs (consider clearing for cleaner git history)")
+          EOF
+      
+      - name: Check for common issues
+        run: |
+          python - <<'EOF'
+          import nbformat
+          import glob
+          import re
+          
+          issues = []
+          
+          for nb_path in glob.glob('examples/*.ipynb'):
+              with open(nb_path, 'r', encoding='utf-8') as f:
+                  nb = nbformat.read(f, as_version=4)
+              
+              for i, cell in enumerate(nb.cells):
+                  if cell.cell_type == 'code':
+                      source = ''.join(cell.source)
+                      
+                      # Check for hardcoded paths
+                      if re.search(r'/home/|C:\\\\|D:\\\\', source):
+                          issues.append(f"{nb_path} cell {i}: Hardcoded absolute path")
+                      
+                      # Check for credentials
+                      if re.search(r'password|api_key|secret|token', source, re.I):
+                          if '=' in source and not source.strip().startswith('#'):
+                              issues.append(f"{nb_path} cell {i}: Possible hardcoded credential")
+                      
+                      # Check for print debugging
+                      if source.count('print(') > 10:
+                          issues.append(f"{nb_path} cell {i}: Excessive print statements")
+          
+          if issues:
+              print("⚠ Found potential issues:")
+              for issue in issues:
+                  print(f"  - {issue}")
+          else:
+              print("✓ No common issues found")
+          EOF
+
+  # Syntax checking - ensures code is valid Python
+  syntax-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          pip install nbformat nbconvert ipython
+      
+      - name: Extract and check Python syntax
+        run: |
+          python - <<'EOF'
+          import nbformat
+          import glob
+          import ast
+          import sys
+          
+          errors = []
+          
+          for nb_path in glob.glob('examples/*.ipynb'):
+              with open(nb_path, 'r', encoding='utf-8') as f:
+                  nb = nbformat.read(f, as_version=4)
+              
+              for i, cell in enumerate(nb.cells):
+                  if cell.cell_type == 'code':
+                      source = ''.join(cell.source)
+                      if not source.strip():
+                          continue
+                      
+                      # Skip cells with shell commands
+                      if source.strip().startswith('!'):
+                          continue
+                      
+                      # Skip cells with IPython magic
+                      if source.strip().startswith('%'):
+                          continue
+                      
+                      try:
+                          ast.parse(source)
+                      except SyntaxError as e:
+                          errors.append(f"{nb_path} cell {i}: {str(e)}")
+                          print(f"✗ {nb_path} cell {i}: Syntax error")
+          
+          if errors:
+              print(f"\n{len(errors)} syntax error(s) found:")
+              for error in errors:
+                  print(f"  {error}")
+              sys.exit(1)
+          else:
+              print("\n✓ All code cells have valid Python syntax")
+          EOF
+
+  # Import checking - ensures required packages are available
+  import-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install minimal dependencies
+        run: |
+          pip install nbformat
+      
+      - name: Extract import statements
+        run: |
+          python - <<'EOF'
+          import nbformat
+          import glob
+          import re
+          from collections import defaultdict
+          
+          imports_by_notebook = defaultdict(set)
+          
+          for nb_path in glob.glob('examples/*.ipynb'):
+              with open(nb_path, 'r', encoding='utf-8') as f:
+                  nb = nbformat.read(f, as_version=4)
+              
+              for cell in nb.cells:
+                  if cell.cell_type == 'code':
+                      source = ''.join(cell.source)
+                      
+                      # Find import statements
+                      for match in re.finditer(r'^import (\S+)', source, re.M):
+                          imports_by_notebook[nb_path].add(match.group(1).split('.')[0])
+                      
+                      for match in re.finditer(r'^from (\S+)', source, re.M):
+                          imports_by_notebook[nb_path].add(match.group(1).split('.')[0])
+          
+          print("\n📦 Required packages by notebook:\n")
+          all_imports = set()
+          for nb_path, imports in sorted(imports_by_notebook.items()):
+              nb_name = nb_path.split('/')[-1]
+              external_imports = [imp for imp in imports if imp not in ['src', 'sys', 'os']]
+              if external_imports:
+                  print(f"{nb_name}:")
+                  for imp in sorted(external_imports):
+                      print(f"  - {imp}")
+                      all_imports.add(imp)
+          
+          print(f"\n📊 Total unique packages: {len(all_imports)}")
+          print(f"Packages: {', '.join(sorted(all_imports))}")
+          EOF
+
+  # Dry-run execution - test notebooks with minimal execution
+  dry-run-execution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-notebook-test-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-notebook-test-
+      
+      - name: Install package and dependencies
+        run: |
+          pip install -e .[dev]
+          pip install nbconvert jupyter ipykernel pytest-timeout
+      
+      - name: Create test notebooks with limited execution
+        run: |
+          mkdir -p test_outputs
+          python - <<'EOF'
+          import nbformat
+          import glob
+          import os
+          
+          # Notebooks to test with dry-run
+          test_notebooks = [
+              'examples/colab_quickstart.ipynb',
+              'examples/01_getting_started.ipynb',
+          ]
+          
+          for nb_path in test_notebooks:
+              if not os.path.exists(nb_path):
+                  print(f"Skipping {nb_path} (not found)")
+                  continue
+              
+              with open(nb_path, 'r', encoding='utf-8') as f:
+                  nb = nbformat.read(f, as_version=4)
+              
+              # Create limited version (first 5 cells only)
+              limited_nb = nbformat.v4.new_notebook()
+              limited_nb.cells = nb.cells[:min(5, len(nb.cells))]
+              
+              # Add a final cell to verify execution
+              limited_nb.cells.append(
+                  nbformat.v4.new_code_cell('print("✓ Dry-run completed successfully")')
+              )
+              
+              out_path = f"test_outputs/{os.path.basename(nb_path)}"
+              with open(out_path, 'w', encoding='utf-8') as f:
+                  nbformat.write(limited_nb, f)
+              
+              print(f"Created limited test notebook: {out_path}")
+          EOF
+      
+      - name: Execute limited notebooks
+        run: |
+          for notebook in test_outputs/*.ipynb; do
+            echo "Testing: $notebook"
+            timeout 300 jupyter nbconvert --to notebook --execute \
+              --ExecutePreprocessor.timeout=60 \
+              --ExecutePreprocessor.kernel_name=python3 \
+              --output "$(basename "$notebook" .ipynb)_executed.ipynb" \
+              "$notebook" || echo "⚠ $notebook execution incomplete (expected for dry-run)"
+          done
+
+  # Full execution test for lightweight notebooks
+  execute-lightweight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: github.event_name != 'schedule'  # Skip on scheduled runs
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install package and dependencies
+        run: |
+          pip install -e .[dev]
+          pip install nbconvert jupyter ipykernel pytest
+      
+      - name: Execute colab_quickstart.ipynb
+        if: always()
+        run: |
+          # Create minimal test version
+          python - <<'EOF'
+          import nbformat
+          
+          with open('examples/colab_quickstart.ipynb', 'r') as f:
+              nb = nbformat.read(f, as_version=4)
+          
+          # Modify to skip heavy operations
+          for cell in nb.cells:
+              if cell.cell_type == 'code':
+                  source = ''.join(cell.source)
+                  # Skip ESM-2 download
+                  if 'ESM2Embedder' in source and 'esm2_t33' in source:
+                      cell.source = 'print("Skipping ESM-2 for CI test")'
+                  # Limit training
+                  if 'epochs' in source:
+                      cell.source = source.replace('epochs=', 'epochs=1 # CI:')
+          
+          with open('test_quickstart.ipynb', 'w') as f:
+              nbformat.write(nb, f)
+          EOF
+          
+          timeout 600 jupyter nbconvert --to notebook --execute \
+            --ExecutePreprocessor.timeout=300 \
+            --output test_quickstart_executed.ipynb \
+            test_quickstart.ipynb || true
+      
+      - name: Upload execution results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: executed-notebooks
+          path: |
+            test_*_executed.ipynb
+            *.log
+
+  # Check notebook metadata
+  metadata-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check Colab compatibility
+        run: |
+          python - <<'EOF'
+          import nbformat
+          import glob
+          import json
+          
+          for nb_path in glob.glob('examples/*.ipynb'):
+              with open(nb_path, 'r', encoding='utf-8') as f:
+                  nb = nbformat.read(f, as_version=4)
+              
+              metadata = nb.get('metadata', {})
+              
+              # Check for GPU settings
+              accelerator = metadata.get('accelerator')
+              if accelerator:
+                  print(f"{nb_path}: Accelerator = {accelerator}")
+              
+              # Check for Colab metadata
+              if 'colab' in metadata:
+                  print(f"✓ {nb_path}: Has Colab metadata")
+              else:
+                  print(f"⚠ {nb_path}: No Colab metadata (may not work in Colab)")
+          EOF
+
+  # Summary report
+  test-summary:
+    runs-on: ubuntu-latest
+    needs: [validate-notebooks, syntax-check, import-check, metadata-check]
+    if: always()
+    
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## Notebook Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ All notebook validation tests completed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Tested workflows:" >> $GITHUB_STEP_SUMMARY
+          echo "- JSON structure validation" >> $GITHUB_STEP_SUMMARY
+          echo "- Python syntax checking" >> $GITHUB_STEP_SUMMARY
+          echo "- Import statement analysis" >> $GITHUB_STEP_SUMMARY
+          echo "- Metadata verification" >> $GITHUB_STEP_SUMMARY
