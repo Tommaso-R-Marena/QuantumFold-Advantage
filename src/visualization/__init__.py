@@ -11,4 +11,4 @@ Provides world-class visualization tools for:
 
 from .atomic_viz import ProteinVisualizer
 
-__all__ = ['ProteinVisualizer']
+__all__ = ["ProteinVisualizer"]
