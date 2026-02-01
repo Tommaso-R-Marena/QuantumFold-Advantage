@@ -57,9 +57,7 @@ class StructuredLogger:
                 file_handler.setFormatter(JSONFormatter())
             else:
                 file_handler.setFormatter(
-                    logging.Formatter(
-                        "[%(asctime)s] %(levelname)-8s %(name)s: %(message)s"
-                    )
+                    logging.Formatter("[%(asctime)s] %(levelname)-8s %(name)s: %(message)s")
                 )
             self.logger.addHandler(file_handler)
 
@@ -120,6 +118,7 @@ def profile_function(logger: Optional[StructuredLogger] = None):
         def train_model(data):
             pass
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs) -> Any:
@@ -127,7 +126,7 @@ def profile_function(logger: Optional[StructuredLogger] = None):
             try:
                 result = func(*args, **kwargs)
                 elapsed = time.time() - start_time
-                
+
                 if logger:
                     logger.info(
                         f"Function {func.__name__} completed",
@@ -145,7 +144,9 @@ def profile_function(logger: Optional[StructuredLogger] = None):
                         error=str(e),
                     )
                 raise
+
         return wrapper
+
     return decorator
 
 

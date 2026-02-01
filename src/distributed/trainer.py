@@ -13,9 +13,9 @@ from typing import Optional, Tuple
 import torch
 import torch.distributed as dist
 import torch.nn as nn
-from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.wrap import size_based_auto_wrap_policy
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 
 class DistributedTrainer:

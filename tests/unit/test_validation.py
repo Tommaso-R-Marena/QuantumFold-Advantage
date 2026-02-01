@@ -2,14 +2,15 @@
 
 import pytest
 import torch
+
 from src.utils.validation import (
-    validate_tensor_shape,
-    validate_tensor_dtype,
-    validate_range,
-    check_numerical_stability,
     ValidationError,
+    check_numerical_stability,
     safe_divide,
     safe_log,
+    validate_range,
+    validate_tensor_dtype,
+    validate_tensor_shape,
 )
 
 
@@ -53,12 +54,12 @@ class TestRangeValidation:
 
 class TestNumericalStability:
     def test_nan_detection(self):
-        x = torch.tensor([1.0, float('nan'), 3.0])
+        x = torch.tensor([1.0, float("nan"), 3.0])
         with pytest.raises(ValidationError):
             check_numerical_stability(x)
 
     def test_inf_detection(self):
-        x = torch.tensor([1.0, float('inf'), 3.0])
+        x = torch.tensor([1.0, float("inf"), 3.0])
         with pytest.raises(ValidationError):
             check_numerical_stability(x)
 

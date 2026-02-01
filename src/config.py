@@ -15,6 +15,7 @@ from typing import List, Optional
 @dataclass
 class ModelConfig:
     """Model architecture configuration."""
+
     input_dim: int = 1280
     c_s: int = 384
     c_z: int = 128
@@ -31,6 +32,7 @@ class ModelConfig:
 @dataclass
 class QuantumConfig:
     """Quantum circuit configuration."""
+
     n_qubits: int = 8
     n_layers: int = 4
     entanglement: str = "circular"
@@ -44,6 +46,7 @@ class QuantumConfig:
 @dataclass
 class TrainingConfig:
     """Training configuration."""
+
     batch_size: int = 16
     num_epochs: int = 100
     learning_rate: float = 1e-4
@@ -55,11 +58,12 @@ class TrainingConfig:
     ema_decay: float = 0.999
     accumulation_steps: int = 1
     mixed_precision_dtype: str = "float16"
-    
+
 
 @dataclass
 class LossConfig:
     """Loss function configuration."""
+
     fape_weight: float = 1.0
     local_geometry_weight: float = 0.5
     perceptual_weight: float = 0.3
@@ -72,6 +76,7 @@ class LossConfig:
 @dataclass
 class DataConfig:
     """Data loading configuration."""
+
     data_dir: Path = Path("./data")
     cache_dir: Path = Path("./cache")
     max_seq_length: int = 512
@@ -86,6 +91,7 @@ class DataConfig:
 @dataclass
 class ExperimentConfig:
     """Experiment tracking configuration."""
+
     experiment_name: str = "quantumfold_experiment"
     run_name: Optional[str] = None
     project_name: str = "quantumfold-advantage"
@@ -94,11 +100,12 @@ class ExperimentConfig:
     log_interval: int = 10
     save_interval: int = 1000
     eval_interval: int = 500
-    
+
 
 @dataclass
 class CheckpointConfig:
     """Checkpoint management configuration."""
+
     checkpoint_dir: Path = Path("./checkpoints")
     save_top_k: int = 3
     monitor_metric: str = "val_tm_score"
@@ -110,6 +117,7 @@ class CheckpointConfig:
 @dataclass
 class Config:
     """Main configuration object."""
+
     model: ModelConfig = field(default_factory=ModelConfig)
     quantum: QuantumConfig = field(default_factory=QuantumConfig)
     training: TrainingConfig = field(default_factory=TrainingConfig)
@@ -117,7 +125,7 @@ class Config:
     data: DataConfig = field(default_factory=DataConfig)
     experiment: ExperimentConfig = field(default_factory=ExperimentConfig)
     checkpoint: CheckpointConfig = field(default_factory=CheckpointConfig)
-    
+
     # Global settings
     seed: int = 42
     device: str = "cuda"

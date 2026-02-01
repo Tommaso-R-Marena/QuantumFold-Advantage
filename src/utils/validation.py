@@ -17,6 +17,7 @@ from torch import Tensor
 
 class ValidationError(Exception):
     """Raised when validation fails."""
+
     pass
 
 
@@ -84,9 +85,7 @@ def validate_tensor_dtype(
         if auto_convert:
             return tensor.to(expected_dtype)
         else:
-            raise ValidationError(
-                f"{name}: Expected dtype {expected_dtype}, got {tensor.dtype}"
-            )
+            raise ValidationError(f"{name}: Expected dtype {expected_dtype}, got {tensor.dtype}")
     return tensor
 
 
@@ -114,9 +113,7 @@ def validate_device(
         if auto_move:
             return tensor.to(expected_device)
         else:
-            raise ValidationError(
-                f"{name}: Expected device {expected_device}, got {tensor.device}"
-            )
+            raise ValidationError(f"{name}: Expected device {expected_device}, got {tensor.device}")
     return tensor
 
 

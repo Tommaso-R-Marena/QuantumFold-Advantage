@@ -7,11 +7,12 @@ Provides:
 - Embedding noise injection
 """
 
+from typing import Optional, Tuple
+
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import Tensor
-from typing import Tuple, Optional
-import numpy as np
 
 
 class ProteinAugmentation:
@@ -170,8 +171,8 @@ class ProteinAugmentation:
         start_idx = torch.randint(0, max_start + 1, (1,)).item() if max_start > 0 else 0
 
         # Crop
-        cropped_embeddings = embeddings[:, start_idx:start_idx + crop_len]
-        cropped_coords = coords[:, start_idx:start_idx + crop_len] if coords is not None else None
+        cropped_embeddings = embeddings[:, start_idx : start_idx + crop_len]
+        cropped_coords = coords[:, start_idx : start_idx + crop_len] if coords is not None else None
 
         return cropped_embeddings, cropped_coords
 

@@ -7,11 +7,12 @@ Supports:
 - Static quantization with calibration
 """
 
+from pathlib import Path
+from typing import Dict, Optional
+
 import torch
 import torch.nn as nn
 from torch import Tensor
-from typing import Dict, Optional
-from pathlib import Path
 
 
 class ModelQuantizer:
@@ -73,17 +74,17 @@ class ModelQuantizer:
         """
         model.eval()
         model.qconfig = torch.quantization.get_default_qconfig(backend)
-        
+
         # Prepare model for quantization
         model_prepared = torch.quantization.prepare(model)
-        
+
         # Calibrate with data
         with torch.no_grad():
             model_prepared(calibration_data)
-        
+
         # Convert to quantized version
         model_quantized = torch.quantization.convert(model_prepared)
-        
+
         return model_quantized
 
     @staticmethod
@@ -101,12 +102,12 @@ class ModelQuantizer:
         """
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         checkpoint = {
             "model_state_dict": model.state_dict(),
             "metadata": metadata or {},
         }
-        
+
         torch.save(checkpoint, path)
 
     @staticmethod
@@ -126,8 +127,8 @@ class ModelQuantizer:
             Loaded quantized model
         """
         checkpoint = torch.load(path, map_location="cpu")
-        
+
         model = model_class(**model_kwargs)
         model.load_state_dict(checkpoint["model_state_dict"])
-        
+
         return model

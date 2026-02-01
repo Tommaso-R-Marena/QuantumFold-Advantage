@@ -1,9 +1,10 @@
 """Pytest configuration and fixtures."""
 
+from pathlib import Path
+
+import numpy as np
 import pytest
 import torch
-import numpy as np
-from pathlib import Path
 
 
 @pytest.fixture
@@ -15,11 +16,13 @@ def device():
 @pytest.fixture
 def set_seed():
     """Set random seeds for reproducibility."""
+
     def _set_seed(seed=42):
         torch.manual_seed(seed)
         np.random.seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed(seed)
+
     return _set_seed
 
 

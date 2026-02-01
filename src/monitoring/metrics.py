@@ -13,9 +13,7 @@ class MetricsCollector:
 
     def __init__(self, window_size: int = 100):
         self.window_size = window_size
-        self.metrics: Dict[str, Deque[float]] = defaultdict(
-            lambda: deque(maxlen=window_size)
-        )
+        self.metrics: Dict[str, Deque[float]] = defaultdict(lambda: deque(maxlen=window_size))
         self.step_times: Deque[float] = deque(maxlen=window_size)
         self.last_step_time: Optional[float] = None
 
@@ -113,6 +111,7 @@ class GPUMonitor:
         """
         try:
             import pynvml
+
             pynvml.nvmlInit()
             handle = pynvml.nvmlDeviceGetHandleByIndex(0)
             utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
@@ -139,7 +138,7 @@ class GradientMonitor:
             if p.grad is not None:
                 param_norm = p.grad.data.norm(2)
                 total_norm += param_norm.item() ** 2
-        return total_norm ** 0.5
+        return total_norm**0.5
 
     @staticmethod
     def get_gradient_stats(model: nn.Module) -> Dict[str, float]:
