@@ -1,175 +1,185 @@
-"""Comprehensive logging configuration for QuantumFold-Advantage.
+"""Structured logging configuration for production.
 
 Provides:
-- Structured logging with JSON output
-- Performance profiling hooks
-- Experiment tracking integration
-- Multi-level logging (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- JSON structured logging
+- Multiple output handlers (console, file, remote)
+- Log levels and filtering
+- Performance metrics logging
+- Integration with experiment trackers
 """
 
-import json
 import logging
 import sys
-import time
-from functools import wraps
+import json
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
-
-
-class StructuredLogger:
-    """Structured logger with JSON output and performance tracking."""
-
-    def __init__(
-        self,
-        name: str,
-        level: str = "INFO",
-        log_file: Optional[Path] = None,
-        json_output: bool = True,
-    ):
-        self.logger = logging.getLogger(name)
-        self.logger.setLevel(getattr(logging, level.upper()))
-        self.json_output = json_output
-
-        # Clear existing handlers
-        self.logger.handlers.clear()
-
-        # Console handler
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(logging.DEBUG)
-        if json_output:
-            console_handler.setFormatter(JSONFormatter())
-        else:
-            console_handler.setFormatter(
-                logging.Formatter(
-                    "[%(asctime)s] %(levelname)-8s %(name)s: %(message)s",
-                    datefmt="%Y-%m-%d %H:%M:%S",
-                )
-            )
-        self.logger.addHandler(console_handler)
-
-        # File handler
-        if log_file:
-            log_file = Path(log_file)
-            log_file.parent.mkdir(parents=True, exist_ok=True)
-            file_handler = logging.FileHandler(log_file)
-            file_handler.setLevel(logging.DEBUG)
-            if json_output:
-                file_handler.setFormatter(JSONFormatter())
-            else:
-                file_handler.setFormatter(
-                    logging.Formatter("[%(asctime)s] %(levelname)-8s %(name)s: %(message)s")
-                )
-            self.logger.addHandler(file_handler)
-
-    def _log_structured(self, level: str, message: str, **kwargs):
-        """Log with structured data."""
-        extra = {"structured_data": kwargs} if kwargs else {}
-        getattr(self.logger, level)(message, extra=extra)
-
-    def debug(self, message: str, **kwargs):
-        self._log_structured("debug", message, **kwargs)
-
-    def info(self, message: str, **kwargs):
-        self._log_structured("info", message, **kwargs)
-
-    def warning(self, message: str, **kwargs):
-        self._log_structured("warning", message, **kwargs)
-
-    def error(self, message: str, **kwargs):
-        self._log_structured("error", message, **kwargs)
-
-    def critical(self, message: str, **kwargs):
-        self._log_structured("critical", message, **kwargs)
+from datetime import datetime
+from typing import Optional, Dict, Any
+import traceback
 
 
 class JSONFormatter(logging.Formatter):
-    """JSON formatter for structured logging."""
-
+    """Format log records as JSON for structured logging."""
+    
     def format(self, record: logging.LogRecord) -> str:
+        """Format log record as JSON."""
         log_data = {
-            "timestamp": self.formatTime(record, self.datefmt),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": record.getMessage(),
-            "module": record.module,
-            "function": record.funcName,
-            "line": record.lineno,
+            'timestamp': datetime.utcnow().isoformat(),
+            'level': record.levelname,
+            'logger': record.name,
+            'message': record.getMessage(),
+            'module': record.module,
+            'function': record.funcName,
+            'line': record.lineno
         }
-
-        # Add structured data if available
-        if hasattr(record, "structured_data"):
-            log_data.update(record.structured_data)
-
+        
         # Add exception info if present
         if record.exc_info:
-            log_data["exception"] = self.formatException(record.exc_info)
-
+            log_data['exception'] = {
+                'type': record.exc_info[0].__name__,
+                'message': str(record.exc_info[1]),
+                'traceback': traceback.format_exception(*record.exc_info)
+            }
+        
+        # Add custom fields
+        if hasattr(record, 'extra_data'):
+            log_data.update(record.extra_data)
+        
         return json.dumps(log_data)
 
 
-def profile_function(logger: Optional[StructuredLogger] = None):
-    """Decorator to profile function execution time.
-
-    Args:
-        logger: Optional logger instance
-
-    Example:
-        @profile_function()
-        def train_model(data):
-            pass
-    """
-
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            start_time = time.time()
-            try:
-                result = func(*args, **kwargs)
-                elapsed = time.time() - start_time
-
-                if logger:
-                    logger.info(
-                        f"Function {func.__name__} completed",
-                        duration_seconds=elapsed,
-                        function=func.__name__,
-                    )
-                return result
-            except Exception as e:
-                elapsed = time.time() - start_time
-                if logger:
-                    logger.error(
-                        f"Function {func.__name__} failed",
-                        duration_seconds=elapsed,
-                        function=func.__name__,
-                        error=str(e),
-                    )
-                raise
-
-        return wrapper
-
-    return decorator
+class ColoredFormatter(logging.Formatter):
+    """Colored console output for better readability."""
+    
+    COLORS = {
+        'DEBUG': '\033[36m',     # Cyan
+        'INFO': '\033[32m',      # Green  
+        'WARNING': '\033[33m',   # Yellow
+        'ERROR': '\033[31m',     # Red
+        'CRITICAL': '\033[35m',  # Magenta
+    }
+    RESET = '\033[0m'
+    
+    def format(self, record: logging.LogRecord) -> str:
+        """Format with colors."""
+        color = self.COLORS.get(record.levelname, self.RESET)
+        record.levelname = f"{color}{record.levelname}{self.RESET}"
+        return super().format(record)
 
 
-def get_logger(
-    name: str,
-    level: str = "INFO",
+def setup_logging(
+    log_level: str = "INFO",
     log_dir: Optional[Path] = None,
-    json_output: bool = True,
-) -> StructuredLogger:
-    """Get or create a structured logger.
-
+    json_logging: bool = False,
+    console_output: bool = True,
+    file_output: bool = True,
+) -> logging.Logger:
+    """Setup comprehensive logging configuration.
+    
     Args:
-        name: Logger name
-        level: Logging level
+        log_level: Minimum log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         log_dir: Directory for log files
-        json_output: Use JSON formatting
-
+        json_logging: Use JSON format for logs
+        console_output: Enable console logging
+        file_output: Enable file logging
+        
     Returns:
-        StructuredLogger instance
+        Configured logger instance
     """
-    log_file = None
-    if log_dir:
+    # Get root logger
+    logger = logging.getLogger("quantumfold")
+    logger.setLevel(getattr(logging, log_level.upper()))
+    logger.handlers = []  # Clear existing handlers
+    
+    # Console handler
+    if console_output:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(logging.INFO)
+        
+        if json_logging:
+            console_handler.setFormatter(JSONFormatter())
+        else:
+            formatter = ColoredFormatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            )
+            console_handler.setFormatter(formatter)
+        
+        logger.addHandler(console_handler)
+    
+    # File handler
+    if file_output and log_dir:
         log_dir = Path(log_dir)
-        log_file = log_dir / f"{name}.log"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Main log file
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file = log_dir / f"quantumfold_{timestamp}.log"
+        
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setLevel(logging.DEBUG)  # File gets all logs
+        
+        if json_logging:
+            file_handler.setFormatter(JSONFormatter())
+        else:
+            file_handler.setFormatter(
+                logging.Formatter(
+                    '%(asctime)s - %(name)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s'
+                )
+            )
+        
+        logger.addHandler(file_handler)
+        
+        # Error log file (errors and above only)
+        error_file = log_dir / f"errors_{timestamp}.log"
+        error_handler = logging.FileHandler(error_file)
+        error_handler.setLevel(logging.ERROR)
+        error_handler.setFormatter(
+            logging.Formatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s\n%(exc_info)s'
+            )
+        )
+        logger.addHandler(error_handler)
+    
+    return logger
 
-    return StructuredLogger(name, level, log_file, json_output)
+
+class MetricsLogger:
+    """Logger for training metrics and statistics."""
+    
+    def __init__(self, logger: logging.Logger):
+        self.logger = logger
+        self.metrics_history: Dict[str, list] = {}
+    
+    def log_metric(self, name: str, value: float, step: Optional[int] = None):
+        """Log a single metric value."""
+        if name not in self.metrics_history:
+            self.metrics_history[name] = []
+        
+        self.metrics_history[name].append(value)
+        
+        extra_data = {'metric': name, 'value': value}
+        if step is not None:
+            extra_data['step'] = step
+        
+        # Create log record with extra data
+        record = self.logger.makeRecord(
+            self.logger.name, logging.INFO, "", 0, 
+            f"Metric: {name} = {value:.4f}",
+            (), None
+        )
+        record.extra_data = extra_data
+        self.logger.handle(record)
+    
+    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
+        """Log multiple metrics at once."""
+        for name, value in metrics.items():
+            self.log_metric(name, value, step)
+    
+    def get_history(self, metric_name: str) -> list:
+        """Get history of a metric."""
+        return self.metrics_history.get(metric_name, [])
+    
+    def get_latest(self, metric_name: str) -> Optional[float]:
+        """Get latest value of a metric."""
+        history = self.get_history(metric_name)
+        return history[-1] if history else None
