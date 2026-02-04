@@ -1,6 +1,6 @@
 # Core dependencies
 torch>=2.0.0
-numpy>=1.24.0
+numpy>=2.0.0  # Updated for Colab compatibility (JAX, OpenCV require 2.0+)
 scipy>=1.10.0
 
 # Quantum computing
