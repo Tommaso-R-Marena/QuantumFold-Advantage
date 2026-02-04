@@ -1,0 +1,17 @@
+Numpy 2.0 auto-restart fix applied to installation cells
+Date: 2026-02-04
+Affected notebooks: See commit message
+
+All installation cells now include:
+- Automatic runtime restart after pip install
+- This prevents numpy binary incompatibility errors
+- Users see message and runtime restarts automatically
+- After restart, users skip installation cell and continue
+
+Fixed notebooks:
+- 03_atomic_visualization_showcase.ipynb
+- 02_quantum_advantage_benchmark.ipynb  
+- 01_getting_started.ipynb
+- colab_quickstart.ipynb
+- complete_benchmark.ipynb
+- All others with similar pattern
