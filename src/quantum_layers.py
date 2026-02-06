@@ -16,7 +16,7 @@ References:
 """
 
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import numpy as np
 import pennylane as qml
@@ -663,7 +663,7 @@ class QuantumLayer(AdvancedQuantumCircuitLayer):
         self,
         n_qubits: int = 4,
         depth: int = 2,
-        entanglement: EntanglementType | str = EntanglementType.LINEAR,
+        entanglement: Union[EntanglementType, str] = EntanglementType.LINEAR,
     ) -> None:
         entanglement_value = (
             entanglement.value if isinstance(entanglement, EntanglementType) else entanglement
