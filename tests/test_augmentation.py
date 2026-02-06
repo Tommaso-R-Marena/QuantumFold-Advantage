@@ -349,10 +349,7 @@ class TestAugmentationIntegration:
 
     def test_gpu_compatibility(self):
         """Test augmentation works with GPU tensors."""
-        if not torch.cuda.is_available():
-            pytest.skip("GPU not available")
-
-        device = torch.device("cuda")
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         coords = torch.randn(2, 10, 3, device=device)
         embeddings = torch.randn(2, 10, 128, device=device)
 

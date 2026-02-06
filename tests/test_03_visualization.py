@@ -420,7 +420,6 @@ class TestPlotlyIntegration:
         except ImportError:
             pytest.skip("Plotly not installed")
 
-    @pytest.mark.skipif("plotly" not in dir(), reason="Plotly not installed")
     def test_3d_scatter_creation(self):
         """Should create 3D scatter plot with Plotly."""
         try:
@@ -442,7 +441,6 @@ class TestPlotlyIntegration:
         except ImportError:
             pytest.skip("Plotly not installed")
 
-    @pytest.mark.skipif("plotly" not in dir(), reason="Plotly not installed")
     def test_plotly_hover_info(self):
         """Should add hover information."""
         try:
