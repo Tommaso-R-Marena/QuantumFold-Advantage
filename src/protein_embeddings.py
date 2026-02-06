@@ -198,12 +198,13 @@ class ESM2Embedder(nn.Module):
         if self._offline_fallback:
             max_len = max(len(s) for s in sequences)
             embeddings = torch.zeros(len(sequences), max_len, self.embed_dim, device=self.device)
+            mean_embeddings = []
             for i, seq in enumerate(sequences):
                 torch.manual_seed(len(seq))
-                embeddings[i, : len(seq), :] = torch.randn(
-                    len(seq), self.embed_dim, device=self.device
-                )
-            mean_embedding = embeddings.mean(dim=1)
+                seq_embeddings = torch.randn(len(seq), self.embed_dim, device=self.device)
+                embeddings[i, : len(seq), :] = seq_embeddings
+                mean_embeddings.append(seq_embeddings.mean(dim=0))
+            mean_embedding = torch.stack(mean_embeddings, dim=0)
             return {"embeddings": embeddings, "mean_embedding": mean_embedding}
 
         # Format sequences
