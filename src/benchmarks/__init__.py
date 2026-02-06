@@ -13,7 +13,6 @@ import torch
 from .research_metrics import ResearchBenchmark, StructurePredictionMetrics
 
 
-
 def _to_numpy(coords: torch.Tensor | np.ndarray) -> np.ndarray:
     """Convert tensor-like coordinates to a NumPy array of shape (N, 3)."""
     if isinstance(coords, torch.Tensor):
@@ -32,7 +31,9 @@ def _to_numpy(coords: torch.Tensor | np.ndarray) -> np.ndarray:
     return arr.astype(np.float64)
 
 
-def calculate_rmsd(predicted: torch.Tensor | np.ndarray, ground_truth: torch.Tensor | np.ndarray) -> float:
+def calculate_rmsd(
+    predicted: torch.Tensor | np.ndarray, ground_truth: torch.Tensor | np.ndarray
+) -> float:
     """Calculate RMSD for compatibility with legacy tests/notebooks."""
     benchmark = ResearchBenchmark(n_bootstrap=100)
     pred = _to_numpy(predicted)
@@ -40,7 +41,9 @@ def calculate_rmsd(predicted: torch.Tensor | np.ndarray, ground_truth: torch.Ten
     return benchmark.compute_rmsd(pred, true, align=False)
 
 
-def calculate_tm_score(predicted: torch.Tensor | np.ndarray, ground_truth: torch.Tensor | np.ndarray) -> float:
+def calculate_tm_score(
+    predicted: torch.Tensor | np.ndarray, ground_truth: torch.Tensor | np.ndarray
+) -> float:
     """Calculate TM-score for compatibility with legacy tests/notebooks."""
     benchmark = ResearchBenchmark(n_bootstrap=100)
     pred = _to_numpy(predicted)

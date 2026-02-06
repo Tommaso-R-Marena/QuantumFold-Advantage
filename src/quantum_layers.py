@@ -677,13 +677,21 @@ class QuantumLayer(AdvancedQuantumCircuitLayer):
             x_flat = x.reshape(-1, d)
             out = super().forward(x_flat)
             if out.shape[-1] != d:
-                if not hasattr(self, "_proj_out") or self._proj_out.in_features != out.shape[-1] or self._proj_out.out_features != d:
+                if (
+                    not hasattr(self, "_proj_out")
+                    or self._proj_out.in_features != out.shape[-1]
+                    or self._proj_out.out_features != d
+                ):
                     self._proj_out = nn.Linear(out.shape[-1], d).to(out.device)
                 out = self._proj_out(out)
             return out.reshape(b, s, -1)
         out = super().forward(x)
         if out.shape[-1] != x.shape[-1]:
-            if not hasattr(self, "_proj_out") or self._proj_out.in_features != out.shape[-1] or self._proj_out.out_features != x.shape[-1]:
+            if (
+                not hasattr(self, "_proj_out")
+                or self._proj_out.in_features != out.shape[-1]
+                or self._proj_out.out_features != x.shape[-1]
+            ):
                 self._proj_out = nn.Linear(out.shape[-1], x.shape[-1]).to(out.device)
             out = self._proj_out(out)
         return out

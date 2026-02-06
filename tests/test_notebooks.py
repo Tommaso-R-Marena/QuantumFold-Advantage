@@ -5,8 +5,9 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-import nbformat
 import pytest
+
+import nbformat
 
 NOTEBOOKS_DIR = Path(__file__).parent.parent / "examples"
 NOTEBOOKS = sorted(NOTEBOOKS_DIR.glob("*.ipynb"))
@@ -59,17 +60,29 @@ class TestNotebookStructure:
     @pytest.mark.parametrize("notebook_path", NOTEBOOKS)
     def test_has_code_cells(self, notebook_path: Path):
         nb = _load(notebook_path)
-        assert any((c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "code" for c in _cells(nb))
+        assert any(
+            (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "code"
+            for c in _cells(nb)
+        )
 
     @pytest.mark.parametrize("notebook_path", NOTEBOOKS)
     def test_has_markdown_cells(self, notebook_path: Path):
         nb = _load(notebook_path)
-        assert any((c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "markdown" for c in _cells(nb))
+        assert any(
+            (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "markdown"
+            for c in _cells(nb)
+        )
 
     @pytest.mark.parametrize("notebook_path", NOTEBOOKS)
     def test_contains_non_empty_markdown_cell(self, notebook_path: Path):
         nb = _load(notebook_path)
-        assert any(_source(c).strip() for c in _cells(nb) if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "markdown")
+        assert any(
+            _source(c).strip()
+            for c in _cells(nb)
+            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "markdown"
+        )
 
     @pytest.mark.parametrize("notebook_path", NOTEBOOKS)
     def test_metadata_container_is_valid(self, notebook_path: Path):
@@ -83,7 +96,8 @@ class TestNotebookStructure:
         markdown = "\n".join(
             _source(c)
             for c in _cells(nb)
-            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "markdown"
+            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "markdown"
         )
         assert "colab.research.google.com" in markdown
 
@@ -94,7 +108,11 @@ class TestPythonCode:
         nb = _load(notebook_path)
 
         for cell in _cells(nb):
-            if (cell.get("cell_type") if isinstance(cell, dict) else getattr(cell, "cell_type", None)) != "code":
+            if (
+                cell.get("cell_type")
+                if isinstance(cell, dict)
+                else getattr(cell, "cell_type", None)
+            ) != "code":
                 continue
             source = _source(cell).strip()
             if not source or _is_ipython_cell(source):
@@ -111,7 +129,8 @@ class TestPythonCode:
         code = "\n".join(
             _source(c)
             for c in _cells(nb)
-            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "code"
+            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "code"
         )
         assert "import " in code or "from " in code
 
@@ -121,7 +140,8 @@ class TestPythonCode:
         code_cells = [
             _source(c)
             for c in _cells(nb)
-            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "code"
+            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "code"
         ]
         assert any("import " in c or c.lstrip().startswith(("!", "%")) for c in code_cells)
 
@@ -174,7 +194,10 @@ class TestNotebookCapabilities:
             ("colab_quickstart.ipynb", ["torch", "numpy", "matplotlib", "tqdm"]),
             ("01_getting_started.ipynb", ["RMSD", "TM-score", "torch.cuda.empty_cache()"]),
             ("02_quantum_vs_classical.ipynb", ["seaborn", "quantum"]),
-            ("complete_production_run.ipynb", ["ComprehensiveBenchmark", "compare_methods", "files.download"]),
+            (
+                "complete_production_run.ipynb",
+                ["ComprehensiveBenchmark", "compare_methods", "files.download"],
+            ),
         ],
     )
     def test_notebook_specific_focus_tokens(self, notebook_name: str, expected_tokens: list[str]):
@@ -206,8 +229,10 @@ class TestNotebookLegacyParityCoverage:
     def test_code_cells_are_nonempty_when_present(self, notebook_path: Path):
         nb = _load(notebook_path)
         code_cells = [
-            c for c in _cells(nb)
-            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "code"
+            c
+            for c in _cells(nb)
+            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "code"
         ]
         assert code_cells
         assert any(_source(c).strip() for c in code_cells)
@@ -293,7 +318,8 @@ class TestNotebookBroadLegacyCapabilities:
         markdown_cells = [
             _source(c).strip()
             for c in _cells(nb)
-            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "markdown"
+            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "markdown"
         ]
         assert markdown_cells
         assert any(len(m) > 20 for m in markdown_cells)
@@ -308,7 +334,8 @@ class TestNotebookCrossFileConsistency:
             markdown = "\n".join(
                 _source(c)
                 for c in _cells(nb)
-                if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "markdown"
+                if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+                == "markdown"
             )
             assert "colab.research.google.com" in markdown
 
@@ -376,7 +403,11 @@ class TestNotebookStructuralInvariants:
     def test_notebook_code_cells_have_source_field(self, notebook_path: Path):
         nb = _load(notebook_path)
         for cell in _cells(nb):
-            cell_type = cell.get("cell_type") if isinstance(cell, dict) else getattr(cell, "cell_type", None)
+            cell_type = (
+                cell.get("cell_type")
+                if isinstance(cell, dict)
+                else getattr(cell, "cell_type", None)
+            )
             if cell_type == "code":
                 text = _source(cell)
                 assert isinstance(text, str)
@@ -387,7 +418,8 @@ class TestNotebookStructuralInvariants:
         markdown = [
             _source(c).strip()
             for c in _cells(nb)
-            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "markdown"
+            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "markdown"
         ]
         assert markdown
         assert any(any(ch.isalpha() for ch in m) for m in markdown)

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import nbformat
 import pytest
+
+import nbformat
 from nbconvert.preprocessors import ExecutePreprocessor
 
 NOTEBOOKS_DIR = Path(__file__).parent.parent / "examples"
@@ -65,17 +66,23 @@ def notebook_stats(nb) -> dict:
         "executed_code_cells": 0,
     }
     for cell in _cells(nb):
-        cell_type = cell.get("cell_type") if isinstance(cell, dict) else getattr(cell, "cell_type", None)
+        cell_type = (
+            cell.get("cell_type") if isinstance(cell, dict) else getattr(cell, "cell_type", None)
+        )
         if cell_type == "code":
             stats["code_cells"] += 1
-            outputs = cell.get("outputs", []) if isinstance(cell, dict) else getattr(cell, "outputs", [])
+            outputs = (
+                cell.get("outputs", []) if isinstance(cell, dict) else getattr(cell, "outputs", [])
+            )
             outputs = outputs or []
             if outputs:
                 stats["cells_with_output"] += 1
             if any(_output_type(out) == "error" for out in outputs):
                 stats["cells_with_errors"] += 1
             execution_count = (
-                cell.get("execution_count") if isinstance(cell, dict) else getattr(cell, "execution_count", None)
+                cell.get("execution_count")
+                if isinstance(cell, dict)
+                else getattr(cell, "execution_count", None)
             )
             if execution_count is not None:
                 stats["executed_code_cells"] += 1
@@ -117,11 +124,17 @@ class TestNotebookExecution:
         nb = execute_notebook(NOTEBOOKS_DIR / name, timeout=120 if "quickstart" in name else 300)
         execution_counts = []
         for cell in _cells(nb):
-            cell_type = cell.get("cell_type") if isinstance(cell, dict) else getattr(cell, "cell_type", None)
+            cell_type = (
+                cell.get("cell_type")
+                if isinstance(cell, dict)
+                else getattr(cell, "cell_type", None)
+            )
             if cell_type != "code":
                 continue
             execution_count = (
-                cell.get("execution_count") if isinstance(cell, dict) else getattr(cell, "execution_count", None)
+                cell.get("execution_count")
+                if isinstance(cell, dict)
+                else getattr(cell, "execution_count", None)
             )
             if execution_count is not None:
                 execution_counts.append(execution_count)
@@ -134,8 +147,15 @@ class TestNotebookContentCoverage:
     @pytest.mark.parametrize("name", EXECUTION_TARGETS)
     def test_has_markdown_and_code_cells(self, name):
         nb = _read_notebook(NOTEBOOKS_DIR / name)
-        assert any((c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "markdown" for c in _cells(nb))
-        assert any((c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "code" for c in _cells(nb))
+        assert any(
+            (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "markdown"
+            for c in _cells(nb)
+        )
+        assert any(
+            (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "code"
+            for c in _cells(nb)
+        )
 
     @pytest.mark.parametrize("name", EXECUTION_TARGETS)
     def test_each_notebook_has_colab_link(self, name):
@@ -143,7 +163,8 @@ class TestNotebookContentCoverage:
         markdown = "\n".join(
             _source(c)
             for c in _cells(nb)
-            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "markdown"
+            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "markdown"
         )
         assert "colab.research.google.com" in markdown
         assert "colab-badge.svg" in markdown
@@ -191,7 +212,8 @@ class TestNotebookContentCoverage:
         first_markdown = next(
             c
             for c in _cells(nb)
-            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "markdown"
+            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "markdown"
         )
         source = _source(first_markdown)
         assert "colab-badge.svg" in source
@@ -215,7 +237,8 @@ class TestNotebookExecutionLegacyCoverage:
         code = "\n".join(
             _source(c)
             for c in _cells(nb)
-            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "code"
+            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "code"
         )
         assert any(token in code for token in ["import", "from ", "pip install", "%pip"])
 
@@ -252,7 +275,8 @@ class TestNotebookExecutionDeepCoverage:
         markdown = "\n".join(
             _source(c)
             for c in _cells(nb)
-            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "markdown"
+            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "markdown"
         )
         assert "colab.research.google.com" in markdown
 
@@ -262,9 +286,12 @@ class TestNotebookExecutionDeepCoverage:
         code = "\n".join(
             _source(c)
             for c in _cells(nb)
-            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "code"
+            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "code"
         )
-        assert any(token in code for token in ["import ", "from ", "pip install", "%pip", "sys.path"])
+        assert any(
+            token in code for token in ["import ", "from ", "pip install", "%pip", "sys.path"]
+        )
 
     @pytest.mark.parametrize("name", EXECUTION_TARGETS)
     def test_notebook_stats_consistency(self, name):
@@ -307,7 +334,8 @@ class TestNotebookExecutionConsistency:
         markdown_cells = [
             _source(c)
             for c in _cells(nb)
-            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "markdown"
+            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "markdown"
         ]
         assert markdown_cells
         assert any(cell.strip().startswith("#") for cell in markdown_cells)
@@ -418,7 +446,8 @@ class TestNotebookExecutionEdgeCases:
         code_sources = [
             _source(c).strip()
             for c in _cells(nb)
-            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "code"
+            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "code"
         ]
         assert code_sources
         assert any(code_sources)

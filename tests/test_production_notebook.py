@@ -46,15 +46,23 @@ class TestNotebookStructure:
 
     def test_has_markdown_and_code_cells(self):
         nb = _load_notebook()
-        assert any((c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "markdown" for c in _cells(nb))
-        assert any((c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "code" for c in _cells(nb))
+        assert any(
+            (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "markdown"
+            for c in _cells(nb)
+        )
+        assert any(
+            (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "code"
+            for c in _cells(nb)
+        )
 
     def test_colab_badge_in_intro(self):
         nb = _load_notebook()
         first_markdown = next(
             c
             for c in _cells(nb)
-            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "markdown"
+            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "markdown"
         )
         src = _source(first_markdown)
         assert "colab-badge.svg" in src
@@ -254,7 +262,8 @@ class TestProductionExecution:
         code_cells = [
             c
             for c in _cells(nb)
-            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "code"
+            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None))
+            == "code"
         ]
         assert code_cells
         outputs = [
@@ -486,7 +495,12 @@ class TestProductionNotebookAdditionalInvariants:
     def test_contains_reproducibility_and_cleanup_tokens(self):
         nb = _load_notebook()
         combined = _combined_source(nb)
-        for token in ["seed", "experiment_config.json", "torch.cuda.empty_cache()", "embedding_cache"]:
+        for token in [
+            "seed",
+            "experiment_config.json",
+            "torch.cuda.empty_cache()",
+            "embedding_cache",
+        ]:
             assert token in combined
 
     def test_contains_statistical_and_visual_reporting_tokens(self):

@@ -200,7 +200,9 @@ class ESM2Embedder(nn.Module):
             embeddings = torch.zeros(len(sequences), max_len, self.embed_dim, device=self.device)
             for i, seq in enumerate(sequences):
                 torch.manual_seed(len(seq))
-                embeddings[i, : len(seq), :] = torch.randn(len(seq), self.embed_dim, device=self.device)
+                embeddings[i, : len(seq), :] = torch.randn(
+                    len(seq), self.embed_dim, device=self.device
+                )
             mean_embedding = embeddings.mean(dim=1)
             return {"embeddings": embeddings, "mean_embedding": mean_embedding}
 
