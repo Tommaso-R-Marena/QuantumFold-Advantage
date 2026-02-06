@@ -7,9 +7,11 @@ without errors from start to finish.
 import sys
 from pathlib import Path
 
-import nbformat
 import pytest
-from nbconvert.preprocessors import ExecutePreprocessor
+
+nbformat = pytest.importorskip("nbformat")
+nbconvert_preprocessors = pytest.importorskip("nbconvert.preprocessors")
+ExecutePreprocessor = nbconvert_preprocessors.ExecutePreprocessor
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))

@@ -17,8 +17,9 @@ import re
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-import nbformat
 import pytest
+
+nbformat = pytest.importorskip("nbformat")
 from nbformat.v4 import new_code_cell, new_notebook
 
 # Get all notebook paths

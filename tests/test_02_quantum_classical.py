@@ -348,7 +348,7 @@ class TestPerformanceTracking:
 
         improvement = (classical_loss - quantum_loss) / classical_loss * 100
 
-        assert improvement == 20.0  # 20% improvement
+        assert improvement == pytest.approx(20.0)  # 20% improvement
 
     def test_performance_comparison(self):
         """Should compare model performances correctly."""

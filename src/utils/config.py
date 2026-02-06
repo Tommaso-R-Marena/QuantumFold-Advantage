@@ -276,3 +276,20 @@ def save_config(config: ExperimentConfig, save_path: Path):
     save_path.parent.mkdir(parents=True, exist_ok=True)
     with open(save_path, "w") as f:
         yaml.dump(config.to_dict(), f, default_flow_style=False)
+
+
+# Backward-compatible alias expected by utility package exports
+Config = ExperimentConfig
+
+__all__ = [
+    "Config",
+    "ExperimentConfig",
+    "ModelConfig",
+    "TrainingConfig",
+    "DataConfig",
+    "LoggingConfig",
+    "SystemConfig",
+    "QuantumConfig",
+    "load_config",
+    "save_config",
+]

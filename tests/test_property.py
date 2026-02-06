@@ -3,15 +3,11 @@
 import pytest
 
 torch = pytest.importorskip("torch")
+hypothesis = pytest.importorskip("hypothesis")
 
-try:
-    from hypothesis import given, settings
-    from hypothesis import strategies as st
-
-    HYPOTHESIS_AVAILABLE = True
-except ImportError:
-    HYPOTHESIS_AVAILABLE = False
-
+given = hypothesis.given
+settings = hypothesis.settings
+st = hypothesis.strategies
 
 try:
     from src.benchmarks import calculate_rmsd
@@ -22,7 +18,6 @@ except ImportError:
 
 
 @pytest.mark.property
-@pytest.mark.skipif(not HYPOTHESIS_AVAILABLE, reason="Hypothesis not available")
 @pytest.mark.skipif(not BENCHMARKS_AVAILABLE, reason="Benchmarks not available")
 class TestRMSDProperties:
     """Property-based tests for RMSD calculation."""
@@ -83,7 +78,6 @@ class TestRMSDProperties:
 
 
 @pytest.mark.property
-@pytest.mark.skipif(not HYPOTHESIS_AVAILABLE, reason="Hypothesis not available")
 class TestTensorProperties:
     """Property-based tests for tensor operations."""
 

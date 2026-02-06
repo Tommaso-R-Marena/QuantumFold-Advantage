@@ -1,10 +1,17 @@
 """Pytest configuration and fixtures."""
 
+import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 import torch
+
+
+# Ensure project package imports are stable regardless of invocation directory.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 
 @pytest.fixture
@@ -52,3 +59,23 @@ def tmp_checkpoint_dir(tmp_path):
     checkpoint_dir = tmp_path / "checkpoints"
     checkpoint_dir.mkdir()
     return checkpoint_dir
+
+
+@pytest.fixture
+def sample_embeddings(sample_embedding):
+    """Backward-compatible fixture alias."""
+    return sample_embedding
+
+
+@pytest.fixture
+def sample_sequences(sample_sequence):
+    """Sample batch of protein sequences."""
+    return [sample_sequence, sample_sequence[:50]]
+
+
+@pytest.fixture
+def benchmark():
+    """Fallback benchmark fixture when pytest-benchmark plugin is unavailable."""
+    def _run(fn, *args, **kwargs):
+        return fn(*args, **kwargs)
+    return _run

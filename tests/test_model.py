@@ -16,9 +16,16 @@ class TestAdvancedProteinFoldingModel:
 
     def test_initialization_quantum(self):
         """Test quantum model initialization."""
-        model = AdvancedProteinFoldingModel(
-            input_dim=128, c_s=64, c_z=32, use_quantum=True, n_qubits=4
-        )
+        import inspect
+
+        params = inspect.signature(AdvancedProteinFoldingModel).parameters
+        kwargs = {"input_dim": 128, "c_s": 64, "c_z": 32, "use_quantum": True}
+        if "n_qubits" in params:
+            kwargs["n_qubits"] = 4
+        elif "num_qubits" in params:
+            kwargs["num_qubits"] = 4
+
+        model = AdvancedProteinFoldingModel(**kwargs)
         assert model.use_quantum
 
     def test_initialization_classical(self):

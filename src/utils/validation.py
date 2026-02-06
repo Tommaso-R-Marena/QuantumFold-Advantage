@@ -371,3 +371,107 @@ def sanitize_predictions(
             sanitized[key] = value
 
     return sanitized
+
+
+class ValidationError(ValueError):
+    """Raised when validation checks fail."""
+
+
+def validate_tensor_shape(tensor: torch.Tensor, expected_shape: tuple) -> torch.Tensor:
+    """Validate tensor shape; use None as wildcard in expected_shape."""
+    if tensor.ndim != len(expected_shape):
+        raise ValidationError(f"Expected {len(expected_shape)} dims, got {tensor.ndim}")
+    for i, expected in enumerate(expected_shape):
+        if expected is not None and tensor.shape[i] != expected:
+            raise ValidationError(f"Dimension {i} expected {expected}, got {tensor.shape[i]}")
+    return tensor
+
+
+def validate_tensor_dtype(
+    tensor: torch.Tensor, expected_dtype: torch.dtype, auto_convert: bool = False
+) -> torch.Tensor:
+    """Validate tensor dtype with optional auto-conversion."""
+    if tensor.dtype == expected_dtype:
+        return tensor
+    if auto_convert:
+        return tensor.to(expected_dtype)
+    raise ValidationError(f"Expected dtype {expected_dtype}, got {tensor.dtype}")
+
+
+def validate_range(value, min_val=None, max_val=None):
+    """Validate scalar or tensor values are within [min_val, max_val]."""
+    if isinstance(value, torch.Tensor):
+        if min_val is not None and torch.any(value < min_val):
+            raise ValidationError(f"Values below minimum {min_val}")
+        if max_val is not None and torch.any(value > max_val):
+            raise ValidationError(f"Values above maximum {max_val}")
+    else:
+        if min_val is not None and value < min_val:
+            raise ValidationError(f"Value {value} below minimum {min_val}")
+        if max_val is not None and value > max_val:
+            raise ValidationError(f"Value {value} above maximum {max_val}")
+    return value
+
+
+def check_numerical_stability(tensor: torch.Tensor) -> torch.Tensor:
+    """Ensure tensor has no NaN/Inf values."""
+    if torch.isnan(tensor).any():
+        raise ValidationError("Tensor contains NaN values")
+    if torch.isinf(tensor).any():
+        raise ValidationError("Tensor contains Inf values")
+    return tensor
+
+
+def safe_divide(numerator: torch.Tensor, denominator: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
+    """Numerically safe division."""
+    return numerator / (denominator + eps)
+
+
+def safe_log(x: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
+    """Numerically safe logarithm."""
+    return torch.log(torch.clamp(x, min=eps))
+
+
+def validate_tensor(tensor: torch.Tensor, expected_shape=None, expected_dtype=None) -> torch.Tensor:
+    """Combined tensor validation helper."""
+    if expected_shape is not None:
+        validate_tensor_shape(tensor, expected_shape)
+    if expected_dtype is not None:
+        tensor = validate_tensor_dtype(tensor, expected_dtype)
+    return check_numerical_stability(tensor)
+
+
+def validate_type(value, expected_type):
+    """Validate Python type."""
+    if not isinstance(value, expected_type):
+        raise ValidationError(f"Expected type {expected_type}, got {type(value)}")
+    return value
+
+
+def validate_config(config: dict, required_keys=None):
+    """Validate config dictionary contains required keys."""
+    required_keys = required_keys or []
+    for key in required_keys:
+        if key not in config:
+            raise ValidationError(f"Missing config key: {key}")
+    return config
+
+
+def validate_protein_sequence(sequence: str) -> str:
+    """Validate standard amino acid sequence."""
+    valid = set("ACDEFGHIKLMNPQRSTVWY")
+    if not sequence or any(c.upper() not in valid for c in sequence):
+        raise ValidationError("Invalid protein sequence")
+    return sequence
+
+
+def validate_coordinates(coords: torch.Tensor) -> torch.Tensor:
+    """Validate coordinate tensor shape (..., 3)."""
+    if coords.shape[-1] != 3:
+        raise ValidationError("Coordinates must end with dimension 3")
+    return check_numerical_stability(coords)
+
+
+def clip_gradients(parameters, max_norm: float = 1.0) -> float:
+    """Clip gradients and return total norm."""
+    return float(torch.nn.utils.clip_grad_norm_(parameters, max_norm))

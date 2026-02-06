@@ -10,9 +10,12 @@ This test suite validates:
 
 from pathlib import Path
 
-import nbformat
 import pytest
-from nbconvert.preprocessors import CellExecutionError, ExecutePreprocessor
+
+nbformat = pytest.importorskip("nbformat")
+nbconvert_preprocessors = pytest.importorskip("nbconvert.preprocessors")
+CellExecutionError = nbconvert_preprocessors.CellExecutionError
+ExecutePreprocessor = nbconvert_preprocessors.ExecutePreprocessor
 
 NOTEBOOK_PATH = Path("examples/complete_production_run.ipynb")
 

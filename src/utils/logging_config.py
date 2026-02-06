@@ -140,6 +140,15 @@ def setup_logging(
     return logger
 
 
+def get_logger(name: str = "quantumfold") -> logging.Logger:
+    """Get or create a configured logger instance."""
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        setup_logging()
+        logger = logging.getLogger(name)
+    return logger
+
+
 class MetricsLogger:
     """Logger for training metrics and statistics."""
 

@@ -162,6 +162,10 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "gpu: marks tests that require GPU",
     "integration: marks integration tests",
+    "performance: performance-focused tests",
+    "property: property-based tests",
+    "regression: regression tests",
+    "stress: stress and load tests",
 ]
 
 [tool.coverage.run]
