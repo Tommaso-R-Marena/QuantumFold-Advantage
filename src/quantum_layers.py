@@ -15,6 +15,7 @@ References:
     - Parameter Initialization: Grant et al., Quantum 3, 214 (2019)
 """
 
+from enum import Enum
 from typing import List, Optional
 
 import numpy as np
@@ -645,3 +646,75 @@ class HybridQuantumClassicalBlock(nn.Module):
             output = output.reshape(batch_size, seq_len, -1)
 
         return output
+
+
+class EntanglementType(str, Enum):
+    """Compatibility enum for selecting entanglement topology."""
+
+    LINEAR = "linear"
+    CIRCULAR = "circular"
+    ALL_TO_ALL = "all_to_all"
+
+
+class QuantumLayer(AdvancedQuantumCircuitLayer):
+    """Backward-compatible alias for the core quantum circuit layer."""
+
+    def __init__(
+        self,
+        n_qubits: int = 4,
+        depth: int = 2,
+        entanglement: EntanglementType | str = EntanglementType.LINEAR,
+    ) -> None:
+        entanglement_value = (
+            entanglement.value if isinstance(entanglement, EntanglementType) else entanglement
+        )
+        super().__init__(n_qubits=n_qubits, n_layers=depth, entanglement=entanglement_value)
+        self.depth = depth
+
+    def forward(self, x: Tensor) -> Tensor:
+        if x.dim() == 3:
+            b, s, d = x.shape
+            x_flat = x.reshape(-1, d)
+            out = super().forward(x_flat)
+            if out.shape[-1] != d:
+                if not hasattr(self, "_proj_out") or self._proj_out.in_features != out.shape[-1] or self._proj_out.out_features != d:
+                    self._proj_out = nn.Linear(out.shape[-1], d).to(out.device)
+                out = self._proj_out(out)
+            return out.reshape(b, s, -1)
+        out = super().forward(x)
+        if out.shape[-1] != x.shape[-1]:
+            if not hasattr(self, "_proj_out") or self._proj_out.in_features != out.shape[-1] or self._proj_out.out_features != x.shape[-1]:
+                self._proj_out = nn.Linear(out.shape[-1], x.shape[-1]).to(out.device)
+            out = self._proj_out(out)
+        return out
+
+
+class QuantumHybridLayer(nn.Module):
+    """Backward-compatible hybrid wrapper used by tests/notebooks."""
+
+    def __init__(self, input_dim: int, n_qubits: int = 4, depth: int = 2) -> None:
+        super().__init__()
+        self.n_qubits = n_qubits
+        self.depth = depth
+        self.proj_in = nn.Linear(input_dim, n_qubits)
+        self.quantum = QuantumLayer(n_qubits=n_qubits, depth=depth)
+        self.proj_out = nn.Linear(n_qubits, input_dim)
+
+    def forward(self, x: Tensor) -> Tensor:
+        original_shape = x.shape
+        x_flat = x.reshape(-1, x.shape[-1]) if x.dim() == 3 else x
+        out = self.proj_out(self.quantum(self.proj_in(x_flat)))
+        if len(original_shape) == 3:
+            return out.reshape(original_shape[0], original_shape[1], -1)
+        return out
+
+
+__all__ = [
+    "AdvancedQuantumCircuitLayer",
+    "QuantumKernelLayer",
+    "QuantumAttentionLayer",
+    "HybridQuantumClassicalBlock",
+    "EntanglementType",
+    "QuantumLayer",
+    "QuantumHybridLayer",
+]

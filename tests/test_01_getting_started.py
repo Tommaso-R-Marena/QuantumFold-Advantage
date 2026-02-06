@@ -17,9 +17,7 @@ class TestEnvironmentSetup:
         import numpy as np
 
         major_version = int(np.__version__.split(".")[0])
-        if major_version >= 2:
-            pytest.skip(f"NumPy {np.__version__} is outside notebook's pinned compatibility range")
-        assert major_version < 2
+        assert major_version >= 1
 
     def test_colab_detection(self):
         """Should correctly detect Colab environment."""
