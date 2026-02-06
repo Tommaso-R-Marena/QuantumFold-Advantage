@@ -7,7 +7,6 @@ import numpy as np
 import pytest
 import torch
 
-
 # Ensure project package imports are stable regardless of invocation directory.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -76,6 +75,8 @@ def sample_sequences(sample_sequence):
 @pytest.fixture
 def benchmark():
     """Fallback benchmark fixture when pytest-benchmark plugin is unavailable."""
+
     def _run(fn, *args, **kwargs):
         return fn(*args, **kwargs)
+
     return _run

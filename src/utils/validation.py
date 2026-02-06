@@ -422,7 +422,9 @@ def check_numerical_stability(tensor: torch.Tensor) -> torch.Tensor:
     return tensor
 
 
-def safe_divide(numerator: torch.Tensor, denominator: torch.Tensor, eps: float = 1e-8) -> torch.Tensor:
+def safe_divide(
+    numerator: torch.Tensor, denominator: torch.Tensor, eps: float = 1e-8
+) -> torch.Tensor:
     """Numerically safe division."""
     return numerator / (denominator + eps)
 
