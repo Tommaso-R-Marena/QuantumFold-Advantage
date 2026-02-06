@@ -1,4 +1,4 @@
-"""Production notebook validation with broad capability coverage."""
+"""Production notebook validation with broad capability and flow coverage."""
 
 from __future__ import annotations
 
@@ -11,16 +11,24 @@ NOTEBOOK_PATH = Path(__file__).parent.parent / "examples" / "complete_production
 
 
 def _source(cell) -> str:
-    src = getattr(cell, "source", "")
+    src = cell.get("source", "") if isinstance(cell, dict) else getattr(cell, "source", "")
     return "".join(src) if isinstance(src, list) else str(src)
 
 
+def _cells(nb):
+    return nb.get("cells", []) if isinstance(nb, dict) else getattr(nb, "cells", [])
+
+
+def _metadata(nb):
+    return nb.get("metadata", {}) if isinstance(nb, dict) else getattr(nb, "metadata", {})
+
+
 def _combined_source(nb) -> str:
-    return "\n".join(_source(c) for c in nb.cells)
+    return "\n".join(_source(c) for c in _cells(nb))
 
 
 def _find_cell(nb, *patterns):
-    for cell in nb.cells:
+    for cell in _cells(nb):
         source = _source(cell)
         if all(p in source for p in patterns):
             return cell
@@ -38,15 +46,26 @@ class TestNotebookStructure:
 
     def test_has_markdown_and_code_cells(self):
         nb = _load_notebook()
-        assert any(c.cell_type == "markdown" for c in nb.cells)
-        assert any(c.cell_type == "code" for c in nb.cells)
+        assert any((c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "markdown" for c in _cells(nb))
+        assert any((c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "code" for c in _cells(nb))
 
     def test_colab_badge_in_intro(self):
         nb = _load_notebook()
-        first_markdown = next(c for c in nb.cells if c.cell_type == "markdown")
+        first_markdown = next(
+            c
+            for c in _cells(nb)
+            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "markdown"
+        )
         src = _source(first_markdown)
         assert "colab-badge.svg" in src
         assert "complete_production_run.ipynb" in src
+
+    def test_notebook_metadata_has_runtime_context(self):
+        nb = _load_notebook()
+        metadata = _metadata(nb)
+        assert metadata
+        if isinstance(metadata, dict) and "kernelspec" in metadata:
+            assert "name" in metadata["kernelspec"]
 
     def test_key_sections_appear_in_expected_order(self):
         nb = _load_notebook()
@@ -60,6 +79,7 @@ class TestNotebookStructure:
             "## 📊 Step 6: Statistical Validation",
             "## 📈 Step 7: Generate Publication Figures",
             "## 💾 Step 8: Export Results",
+            "## ✅ Benchmark Complete!",
         ]
         positions = [combined.find(m) for m in markers if combined.find(m) != -1]
         assert positions, "Expected at least one section marker"
@@ -70,9 +90,8 @@ class TestConfigurationAndSetup:
     def test_environment_check_and_hardware_paths(self):
         nb = _load_notebook()
         combined = _combined_source(nb)
-        assert "torch.cuda.is_available()" in combined
-        assert "A100" in combined
-        assert "psutil" in combined
+        for token in ["torch.cuda.is_available()", "A100", "psutil"]:
+            assert token in combined
 
     def test_configuration_parameters_present(self):
         nb = _load_notebook()
@@ -185,6 +204,18 @@ class TestVisualizationAndExport:
         ]:
             assert token in combined
 
+    def test_saved_artifact_names_are_declared(self):
+        nb = _load_notebook()
+        combined = _combined_source(nb)
+        for token in [
+            "training_curves.png",
+            "metric_distributions.png",
+            "paired_comparison.png",
+            "raw_results.csv",
+            "RESULTS_SUMMARY.json",
+        ]:
+            assert token in combined
+
 
 class TestReliabilityAndReproducibility:
     def test_memory_and_error_handling_capabilities(self):
@@ -220,6 +251,14 @@ class TestProductionExecution:
         nb = _load_notebook()
         ep = ExecutePreprocessor(timeout=180, kernel_name="python3", allow_errors=False)
         ep.preprocess(nb, {"metadata": {"path": str(NOTEBOOK_PATH.parent)}})
-        code_cells = [c for c in nb.cells if c.cell_type == "code"]
+        code_cells = [
+            c
+            for c in _cells(nb)
+            if (c.get("cell_type") if isinstance(c, dict) else getattr(c, "cell_type", None)) == "code"
+        ]
         assert code_cells
-        assert any(getattr(c, "outputs", []) for c in code_cells)
+        outputs = [
+            c.get("outputs", []) if isinstance(c, dict) else getattr(c, "outputs", [])
+            for c in code_cells
+        ]
+        assert any(output_list for output_list in outputs)
