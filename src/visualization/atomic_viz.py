@@ -10,16 +10,12 @@ Provides:
 - Publication-quality figures
 """
 
-import base64
-import io
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-import torch
-from matplotlib.colors import LinearSegmentedColormap
 from scipy.spatial.distance import pdist, squareform
 
 try:
@@ -30,7 +26,7 @@ except ImportError:
     PY3DMOL_AVAILABLE = False
 
 try:
-    import nglview as nv
+    pass
 
     NGLVIEW_AVAILABLE = True
 except ImportError:

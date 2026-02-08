@@ -3,12 +3,11 @@
 Provides:
 - Hierarchical configuration with composition
 - Type-safe config dataclasses
-- Environment variable interpolation  
+- Environment variable interpolation
 - Config validation
 - Experiment tracking integration
 """
 
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional

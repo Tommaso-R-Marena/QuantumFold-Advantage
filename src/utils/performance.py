@@ -13,7 +13,7 @@ import gc
 import time
 import warnings
 from collections import OrderedDict
-from typing import Any, Callable, Dict, Optional, Tuple, TypeVar
+from typing import Any, Callable, Dict, Optional, TypeVar
 
 import numpy as np
 import psutil

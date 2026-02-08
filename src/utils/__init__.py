@@ -33,16 +33,7 @@ __all__ = [
 
 # Optional utilities: imported lazily when dependencies are available.
 try:
-    from .distributed import (
-        GradientAccumulator,
-        barrier,
-        cleanup_distributed,
-        convert_to_ddp,
-        get_rank,
-        get_world_size,
-        is_main_process,
-        setup_distributed,
-    )
+    pass
 
     __all__.extend(
         [
@@ -60,28 +51,21 @@ except ImportError:
     pass
 
 try:
-    from .hyperparameter_tuning import HyperparameterTuner, create_training_objective
+    pass
 
     __all__.extend(["HyperparameterTuner", "create_training_objective"])
 except ImportError:
     pass
 
 try:
-    from .logging_config import get_logger, setup_logging
+    pass
 
     __all__.extend(["setup_logging", "get_logger"])
 except ImportError:
     pass
 
 try:
-    from .memory import (
-        MemoryLeakDetector,
-        MemoryTracker,
-        clear_gpu_memory,
-        estimate_batch_size,
-        get_model_memory_usage,
-        memory_efficient_mode,
-    )
+    pass
 
     __all__.extend(
         [
@@ -97,7 +81,7 @@ except ImportError:
     pass
 
 try:
-    from .profiling import GPUProfiler, Profiler, profile_function, profile_memory
+    pass
 
     __all__.extend(["Profiler", "profile_function", "profile_memory", "GPUProfiler"])
 except ImportError:

@@ -2,7 +2,7 @@
 
 Supports:
 - INT8 quantization
-- FP16 conversion  
+- FP16 conversion
 - Dynamic quantization
 - Static quantization with calibration
 """

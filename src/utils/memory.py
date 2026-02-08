@@ -234,7 +234,7 @@ def optimize_gpu_memory():
         return
 
     # Save current settings
-    original_allocator_settings = torch.cuda.get_allocator_backend()
+    torch.cuda.get_allocator_backend()
 
     try:
         # Enable memory efficient settings

@@ -3,14 +3,13 @@
 Provides comprehensive metrics for protein structure prediction:
 - TM-score, RMSD, GDT-TS, lDDT, CAD-score
 - Statistical hypothesis testing
-- Effect size calculations  
+- Effect size calculations
 - Bootstrap confidence intervals
 - Multiple comparison correction
 - Power analysis
 - Publication-quality result tables
 """
 
-import warnings
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
@@ -165,7 +164,7 @@ class ResearchBenchmark:
         Returns:
             lDDT score (0-100)
         """
-        n_res = len(pred_coords)
+        len(pred_coords)
 
         # Compute pairwise distances
         true_dist = cdist(true_coords, true_coords)

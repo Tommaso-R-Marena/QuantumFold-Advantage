@@ -2,7 +2,7 @@
 
 import time
 from collections import defaultdict, deque
-from typing import Any, Deque, Dict, Optional
+from typing import Deque, Dict, Optional
 
 import torch
 import torch.nn as nn
@@ -116,7 +116,7 @@ class GPUMonitor:
             handle = pynvml.nvmlDeviceGetHandleByIndex(0)
             utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
             return utilization.gpu
-        except:
+        except BaseException:
             return None
 
 

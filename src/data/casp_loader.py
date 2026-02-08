@@ -4,19 +4,15 @@ Provides access to CASP (Critical Assessment of protein Structure Prediction)
 targets for rigorous evaluation of protein folding methods.
 """
 
-import gzip
 import json
-import os
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import numpy as np
 import requests
 from Bio import PDB
-from Bio.PDB import PDBIO, Select
-from tqdm.auto import tqdm
 
 
 @dataclass

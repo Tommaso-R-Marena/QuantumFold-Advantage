@@ -67,7 +67,7 @@ class TestProteinAugmentation:
         aug_eval = ProteinAugmentation(training=False)
 
         # Training mode should augment
-        result_train = aug_train.augment_coordinates(sample_coords)
+        aug_train.augment_coordinates(sample_coords)
 
         # Eval mode should not augment
         result_eval = aug_eval.augment_coordinates(sample_coords)

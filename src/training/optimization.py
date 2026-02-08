@@ -10,7 +10,7 @@ Provides:
 
 import math
 import warnings
-from typing import Dict, Iterable, Optional, Tuple
+from typing import Iterable, Tuple
 
 import torch
 import torch.nn as nn

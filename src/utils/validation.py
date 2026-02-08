@@ -3,7 +3,7 @@
 Provides:
 - Structure validation (stereochemistry, clashes)
 - Sequence-structure consistency
-- Prediction quality checks  
+- Prediction quality checks
 - Data sanity checks
 - Statistical validation helpers
 """
@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
-from scipy.spatial.distance import cdist, pdist, squareform
+from scipy.spatial.distance import pdist, squareform
 
 
 class StructureValidator:

@@ -8,7 +8,6 @@ Supports:
 """
 
 import os
-from typing import Optional, Tuple
 
 import torch
 import torch.distributed as dist

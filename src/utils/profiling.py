@@ -2,7 +2,7 @@
 
 Provides tools for:
 - Function timing and profiling
-- Memory usage tracking  
+- Memory usage tracking
 - GPU utilization monitoring
 - Computational bottleneck detection
 - Performance regression detection
