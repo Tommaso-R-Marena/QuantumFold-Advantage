@@ -1,0 +1,34 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\title{Graph-Theoretic Discovery of Quantum Error Correction Codes with Enhanced Fault-Tolerance\\\large Phase-1 Computational Report}
+\author{Codex Research Automation Team\\OpenAI Computational Methods Lab}
+\date{\today}
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We implement a reproducible phase-1 pipeline for automated graph-theoretic stabilizer-code discovery.
+The framework constructs candidate symplectic stabilizer matrices from graph adjacencies, checks commutation constraints over $\mathbb{F}_2$, extracts logical operators, estimates distances, and stores candidates in SQLite.
+We further provide a Monte Carlo depolarizing-noise simulation module for preliminary logical-error sweeps.
+This report documents the architecture, algorithms, and validation tests required to scale toward publication-grade exhaustive experiments.
+\end{abstract}
+
+\section{Methods}
+Given an undirected graph with adjacency matrix $A \in \{0,1\}^{n\times n}$, we construct
+\[
+S = \begin{bmatrix}A & I\\ I & A\end{bmatrix}
+\]
+and verify commutativity using $S\Omega S^\top = 0 \pmod 2$ with canonical symplectic form $\Omega$.
+Logical operators are extracted from the commutant nullspace and filtered modulo stabilizer row span.
+
+\section{Implementation}
+Code is provided under \texttt{src/quantum\_codes\_discovery/} including modules for GF(2) linear algebra, graph search, stabilizer construction, threshold sweeps, and database persistence.
+
+\section{Current Status}
+This repository revision is an initial, test-covered implementation suitable for iterative scaling.
+It does not yet claim the full exhaustive search, Lean formalization, or publication-scale Monte Carlo budgets.
+
+\end{document}
