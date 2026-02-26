@@ -498,9 +498,7 @@ class ProteinVisualizer:
         pdb_lines.append("END")
         return "\n".join(pdb_lines)
 
-    def _confidence_bucket_ranges(
-        self, confidence: np.ndarray
-    ) -> dict[str, List[Tuple[int, int]]]:
+    def _confidence_bucket_ranges(self, confidence: np.ndarray) -> dict[str, List[Tuple[int, int]]]:
         """Group contiguous residues by confidence color bucket.
 
         Returns mapping from color hex to 1-indexed residue ranges (inclusive).
