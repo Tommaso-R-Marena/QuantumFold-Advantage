@@ -68,12 +68,12 @@ class ProteinDataset(Dataset):
         seq_encoded = self._encode_sequence(seq)
 
         # Ensure coordinates are float32 tensors
-        coords_tensor = torch.tensor(coords, dtype=torch.float32)
+        coords_tensor = torch.as_tensor(coords, dtype=torch.float32)
 
         return {
             "sequence": seq_encoded,
             "coordinates": coords_tensor,
-            "label": torch.tensor(label, dtype=torch.long),
+            "label": torch.as_tensor(label, dtype=torch.long),
             "length": len(seq),
         }
 
@@ -281,3 +281,35 @@ def load_data(
     logger.info(f"Dataset split: {len(train_dataset)} train, {len(test_dataset)} test")
 
     return train_dataset, test_dataset
+
+
+def collate_fn(batch: List[Dict]) -> Dict:
+    """
+    Collate function for ProteinDataset that handles variable length sequences.
+    Pads sequences and coordinates to the maximum length in the batch.
+    """
+    lengths = [item["length"] for item in batch]
+    max_len = max(lengths)
+    batch_size = len(batch)
+
+    # Prepare padded tensors
+    # Sequence is one-hot encoded (20 amino acids)
+    seq_padded = torch.zeros((batch_size, max_len, 20), dtype=torch.float32)
+    coords_padded = torch.zeros((batch_size, max_len, 3), dtype=torch.float32)
+    mask = torch.zeros((batch_size, max_len), dtype=torch.bool)
+    labels = torch.zeros(batch_size, dtype=torch.long)
+
+    for i, item in enumerate(batch):
+        l = item["length"]
+        seq_padded[i, :l, :] = item["sequence"]
+        coords_padded[i, :l, :] = item["coordinates"]
+        mask[i, :l] = True
+        labels[i] = item["label"]
+
+    return {
+        "sequence": seq_padded,
+        "coordinates": coords_padded,
+        "mask": mask,
+        "label": labels,
+        "length": torch.tensor(lengths, dtype=torch.long),
+    }

@@ -349,7 +349,9 @@ class AdvancedTrainer:
         self._setup_scheduler()
 
         # Mixed precision scaler
-        self.scaler = GradScaler("cuda") if config.use_amp else None
+        self.scaler = (
+            GradScaler(device.type) if config.use_amp and device.type == "cuda" else None
+        )
 
         # EMA
         self.ema = ExponentialMovingAverage(model, config.ema_decay) if config.use_ema else None
@@ -405,8 +407,8 @@ class AdvancedTrainer:
 
             # Forward pass with mixed precision
             with autocast(
-                device_type="cuda",
-                enabled=self.config.use_amp,
+                device_type=self.device.type,
+                enabled=self.config.use_amp and self.device.type == "cuda",
                 dtype=torch.float16 if self.config.amp_dtype == "float16" else torch.bfloat16,
             ):
                 coords_pred = self.model(sequences)

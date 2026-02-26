@@ -13,6 +13,7 @@ from .validation import (
     validate_tensor,
     validate_type,
 )
+from .common import *
 
 __all__ = [
     "Config",
@@ -29,6 +30,10 @@ __all__ = [
     "validate_coordinates",
     "safe_divide",
     "clip_gradients",
+    "set_seed",
+    "detect_device",
+    "setup_logging",
+    "count_parameters",
 ]
 
 # Optional utilities: imported lazily when dependencies are available.
@@ -60,7 +65,7 @@ except ImportError:
 try:
     pass
 
-    __all__.extend(["setup_logging", "get_logger"])
+    __all__.extend(["get_logger"])
 except ImportError:
     pass
 

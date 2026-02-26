@@ -237,7 +237,7 @@ class AdvancedQuantumCircuitLayer(nn.Module):
         for i in range(batch_size):
             result = self.qnode(x[i], self.weights, self.param_scaling)
             # Cast to float32 to match PyTorch Linear layer expectations
-            outputs.append(torch.stack([torch.tensor(r, dtype=torch.float32) for r in result]))
+            outputs.append(torch.stack([torch.as_tensor(r, dtype=torch.float32) for r in result]))
 
         return torch.stack(outputs)
 
@@ -270,7 +270,8 @@ class AdvancedQuantumCircuitLayer(nn.Module):
             # Compute fidelity
             fidelity = torch.abs(
                 torch.dot(
-                    torch.tensor(out1, dtype=torch.float32), torch.tensor(out2, dtype=torch.float32)
+                    torch.as_tensor(out1, dtype=torch.float32),
+                    torch.as_tensor(out2, dtype=torch.float32),
                 )
             )
             fidelities.append(fidelity.item())
@@ -302,7 +303,7 @@ class AdvancedQuantumCircuitLayer(nn.Module):
             with torch.no_grad():
                 outputs = self.qnode(inputs, params, torch.ones(self.n_layers))
                 # Variance of outputs indicates entanglement
-                variance = torch.var(torch.tensor(outputs, dtype=torch.float32)).item()
+                variance = torch.var(torch.as_tensor(outputs, dtype=torch.float32)).item()
                 entanglement_scores.append(variance)
 
         self.entangling_capability = float(np.mean(entanglement_scores))
@@ -383,9 +384,9 @@ class QuantumKernelLayer(nn.Module):
         """
         result = self.kernel_circuit(x1, x2, self.feature_params)
         if self.kernel_type in ["Z", "ZZ"]:
-            return torch.mean(torch.abs(torch.tensor(result, dtype=torch.float32)))
+            return torch.mean(torch.abs(torch.as_tensor(result, dtype=torch.float32)))
         else:
-            return torch.tensor(result[0], dtype=torch.float32)  # Probability of |00...0⟩
+            return torch.as_tensor(result[0], dtype=torch.float32)  # Probability of |00...0⟩
 
     def forward(self, X: Tensor) -> Tensor:
         """Compute Gram matrix for batch of samples.

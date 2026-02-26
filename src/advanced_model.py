@@ -246,21 +246,25 @@ class StructureModule(nn.Module):
             .repeat(batch_size, n_res, 1, 1)
         )
 
-        for i in range(n_res - 2):
-            # Local x-axis: CA(i) -> CA(i+1)
-            x_axis = coords[:, i + 1] - coords[:, i]
-            x_axis = F.normalize(x_axis, dim=-1)
+        for i in range(n_res):
+            if i < n_res - 2:
+                # Local x-axis: CA(i) -> CA(i+1)
+                x_axis = coords[:, i + 1] - coords[:, i]
+                x_axis = F.normalize(x_axis, dim=-1)
 
-            # Local y-axis: perpendicular to x in plane with CA(i+2)
-            v = coords[:, i + 2] - coords[:, i]
-            y_axis = v - torch.sum(v * x_axis, dim=-1, keepdim=True) * x_axis
-            y_axis = F.normalize(y_axis, dim=-1)
+                # Local y-axis: perpendicular to x in plane with CA(i+2)
+                v = coords[:, i + 2] - coords[:, i]
+                y_axis = v - torch.sum(v * x_axis, dim=-1, keepdim=True) * x_axis
+                y_axis = F.normalize(y_axis, dim=-1)
 
-            # Local z-axis: cross product
-            z_axis = torch.cross(x_axis, y_axis, dim=-1)
+                # Local z-axis: cross product
+                z_axis = torch.cross(x_axis, y_axis, dim=-1)
 
-            # Stack into rotation matrix
-            rotations[:, i] = torch.stack([x_axis, y_axis, z_axis], dim=-1)
+                # Stack into rotation matrix
+                rotations[:, i] = torch.stack([x_axis, y_axis, z_axis], dim=-1)
+            elif i > 0:
+                # For last two residues, use the previous frame's rotation
+                rotations[:, i] = rotations[:, i - 1].clone()
 
         return translations, rotations
 
@@ -302,6 +306,10 @@ class StructureModule(nn.Module):
 
             # Update coordinates
             coords = coords + translation_update
+
+            # Apply rotation update if needed (not strictly required by current recompute logic
+            # but preserved for potential future use or to match architecture intent)
+            # In a full AF2-style module, we would update the rigids here.
 
             trajectory.append(coords)
 
