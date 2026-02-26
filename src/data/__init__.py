@@ -23,10 +23,10 @@ except ImportError as e:
 
 from .loader import (
     ProteinDataset,
-    generate_synthetic_data,
-    fetch_pdb_structures,
-    load_data,
     collate_fn,
+    fetch_pdb_structures,
+    generate_synthetic_data,
+    load_data,
 )
 
 __all__ = [

@@ -9,7 +9,9 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
-from .data import ProteinDataset, collate_fn, fetch_pdb_structures as download_pdb_structures
+
+from .data import ProteinDataset, collate_fn
+from .data import fetch_pdb_structures as download_pdb_structures
 
 try:
     from Bio.PDB import PDBParser

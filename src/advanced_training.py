@@ -349,9 +349,7 @@ class AdvancedTrainer:
         self._setup_scheduler()
 
         # Mixed precision scaler
-        self.scaler = (
-            GradScaler(device.type) if config.use_amp and device.type == "cuda" else None
-        )
+        self.scaler = GradScaler(device.type) if config.use_amp and device.type == "cuda" else None
 
         # EMA
         self.ema = ExponentialMovingAverage(model, config.ema_decay) if config.use_ema else None
