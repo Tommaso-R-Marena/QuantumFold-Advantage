@@ -76,6 +76,7 @@ class ProteinVisualizer:
         height: int = 600,
         style: str = "cartoon",
         color_by: str = "confidence",
+        show_confidence_legend: bool = True,
     ) -> str:
         """Create interactive 3D visualization with py3Dmol.
 
@@ -88,6 +89,7 @@ class ProteinVisualizer:
             height: Viewer height
             style: Representation ('cartoon', 'stick', 'sphere', 'line')
             color_by: Color scheme ('confidence', 'secondary_structure', 'rainbow')
+            show_confidence_legend: Include confidence statistics/legend in returned HTML
 
         Returns:
             HTML string for embedding in notebook
@@ -104,10 +106,11 @@ class ProteinVisualizer:
 
         # Apply style
         if color_by == "confidence" and confidence is not None:
-            # Color by confidence (pLDDT-style)
-            for i, conf in enumerate(confidence):
-                color = self._plddt_to_color(conf)
-                view.setStyle({"resi": i + 1}, {style: {"color": color}})
+            # Color by confidence (pLDDT-style), grouped to reduce py3Dmol style calls.
+            confidence = np.asarray(confidence)
+            for color, residue_ranges in self._confidence_bucket_ranges(confidence).items():
+                for start, end in residue_ranges:
+                    view.setStyle({"resi": f"{start}-{end}"}, {style: {"color": color}})
         elif color_by == "secondary_structure" and secondary_structure:
             # Color by secondary structure
             ss_colors = {
@@ -130,7 +133,11 @@ class ProteinVisualizer:
         view.zoomTo()
         view.spin(True)
 
-        return view._make_html()
+        html = view._make_html()
+        if color_by == "confidence" and confidence is not None and show_confidence_legend:
+            html += self._confidence_legend_html(np.asarray(confidence))
+
+        return html
 
     def plot_ramachandran(
         self,
@@ -491,6 +498,46 @@ class ProteinVisualizer:
         pdb_lines.append("END")
         return "\n".join(pdb_lines)
 
+    def _confidence_bucket_ranges(
+        self, confidence: np.ndarray
+    ) -> dict[str, List[Tuple[int, int]]]:
+        """Group contiguous residues by confidence color bucket.
+
+        Returns mapping from color hex to 1-indexed residue ranges (inclusive).
+        """
+        if confidence.size == 0:
+            return {}
+
+        colors = [self._plddt_to_color(float(score)) for score in confidence]
+        grouped_ranges: dict[str, List[Tuple[int, int]]] = {}
+
+        start = 1
+        active_color = colors[0]
+        for idx in range(1, len(colors) + 1):
+            reached_end = idx == len(colors)
+            color_changed = not reached_end and colors[idx] != active_color
+            if reached_end or color_changed:
+                grouped_ranges.setdefault(active_color, []).append((start, idx))
+                if not reached_end:
+                    start = idx + 1
+                    active_color = colors[idx]
+
+        return grouped_ranges
+
+    def _confidence_legend_html(self, confidence: np.ndarray) -> str:
+        """Return HTML legend to expose prediction confidence directly in 3D views."""
+        conf = confidence.astype(float)
+        return (
+            "<div style='font-family:Arial,sans-serif;font-size:13px;margin-top:8px;'>"
+            "<strong>Prediction confidence (pLDDT)</strong><br>"
+            f"Mean: {conf.mean():.1f} | Min: {conf.min():.1f} | Max: {conf.max():.1f}<br>"
+            "<span style='display:inline-block;width:10px;height:10px;background:#0053D6;'></span> &gt; 90 "
+            "<span style='display:inline-block;width:10px;height:10px;background:#65CBF3;margin-left:8px;'></span> 70-90 "
+            "<span style='display:inline-block;width:10px;height:10px;background:#FFDB13;margin-left:8px;'></span> 50-70 "
+            "<span style='display:inline-block;width:10px;height:10px;background:#FF7D45;margin-left:8px;'></span> &lt; 50"
+            "</div>"
+        )
+
     def _plddt_to_color(self, plddt: float) -> str:
         """Convert pLDDT score to color (AlphaFold scheme)."""
         if plddt > 90:
@@ -515,15 +562,14 @@ class ProteinVisualizer:
         phi = np.zeros(n - 2)
         psi = np.zeros(n - 2)
 
-        for i in range(1, n - 1):
-            # Approximate using CA positions
-            v1 = coords[i] - coords[i - 1]
-            v2 = coords[i + 1] - coords[i]
-
-            # Pseudo-dihedral
-            angle = np.arctan2(np.linalg.norm(np.cross(v1, v2)), np.dot(v1, v2))
-            phi[i - 1] = np.degrees(angle)
-            psi[i - 1] = np.degrees(angle)  # Simplified
+        # Vectorized pseudo-dihedral approximation for speed on long proteins.
+        v1 = coords[1:-1] - coords[:-2]
+        v2 = coords[2:] - coords[1:-1]
+        cross_norm = np.linalg.norm(np.cross(v1, v2), axis=1)
+        dot = np.einsum("ij,ij->i", v1, v2)
+        angles = np.degrees(np.arctan2(cross_norm, dot))
+        phi[:] = angles
+        psi[:] = angles  # Simplified
 
         return phi, psi
 

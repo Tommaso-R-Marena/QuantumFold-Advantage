@@ -42,6 +42,9 @@ class NotebookValidator:
         
         # Check for common issues
         self._check_common_issues(notebook_path.name, nb)
+
+        # Colab reliability checks (runtime reproducibility + dependency setup)
+        self._check_colab_reliability(notebook_path.name, nb.get('cells', []))
         
         return len(self.errors) == 0
     
@@ -137,6 +140,40 @@ class NotebookValidator:
         # Check for TODO or FIXME
         if 'TODO' in nb_str or 'FIXME' in nb_str:
             self.warnings.append(f"{name}: Contains TODO/FIXME comments")
+
+    def _check_colab_reliability(self, name: str, cells: List[dict]):
+        """Check notebook compatibility with complete Colab execution."""
+        code_sources = [
+            ''.join(cell.get('source', []))
+            for cell in cells
+            if cell.get('cell_type') == 'code'
+        ]
+        full_code = '\n'.join(code_sources)
+
+        has_colab_detection = 'google.colab' in full_code or 'IN_COLAB' in full_code
+        has_install = any('pip install' in src for src in code_sources)
+        has_repo_clone = any('git clone' in src for src in code_sources)
+
+        if not has_colab_detection:
+            self.warnings.append(
+                f"{name}: Missing explicit Colab runtime detection (IN_COLAB/google.colab)"
+            )
+
+        if not has_install:
+            self.errors.append(
+                f"{name}: Missing dependency installation cell for Colab execution"
+            )
+
+        if not has_repo_clone:
+            self.warnings.append(
+                f"{name}: Missing repository clone instruction (may fail in fresh Colab runtime)"
+            )
+
+        # numpy ABI mismatch is a common Colab source of failures
+        if 'numpy' in full_code.lower() and 'os.kill(os.getpid(), 9)' not in full_code:
+            self.warnings.append(
+                f"{name}: No runtime-restart safeguard after dependency install; numpy ABI mismatch may occur"
+            )
     
     def report(self) -> bool:
         """Print validation report."""
