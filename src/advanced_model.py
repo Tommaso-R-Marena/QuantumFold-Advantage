@@ -494,3 +494,89 @@ class AdvancedProteinFoldingModel(nn.Module):
             "single_repr": structure_out["final_repr"],
             "pair_repr": z,
         }
+
+
+class InterChainIPA(nn.Module):
+    """IPA variant with chain-aware attention masking."""
+
+    def __init__(self, c_s: int = 384, c_z: int = 128, n_heads: int = 12):
+        super().__init__()
+        self.ipa = InvariantPointAttention(c_s=c_s, c_z=c_z, n_heads=n_heads)
+
+    def _to_chain_ranges(self, chain_breaks, n_res: int):
+        if isinstance(chain_breaks, torch.Tensor):
+            br = chain_breaks.tolist()
+        else:
+            br = list(chain_breaks)
+        bounds = [0] + [int(x) for x in br if 0 < int(x) < n_res] + [n_res]
+        return [(bounds[i], bounds[i + 1]) for i in range(len(bounds) - 1)]
+
+    def forward(self, s, z, rigids, chain_breaks, mask=None):
+        batch_size, n_res, _ = s.shape
+        chain_mask = torch.ones(batch_size, n_res, n_res, dtype=torch.bool, device=s.device)
+
+        per_batch_breaks = chain_breaks if (isinstance(chain_breaks, list) and chain_breaks and isinstance(chain_breaks[0], (list, tuple))) else [chain_breaks] * batch_size
+
+        for b in range(batch_size):
+            ranges = self._to_chain_ranges(per_batch_breaks[b], n_res)
+            # Block non-adjacent chain pairs.
+            for i in range(len(ranges)):
+                si, ei = ranges[i]
+                for j in range(i + 2, len(ranges)):
+                    sj, ej = ranges[j]
+                    chain_mask[b, si:ei, sj:ej] = False
+                    chain_mask[b, sj:ej, si:ei] = False
+
+            # Allow interface attention near chain boundaries (±15 residues).
+            for i in range(len(ranges) - 1):
+                li = max(ranges[i][0], ranges[i][1] - 15)
+                ri = ranges[i][1]
+                lj = ranges[i + 1][0]
+                rj = min(ranges[i + 1][1], ranges[i + 1][0] + 15)
+                chain_mask[b, li:ri, lj:rj] = True
+                chain_mask[b, lj:rj, li:ri] = True
+
+        # IPA accepts residue mask (B,N); we use chain mask to zero pair features.
+        z = z * chain_mask.unsqueeze(-1).float()
+        return self.ipa(s, z, rigids, mask=mask)
+
+
+class MultiChainStructureModule(nn.Module):
+    """Structure module with inter-chain modeling."""
+
+    def __init__(
+        self,
+        c_s: int = 384,
+        c_z: int = 128,
+        n_layers: int = 8,
+        enable_inter_chain_attention: bool = True,
+    ):
+        super().__init__()
+        self.enable_inter_chain_attention = enable_inter_chain_attention
+        self.inter_chain_ipa = nn.ModuleList([InterChainIPA(c_s=c_s, c_z=c_z) for _ in range(n_layers)])
+        self.transitions = nn.ModuleList([
+            nn.Sequential(nn.Linear(c_s, c_s * 4), nn.ReLU(), nn.Linear(c_s * 4, c_s))
+            for _ in range(n_layers)
+        ])
+        self.backbone_update = nn.ModuleList([nn.Linear(c_s, 3) for _ in range(n_layers)])
+        self.chain_break_embeddings = nn.Embedding(100, c_z)
+        self.interface_predictor = nn.Sequential(
+            nn.Linear(c_z, c_z // 2), nn.ReLU(), nn.Linear(c_z // 2, 1), nn.Sigmoid()
+        )
+
+    def _compute_rigids_multichain(self, coords: Tensor):
+        b, n, _ = coords.shape
+        rotations = torch.eye(3, device=coords.device).view(1, 1, 3, 3).repeat(b, n, 1, 1)
+        return coords, rotations
+
+    def forward(self, s: Tensor, z: Tensor, initial_coords: Tensor, chain_breaks, mask: Optional[Tensor] = None) -> Dict:
+        coords = initial_coords
+        s_updated = s
+        if self.enable_inter_chain_attention:
+            for i, layer in enumerate(self.inter_chain_ipa):
+                rigids = self._compute_rigids_multichain(coords)
+                s_updated = s_updated + layer(s_updated, z, rigids, chain_breaks=chain_breaks, mask=mask)
+                s_updated = s_updated + self.transitions[i](s_updated)
+                coords = coords + self.backbone_update[i](s_updated)
+        interface_logits = self.interface_predictor(z).squeeze(-1)
+        return {"final_coords": coords, "interface_contacts": interface_logits, "final_repr": s_updated}

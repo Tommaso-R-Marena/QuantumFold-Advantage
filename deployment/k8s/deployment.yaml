@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quantumfold-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: quantumfold
+  template:
+    metadata:
+      labels:
+        app: quantumfold
+    spec:
+      containers:
+      - name: api
+        image: quantumfold:latest
+        resources:
+          requests:
+            memory: "8Gi"
+            cpu: "2"
+            nvidia.com/gpu: "1"
+          limits:
+            memory: "16Gi"
+            cpu: "4"
+            nvidia.com/gpu: "1"
+        ports:
+        - containerPort: 8000

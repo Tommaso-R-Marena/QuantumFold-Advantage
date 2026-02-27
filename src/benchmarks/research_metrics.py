@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import torch
 from scipy import stats
 from scipy.spatial.distance import cdist
 
@@ -520,3 +521,95 @@ class ResearchBenchmark:
         power = norm.cdf(z_beta)
 
         return max(0.0, min(1.0, power))
+
+
+def compute_casp_metrics(pred_coords, native_coords, sequence) -> Dict[str, float]:
+    """Compute a broad CASP-style metric panel."""
+    bench = ResearchBenchmark()
+    gdt_ts = bench.compute_gdt(pred_coords, native_coords, thresholds=[1.0, 2.0, 4.0, 8.0])
+    gdt_ha = bench.compute_gdt(pred_coords, native_coords, thresholds=[0.5, 1.0, 2.0, 4.0])
+    contact_precision, _, _ = bench.compute_contact_metrics(pred_coords, native_coords, threshold=8.0)
+    return {
+        "TM-score": bench.compute_tm_score(pred_coords, native_coords, len(sequence)),
+        "GDT_TS": gdt_ts["GDT_TS"],
+        "GDT_HA": gdt_ha["GDT_HA"],
+        "lDDT": bench.compute_lddt(pred_coords, native_coords),
+        "RMSD": bench.compute_rmsd(pred_coords, native_coords),
+        "Contact_Precision": contact_precision,
+        "Secondary_Structure_Agreement": 0.0,
+    }
+
+
+def _kabsch_torch(pred_coords: torch.Tensor, native_coords: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    pred_centered = pred_coords - pred_coords.mean(dim=0, keepdim=True)
+    native_centered = native_coords - native_coords.mean(dim=0, keepdim=True)
+    h = pred_centered.t() @ native_centered
+    u, _, v = torch.svd(h)
+    r = v @ u.t()
+    if torch.det(r) < 0:
+        v[:, -1] *= -1
+        r = v @ u.t()
+    return pred_centered @ r, native_centered
+
+
+def compute_tm_score(pred_coords: torch.Tensor, native_coords: torch.Tensor) -> float:
+    n = min(pred_coords.shape[0], native_coords.shape[0])
+    if n < 3:
+        return 0.0
+    pred, native = _kabsch_torch(pred_coords[:n], native_coords[:n])
+    d0 = 1.24 * max(n - 15, 1) ** (1.0 / 3.0) - 1.8
+    d0 = max(d0, 0.5)
+    d = torch.norm(pred - native, dim=-1)
+    return float(torch.mean(1.0 / (1.0 + (d / d0) ** 2)).item())
+
+
+def compute_rmsd(pred_coords: torch.Tensor, native_coords: torch.Tensor) -> float:
+    n = min(pred_coords.shape[0], native_coords.shape[0])
+    if n < 1:
+        return 0.0
+    pred, native = _kabsch_torch(pred_coords[:n], native_coords[:n])
+    return float(torch.sqrt(torch.mean(torch.sum((pred - native) ** 2, dim=-1))).item())
+
+
+def compute_gdt_ts(
+    pred_coords: torch.Tensor,
+    native_coords: torch.Tensor,
+    thresholds: List[float] = [1.0, 2.0, 4.0, 8.0],
+) -> float:
+    """Compute GDT_TS after Kabsch alignment."""
+    n = min(pred_coords.shape[0], native_coords.shape[0])
+    if n < 1:
+        return 0.0
+    pred_aligned, native_aligned = _kabsch_torch(pred_coords[:n], native_coords[:n])
+    distances = torch.norm(pred_aligned - native_aligned, dim=-1)
+    gdt_scores = [float((distances < t).float().mean().item() * 100.0) for t in thresholds]
+    return float(sum(gdt_scores) / len(gdt_scores))
+
+
+def compute_lddt(pred_coords: torch.Tensor, native_coords: torch.Tensor, cutoff: float = 15.0) -> float:
+    """Compute local distance difference test (lDDT)."""
+    n = min(pred_coords.shape[0], native_coords.shape[0])
+    if n < 2:
+        return 0.0
+    pred = pred_coords[:n]
+    native = native_coords[:n]
+    native_dist = torch.cdist(native, native)
+    pred_dist = torch.cdist(pred, pred)
+    thresholds = [0.5, 1.0, 2.0, 4.0]
+    per_residue = []
+    for i in range(n):
+        neigh = (native_dist[i] < cutoff) & (native_dist[i] > 1e-6)
+        if torch.count_nonzero(neigh) == 0:
+            continue
+        delta = torch.abs(pred_dist[i, neigh] - native_dist[i, neigh])
+        score = torch.stack([(delta < t).float().mean() for t in thresholds]).mean()
+        per_residue.append(score)
+    if not per_residue:
+        return 0.0
+    return float(torch.stack(per_residue).mean().item() * 100.0)
+
+
+class ResearchMetrics(ResearchBenchmark):
+    """Backward-compatible alias for benchmark metrics API."""
+
+    pass
