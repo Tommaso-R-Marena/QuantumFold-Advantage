@@ -1,6 +1,7 @@
 """Utility modules for QuantumFold-Advantage."""
 
 from .checkpoint import CheckpointManager, CheckpointMetadata
+from .common import *
 from .config import Config, load_config, save_config
 from .validation import (
     ValidationError,
@@ -29,6 +30,10 @@ __all__ = [
     "validate_coordinates",
     "safe_divide",
     "clip_gradients",
+    "set_seed",
+    "detect_device",
+    "setup_logging",
+    "count_parameters",
 ]
 
 # Optional utilities: imported lazily when dependencies are available.
@@ -60,7 +65,7 @@ except ImportError:
 try:
     pass
 
-    __all__.extend(["setup_logging", "get_logger"])
+    __all__.extend(["get_logger"])
 except ImportError:
     pass
 

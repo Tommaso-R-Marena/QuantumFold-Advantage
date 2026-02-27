@@ -65,6 +65,7 @@ jobs:
       
       - name: Check for execution metadata
         run: |
+          pip install nbformat
           python - <<'EOF'
           import nbformat
           import glob
@@ -368,7 +369,7 @@ jobs:
       
       - name: Upload execution results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: executed-notebooks
           path: |
@@ -381,7 +382,16 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
-      
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install nbformat
+
       - name: Check Colab compatibility
         run: |
           python - <<'EOF'

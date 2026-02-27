@@ -82,8 +82,7 @@ class ResearchBenchmark:
 
         # Normalize scale
         d0 = 1.24 * (sequence_length - 15) ** (1.0 / 3.0) - 1.8
-        if sequence_length <= 21:
-            d0 = 0.5
+        d0 = max(0.5, d0)
 
         # Align structures (Kabsch algorithm)
         pred_aligned, true_aligned = self._kabsch_align(pred_coords, true_coords)

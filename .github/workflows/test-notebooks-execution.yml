@@ -143,11 +143,11 @@ jobs:
     
     - name: Run structure tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookStructure -v
+        pytest tests/test_notebook_execution.py::TestNotebookExecution -v
     
     - name: Run content tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookContent -v
+        pytest tests/test_notebook_execution.py::TestNotebookContentCoverage -v
   
   test-production-notebook:
     name: Test Production Notebook
@@ -166,51 +166,51 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil
+        pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil numpy
     
     - name: Test notebook structure
       run: |
         pytest tests/test_production_notebook.py::TestNotebookStructure -v
     
-    - name: Test configuration cells
+    - name: Test configuration and setup
       run: |
-        pytest tests/test_production_notebook.py::TestConfigurationCells -v
+        pytest tests/test_production_notebook.py::TestConfigurationAndSetup -v
     
-    - name: Test data processing
+    - name: Test data training evaluation flow
       run: |
-        pytest tests/test_production_notebook.py::TestDataProcessing -v
+        pytest tests/test_production_notebook.py::TestDataTrainingEvaluationFlow -v
     
-    - name: Test model training
+    - name: Test visualization and export
       run: |
-        pytest tests/test_production_notebook.py::TestModelTraining -v
+        pytest tests/test_production_notebook.py::TestVisualizationAndExport -v
     
-    - name: Test evaluation
+    - name: Test reliability and reproducibility
       run: |
-        pytest tests/test_production_notebook.py::TestEvaluation -v
+        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
     
-    - name: Test visualization
+    - name: Test production execution
       run: |
-        pytest tests/test_production_notebook.py::TestVisualization -v
-    
-    - name: Test results export
+        pytest tests/test_production_notebook.py::TestProductionExecution -v
+
+    - name: Test production notebook legacy parity
       run: |
-        pytest tests/test_production_notebook.py::TestResultsExport -v
-    
-    - name: Test memory management
+        pytest tests/test_production_notebook.py::TestProductionNotebookLegacyParity -v
+
+    - name: Test production notebook complete legacy surface
       run: |
-        pytest tests/test_production_notebook.py::TestMemoryManagement -v
-    
-    - name: Test error handling
+        pytest tests/test_production_notebook.py::TestProductionNotebookCompleteLegacySurface -v
+
+    - name: Test production notebook flow integrity
       run: |
-        pytest tests/test_production_notebook.py::TestErrorHandling -v
-    
-    - name: Test reproducibility
+        pytest tests/test_production_notebook.py::TestProductionNotebookFlowIntegrity -v
+
+    - name: Test production notebook helper functions
       run: |
-        pytest tests/test_production_notebook.py::TestReproducibility -v
-    
-    - name: Test documentation
+        pytest tests/test_production_notebook.py::TestProductionNotebookHelperFunctions -v
+
+    - name: Test production notebook additional invariants
       run: |
-        pytest tests/test_production_notebook.py::TestDocumentation -v
+        pytest tests/test_production_notebook.py::TestProductionNotebookAdditionalInvariants -v
   
   summary:
     name: Test Summary

@@ -21,12 +21,25 @@ except ImportError as e:
     _CASP16_AVAILABLE = False
     _CASP16_ERROR = str(e)
 
+from .loader import (
+    ProteinDataset,
+    collate_fn,
+    fetch_pdb_structures,
+    generate_synthetic_data,
+    load_data,
+)
+
 __all__ = [
     "CASP16Config",
     "CASP16Target",
     "CASP16Loader",
     "CASP16Dataset",
     "get_casp16_benchmark_set",
+    "ProteinDataset",
+    "generate_synthetic_data",
+    "fetch_pdb_structures",
+    "load_data",
+    "collate_fn",
 ]
 
 if not _CASP16_AVAILABLE:

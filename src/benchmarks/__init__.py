@@ -10,6 +10,7 @@ from typing import Dict
 import numpy as np
 import torch
 
+from .evaluators import BenchmarkComparison, ProteinStructureEvaluator, StructureMetrics
 from .research_metrics import ResearchBenchmark, StructurePredictionMetrics
 
 
@@ -51,6 +52,30 @@ def calculate_tm_score(
     return benchmark.compute_tm_score(pred, true)
 
 
+def compute_rmsd(
+    predicted: torch.Tensor | np.ndarray, ground_truth: torch.Tensor | np.ndarray
+) -> float:
+    """Alias for compute_rmsd."""
+    return calculate_rmsd(predicted, ground_truth)
+
+
+def compute_tm_score(
+    predicted: torch.Tensor | np.ndarray, ground_truth: torch.Tensor | np.ndarray
+) -> float:
+    """Alias for compute_tm_score."""
+    return calculate_tm_score(predicted, ground_truth)
+
+
+def compute_gdt_ts(
+    predicted: torch.Tensor | np.ndarray, ground_truth: torch.Tensor | np.ndarray
+) -> float:
+    """Calculate GDT_TS for compatibility."""
+    benchmark = ResearchBenchmark(n_bootstrap=100)
+    pred = _to_numpy(predicted)
+    true = _to_numpy(ground_truth)
+    return benchmark.compute_gdt(pred, true)["GDT_TS"]
+
+
 class BenchmarkMetrics:
     """Compatibility wrapper exposing simple metric dictionary outputs."""
 
@@ -81,4 +106,10 @@ __all__ = [
     "BenchmarkMetrics",
     "calculate_rmsd",
     "calculate_tm_score",
+    "compute_rmsd",
+    "compute_tm_score",
+    "compute_gdt_ts",
+    "ProteinStructureEvaluator",
+    "BenchmarkComparison",
+    "StructureMetrics",
 ]
