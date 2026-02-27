@@ -1,0 +1,8 @@
+FROM pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime
+RUN pip install fastapi[all] celery[redis] boto3 pennylane gunicorn
+COPY src/ /app/src/
+COPY checkpoints/ /app/checkpoints/
+WORKDIR /app
+EXPOSE 8000
+HEALTHCHECK CMD curl --fail http://localhost:8000/health || exit 1
+CMD ["gunicorn", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "src.deployment.api:app", "--bind", "0.0.0.0:8000"]

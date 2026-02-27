@@ -565,3 +565,40 @@ class AdvancedTrainer:
 
         self.logger.info("Training complete!")
         return self.history
+
+
+def compute_interface_loss(pred_coords: Tensor, native_coords: Tensor, chain_breaks) -> Tensor:
+    pair_dist_pred = torch.cdist(pred_coords, pred_coords)
+    pair_dist_true = torch.cdist(native_coords, native_coords)
+    mask = torch.zeros_like(pair_dist_pred)
+    for brk in chain_breaks:
+        left = slice(max(0, brk - 5), brk)
+        right = slice(brk, min(pred_coords.shape[-2], brk + 5))
+        mask[..., left, right] = 1
+        mask[..., right, left] = 1
+    return F.l1_loss(pair_dist_pred * mask, pair_dist_true * mask)
+
+
+def compute_complex_fape(pred_coords: Tensor, native_coords: Tensor, chain_breaks) -> Tensor:
+    fape = FrameAlignedPointError()
+    intra = fape(pred_coords, native_coords)
+    inter = compute_interface_loss(pred_coords, native_coords, chain_breaks)
+    return 0.7 * intra + 0.3 * inter
+
+
+def compute_rna_geometry_loss(pred_coords: Tensor, native_coords: Tensor) -> Tensor:
+    return F.smooth_l1_loss(torch.cdist(pred_coords, pred_coords), torch.cdist(native_coords, native_coords))
+
+
+def compute_base_pair_loss(pred_bp_matrix: Tensor, native_bp_matrix: Tensor) -> Tensor:
+    return F.binary_cross_entropy(pred_bp_matrix, native_bp_matrix)
+
+
+def compute_docking_loss(pred_complex: Dict[str, Tensor], native_complex: Dict[str, Tensor]) -> Tensor:
+    ligand = F.mse_loss(pred_complex["ligand_coords"], native_complex["ligand_coords"])
+    protein = F.mse_loss(pred_complex["protein_coords"], native_complex["protein_coords"])
+    return ligand + 0.5 * protein
+
+
+def compute_binding_affinity_loss(pred_affinity: Tensor, experimental_kd: Tensor) -> Tensor:
+    return F.mse_loss(pred_affinity, experimental_kd)
