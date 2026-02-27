@@ -494,3 +494,52 @@ class AdvancedProteinFoldingModel(nn.Module):
             "single_repr": structure_out["final_repr"],
             "pair_repr": z,
         }
+
+
+class InterChainIPA(nn.Module):
+    """IPA variant that handles chain boundaries."""
+
+    def __init__(self, c_s: int, c_z: int):
+        super().__init__()
+        self.ipa = InvariantPointAttention(c_s=c_s, c_z=c_z)
+
+    def forward(self, s, z, rigids, chain_breaks, mask=None):
+        n = s.shape[1]
+        chain_ids = torch.zeros(n, device=s.device, dtype=torch.long)
+        for i, brk in enumerate(chain_breaks):
+            chain_ids[brk:] = i + 1
+        chain_mask = (chain_ids.unsqueeze(0) == chain_ids.unsqueeze(1)).float()
+        if mask is None:
+            mask = torch.ones(s.shape[0], n, device=s.device)
+        z = z * chain_mask.unsqueeze(0).unsqueeze(-1)
+        return self.ipa(s, z, rigids, mask=mask)
+
+
+class MultiChainStructureModule(nn.Module):
+    """Structure module with inter-chain modeling."""
+
+    def __init__(
+        self,
+        c_s: int = 384,
+        c_z: int = 128,
+        n_layers: int = 8,
+        enable_inter_chain_attention: bool = True,
+    ):
+        super().__init__()
+        self.intra = StructureModule(c_s=c_s, c_z=c_z, n_layers=n_layers)
+        self.enable_inter_chain_attention = enable_inter_chain_attention
+        self.inter_chain_ipa = nn.ModuleList([InterChainIPA(c_s=c_s, c_z=c_z) for _ in range(n_layers)])
+        self.chain_break_embeddings = nn.Embedding(100, c_z)
+        self.interface_predictor = nn.Sequential(
+            nn.Linear(c_z, c_z // 2), nn.ReLU(), nn.Linear(c_z // 2, 1), nn.Sigmoid()
+        )
+
+    def forward(self, s: Tensor, z: Tensor, chain_breaks, mask: Optional[Tensor] = None) -> Dict:
+        coords = torch.zeros(s.shape[0], s.shape[1], 3, device=s.device)
+        rigids = self.intra._compute_rigids(coords)
+        s_updated = s
+        if self.enable_inter_chain_attention:
+            for layer in self.inter_chain_ipa:
+                s_updated = s_updated + layer(s_updated, z, rigids, chain_breaks=chain_breaks, mask=mask)
+        interface_logits = self.interface_predictor(z).squeeze(-1)
+        return {"single": s_updated, "pair": z, "interface_contacts": interface_logits}
