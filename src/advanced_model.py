@@ -528,7 +528,9 @@ class MultiChainStructureModule(nn.Module):
         super().__init__()
         self.intra = StructureModule(c_s=c_s, c_z=c_z, n_layers=n_layers)
         self.enable_inter_chain_attention = enable_inter_chain_attention
-        self.inter_chain_ipa = nn.ModuleList([InterChainIPA(c_s=c_s, c_z=c_z) for _ in range(n_layers)])
+        self.inter_chain_ipa = nn.ModuleList(
+            [InterChainIPA(c_s=c_s, c_z=c_z) for _ in range(n_layers)]
+        )
         self.chain_break_embeddings = nn.Embedding(100, c_z)
         self.interface_predictor = nn.Sequential(
             nn.Linear(c_z, c_z // 2), nn.ReLU(), nn.Linear(c_z // 2, 1), nn.Sigmoid()
@@ -540,6 +542,8 @@ class MultiChainStructureModule(nn.Module):
         s_updated = s
         if self.enable_inter_chain_attention:
             for layer in self.inter_chain_ipa:
-                s_updated = s_updated + layer(s_updated, z, rigids, chain_breaks=chain_breaks, mask=mask)
+                s_updated = s_updated + layer(
+                    s_updated, z, rigids, chain_breaks=chain_breaks, mask=mask
+                )
         interface_logits = self.interface_predictor(z).squeeze(-1)
         return {"single": s_updated, "pair": z, "interface_contacts": interface_logits}

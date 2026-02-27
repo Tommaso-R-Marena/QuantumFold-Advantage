@@ -587,14 +587,18 @@ def compute_complex_fape(pred_coords: Tensor, native_coords: Tensor, chain_break
 
 
 def compute_rna_geometry_loss(pred_coords: Tensor, native_coords: Tensor) -> Tensor:
-    return F.smooth_l1_loss(torch.cdist(pred_coords, pred_coords), torch.cdist(native_coords, native_coords))
+    return F.smooth_l1_loss(
+        torch.cdist(pred_coords, pred_coords), torch.cdist(native_coords, native_coords)
+    )
 
 
 def compute_base_pair_loss(pred_bp_matrix: Tensor, native_bp_matrix: Tensor) -> Tensor:
     return F.binary_cross_entropy(pred_bp_matrix, native_bp_matrix)
 
 
-def compute_docking_loss(pred_complex: Dict[str, Tensor], native_complex: Dict[str, Tensor]) -> Tensor:
+def compute_docking_loss(
+    pred_complex: Dict[str, Tensor], native_complex: Dict[str, Tensor]
+) -> Tensor:
     ligand = F.mse_loss(pred_complex["ligand_coords"], native_complex["ligand_coords"])
     protein = F.mse_loss(pred_complex["protein_coords"], native_complex["protein_coords"])
     return ligand + 0.5 * protein

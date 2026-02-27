@@ -4,7 +4,9 @@ import json
 
 from celery import Celery
 
-celery_app = Celery("quantumfold", broker="redis://localhost:6379/0", backend="redis://localhost:6379/1")
+celery_app = Celery(
+    "quantumfold", broker="redis://localhost:6379/0", backend="redis://localhost:6379/1"
+)
 
 
 @celery_app.task(bind=True, max_retries=3)

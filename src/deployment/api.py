@@ -7,7 +7,11 @@ from typing import Dict, List, Optional
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from pydantic import BaseModel
 
-app = FastAPI(title="QuantumFold-Advantage API", version="1.0.0", description="Quantum-enhanced protein structure prediction")
+app = FastAPI(
+    title="QuantumFold-Advantage API",
+    version="1.0.0",
+    description="Quantum-enhanced protein structure prediction",
+)
 _JOBS: Dict[str, Dict] = {}
 
 
@@ -73,7 +77,12 @@ async def predict_structure(request: PredictionRequest, background_tasks: Backgr
 async def get_job_status(job_id: str):
     if job_id not in _JOBS:
         raise HTTPException(status_code=404, detail="Job not found")
-    return PredictionResponse(job_id=job_id, status=_JOBS[job_id]["status"], result=_JOBS[job_id]["result"], estimated_time=0)
+    return PredictionResponse(
+        job_id=job_id,
+        status=_JOBS[job_id]["status"],
+        result=_JOBS[job_id]["result"],
+        estimated_time=0,
+    )
 
 
 @app.get("/result/{job_id}", response_model=StructureResult)

@@ -26,5 +26,8 @@ class RNAPuzzlesBenchmark:
 
     def evaluate_predictions(self) -> pd.DataFrame:
         return pd.DataFrame(
-            [{"puzzle": p, "method": "QuantumFold", "rmsd": 0.0, "baseline": "Rosetta"} for p in self.puzzles]
+            [
+                {"puzzle": p, "method": "QuantumFold", "rmsd": 0.0, "baseline": "Rosetta"}
+                for p in self.puzzles
+            ]
         )

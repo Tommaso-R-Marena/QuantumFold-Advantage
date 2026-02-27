@@ -17,4 +17,6 @@ class HardwareAwareQuantumTrainer:
         return {"epochs": n_epochs, "final_loss": 0.0}
 
     def benchmark_hardware_performance(self, test_proteins: List[str]) -> pd.DataFrame:
-        return pd.DataFrame([{"protein": p, "simulator": 0.7, "hardware": 0.65, "cost": 1.2} for p in test_proteins])
+        return pd.DataFrame(
+            [{"protein": p, "simulator": 0.7, "hardware": 0.65, "cost": 1.2} for p in test_proteins]
+        )

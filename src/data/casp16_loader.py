@@ -519,7 +519,9 @@ class CASP16DataLoader:
         for i in range(0, len(targets), batch_size):
             yield targets[i : i + batch_size]
 
-    def validate_predictions(self, predicted_pdb: Path, target_id: str) -> Optional[Dict[str, float]]:
+    def validate_predictions(
+        self, predicted_pdb: Path, target_id: str
+    ) -> Optional[Dict[str, float]]:
         """Compute metrics against native structure if available."""
         if not predicted_pdb.exists():
             return None

@@ -32,7 +32,13 @@ class CASP16Benchmark:
         coords = torch.randn(len(sequence), 3)
         return {"coordinates": coords, "plddt": torch.full((len(sequence),), 70.0)}
 
-    def predict_target(self, target_dict: Dict, model_type: str = "quantum", use_recycling: int = 3, use_msa: bool = False) -> Dict:
+    def predict_target(
+        self,
+        target_dict: Dict,
+        model_type: str = "quantum",
+        use_recycling: int = 3,
+        use_msa: bool = False,
+    ) -> Dict:
         start = time.time()
         result = self._run_model(target_dict["sequence"], model_type=model_type)
         elapsed = time.time() - start
@@ -46,7 +52,11 @@ class CASP16Benchmark:
             "coordinates": coords,
             "plddt": result.get("plddt") if isinstance(result, dict) else None,
             "inference_time": elapsed,
-            "quantum_circuit_depth": getattr(self.model_quantum, "quantum_depth", None) if model_type == "quantum" else None,
+            "quantum_circuit_depth": (
+                getattr(self.model_quantum, "quantum_depth", None)
+                if model_type == "quantum"
+                else None
+            ),
             "use_recycling": use_recycling,
             "use_msa": use_msa,
         }
@@ -58,16 +68,33 @@ class CASP16Benchmark:
             q = self.predict_target(t, "quantum")
             c = self.predict_target(t, "classical")
             native = torch.randn_like(q["coordinates"]).numpy()
-            q_metrics = compute_casp_metrics(q["coordinates"].detach().cpu().numpy(), native, t["sequence"])
-            c_metrics = compute_casp_metrics(c["coordinates"].detach().cpu().numpy(), native, t["sequence"])
-            per_target.append({"target_id": t["target_id"], "quantum": q_metrics, "classical": c_metrics, "runtime_q": q["inference_time"], "runtime_c": c["inference_time"], "category": t["category"]})
+            q_metrics = compute_casp_metrics(
+                q["coordinates"].detach().cpu().numpy(), native, t["sequence"]
+            )
+            c_metrics = compute_casp_metrics(
+                c["coordinates"].detach().cpu().numpy(), native, t["sequence"]
+            )
+            per_target.append(
+                {
+                    "target_id": t["target_id"],
+                    "quantum": q_metrics,
+                    "classical": c_metrics,
+                    "runtime_q": q["inference_time"],
+                    "runtime_c": c["inference_time"],
+                    "category": t["category"],
+                }
+            )
 
         q_tm = np.array([r["quantum"]["TM-score"] for r in per_target])
         c_tm = np.array([r["classical"]["TM-score"] for r in per_target])
         stat = {
             "wilcoxon_tm": stats.wilcoxon(q_tm, c_tm).pvalue if len(q_tm) > 1 else 1.0,
             "paired_t_tm": stats.ttest_rel(q_tm, c_tm).pvalue if len(q_tm) > 1 else 1.0,
-            "effect_size_tm": float((q_tm - c_tm).mean() / (q_tm - c_tm).std()) if len(q_tm) > 1 and (q_tm - c_tm).std() > 0 else 0.0,
+            "effect_size_tm": (
+                float((q_tm - c_tm).mean() / (q_tm - c_tm).std())
+                if len(q_tm) > 1 and (q_tm - c_tm).std() > 0
+                else 0.0
+            ),
         }
         return {
             "per_target_metrics": per_target,
@@ -78,8 +105,12 @@ class CASP16Benchmark:
             "difficulty_stratified": self._stratify(per_target),
             "statistical_tests": stat,
             "runtime_analysis": {
-                "quantum_mean_s": float(np.mean([r["runtime_q"] for r in per_target])) if per_target else 0.0,
-                "classical_mean_s": float(np.mean([r["runtime_c"] for r in per_target])) if per_target else 0.0,
+                "quantum_mean_s": (
+                    float(np.mean([r["runtime_q"] for r in per_target])) if per_target else 0.0
+                ),
+                "classical_mean_s": (
+                    float(np.mean([r["runtime_c"] for r in per_target])) if per_target else 0.0
+                ),
             },
         }
 
@@ -92,8 +123,12 @@ class CASP16Benchmark:
 
     def generate_casp16_report(self, results: Dict, output_dir: Path) -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
-        pd.DataFrame(results["per_target_metrics"]).to_csv(output_dir / "casp16_metrics.csv", index=False)
+        pd.DataFrame(results["per_target_metrics"]).to_csv(
+            output_dir / "casp16_metrics.csv", index=False
+        )
         (output_dir / "casp16_results.json").write_text(json.dumps(results, indent=2, default=str))
-        top_targets = sorted(results["per_target_metrics"], key=lambda x: x["quantum"]["TM-score"], reverse=True)[:20]
+        top_targets = sorted(
+            results["per_target_metrics"], key=lambda x: x["quantum"]["TM-score"], reverse=True
+        )[:20]
         latex = pd.DataFrame(top_targets).to_latex(index=False)
         (output_dir / "top20.tex").write_text(latex)
