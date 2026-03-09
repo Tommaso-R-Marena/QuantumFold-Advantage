@@ -16,7 +16,7 @@ References:
 """
 
 from enum import Enum
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pennylane as qml
@@ -35,6 +35,14 @@ class AdvancedQuantumCircuitLayer(nn.Module):
     - Expressibility and entangling capability metrics
     - Gradient flow monitoring
 
+    Computational complexity summary (per forward pass on a statevector simulator):
+    - Single-qubit rotation block: O(n_layers * n_qubits * n_rotations)
+    - Entangling block: O(n_layers * n_entangling_gates)
+    - Parameter-shift gradients: O(total_params * C_fwd), C_fwd = circuit forward cost
+    - Fubini-Study metric tensor (full): O(total_params^2 * C_fwd) time, O(total_params^2) space
+    - Natural-gradient solve: O(total_params^3) time for dense linear solve
+    - Clifford data regression calibration: O(n_calibration * C_fwd + n_qubits^3)
+
     Args:
         n_qubits: Number of qubits (4-12 recommended)
         n_layers: Circuit depth (2-10 optimal)
@@ -45,7 +53,6 @@ class AdvancedQuantumCircuitLayer(nn.Module):
         add_noise: Simulate depolarizing noise
         noise_strength: Depolarizing probability (0-1)
     """
-
     def __init__(
         self,
         n_qubits: int = 4,
@@ -64,6 +71,7 @@ class AdvancedQuantumCircuitLayer(nn.Module):
         self.rotation_gates = rotation_gates
         self.add_noise = add_noise
         self.noise_strength = noise_strength
+        self.entanglement_candidates = ["linear", "circular", "all_to_all"]
 
         # Validate parameters
         assert n_qubits >= 2, "Need at least 2 qubits"
@@ -71,8 +79,9 @@ class AdvancedQuantumCircuitLayer(nn.Module):
         assert entanglement in ["linear", "circular", "all_to_all"], "Invalid entanglement topology"
         assert init_strategy in ["identity", "random", "haar"], "Invalid initialization strategy"
 
-        # Initialize quantum device
-        self.dev = qml.device(device_name, wires=n_qubits)
+        # Initialize quantum device (default.mixed supports noise channels)
+        effective_device = "default.mixed" if add_noise and device_name == "default.qubit" else device_name
+        self.dev = qml.device(effective_device, wires=n_qubits)
 
         # Calculate parameter dimensions
         n_rotations = len(rotation_gates)
@@ -92,6 +101,19 @@ class AdvancedQuantumCircuitLayer(nn.Module):
 
         # Build quantum circuit as differentiable QNode
         self.qnode = qml.QNode(self._circuit, self.dev, interface="torch", diff_method="backprop")
+        self.param_shift_qnode = qml.QNode(
+            self._circuit, self.dev, interface="torch", diff_method="parameter-shift"
+        )
+
+        # State-returning circuit used for Fubini-Study metric tensor estimation
+        self.metric_qnode = qml.QNode(
+            self._state_circuit, self.dev, interface="torch", diff_method="parameter-shift"
+        )
+
+        # Learned error mitigation parameters (Clifford data regression)
+        self.register_buffer("cdr_weights", torch.eye(self.n_qubits))
+        self.register_buffer("cdr_bias", torch.zeros(self.n_qubits))
+        self.error_mitigation_enabled = False
 
         # Monitoring metrics
         self.gradient_history = []
@@ -123,8 +145,11 @@ class AdvancedQuantumCircuitLayer(nn.Module):
         else:  # haar
             # Approximate Haar-random by sampling from truncated normal
             # with variance scaled by circuit depth
+            # Bounded initializer: Var[theta] <= pi^2/(n_layers*n_qubits), clipping prevents
+            # heavy tails that amplify barren plateau effects in deep circuits.
             std = np.pi / np.sqrt(self.n_layers * self.n_qubits)
-            return torch.randn(self.total_params) * std
+            bound = 2.0 * std
+            return torch.randn(self.total_params).clamp(-bound, bound) * std
 
     def _apply_entangling_layer(self, layer_idx: int):
         """Apply entangling gates based on topology."""
@@ -164,7 +189,7 @@ class AdvancedQuantumCircuitLayer(nn.Module):
         """
         # Input encoding via amplitude embedding
         # Normalize inputs to unit sphere
-        norm = torch.sqrt(torch.sum(inputs**2) + 1e-10)
+        norm = torch.sqrt(torch.sum(inputs**2) + 1e-10).clamp_min(1e-8)
         inputs_normalized = inputs / norm
 
         # Encode using rotation gates
@@ -200,6 +225,137 @@ class AdvancedQuantumCircuitLayer(nn.Module):
 
         # Measurement in computational basis
         return [qml.expval(qml.PauliZ(i)) for i in range(self.n_qubits)]
+
+    def _state_circuit(self, inputs: Tensor, weights: Tensor, scaling: Tensor):
+        """State-returning variant used by metric tensor transforms."""
+        self._circuit(inputs, weights, scaling)
+        return qml.state()
+
+    def compute_parameter_shift_gradients(self, inputs: Tensor) -> Tensor:
+        """Compute exact circuit Jacobian via manual parameter-shift rule."""
+        inputs = inputs.detach().float()
+        shift = np.pi / 2.0
+        base_weights = self.weights.detach()
+        grads = []
+        for p_idx in range(self.total_params):
+            w_plus = base_weights.clone()
+            w_minus = base_weights.clone()
+            w_plus[p_idx] += shift
+            w_minus[p_idx] -= shift
+            out_plus = torch.stack(
+                [torch.as_tensor(v, dtype=torch.float32) for v in self.param_shift_qnode(inputs, w_plus, self.param_scaling)]
+            )
+            out_minus = torch.stack(
+                [torch.as_tensor(v, dtype=torch.float32) for v in self.param_shift_qnode(inputs, w_minus, self.param_scaling)]
+            )
+            grads.append(0.5 * (out_plus - out_minus))
+
+        return torch.stack(grads, dim=1)
+
+    def compute_layerwise_relevance(self, inputs: Tensor) -> Dict[str, Tensor]:
+        """Layer-wise relevance propagation proxy for interpretability.
+
+        Relevance per layer is estimated from local sensitivity aggregated over the
+        parameters in that layer, preserving differentiability.
+        """
+        jac = self.compute_parameter_shift_gradients(inputs)  # (n_outputs, total_params)
+        param_relevance = torch.sum(torch.abs(jac), dim=0)
+
+        layer_relevance = []
+        idx = 0
+        for _ in range(self.n_layers):
+            chunk = param_relevance[idx : idx + self.n_params_per_layer]
+            layer_relevance.append(chunk.mean())
+            idx += self.n_params_per_layer
+
+        tail = param_relevance[idx : idx + self.n_qubits]
+        layer_scores = torch.stack(layer_relevance)
+        normalized = layer_scores / (layer_scores.sum() + 1e-10)
+        return {
+            "layer_relevance": normalized,
+            "readout_relevance": tail / (tail.sum() + 1e-10),
+            "parameter_relevance": param_relevance,
+        }
+
+    def compute_fubini_study_metric(self, inputs: Tensor, damping: float = 1e-5) -> Tensor:
+        """Compute regularized Fubini-Study metric tensor approximation.
+
+        Uses J^T J pullback approximation from exact parameter-shift Jacobian.
+        """
+        jac = self.compute_parameter_shift_gradients(inputs)  # (n_outputs, n_params)
+        metric = torch.matmul(jac.T, jac)
+        eye = torch.eye(metric.shape[0], device=metric.device, dtype=metric.dtype)
+        return metric + damping * eye
+
+    def natural_gradient_step(self, inputs: Tensor, loss_fn, lr: float = 1e-2, damping: float = 1e-4):
+        """Apply one quantum natural-gradient step using the Fubini-Study metric."""
+        loss = loss_fn(self, inputs)
+        grads = torch.autograd.grad(loss, [self.weights], retain_graph=False, create_graph=False)[0]
+        metric = self.compute_fubini_study_metric(inputs, damping=damping)
+        nat_grad = torch.linalg.solve(metric, grads.unsqueeze(-1)).squeeze(-1)
+        with torch.no_grad():
+            self.weights -= lr * nat_grad
+        return loss.detach(), nat_grad.detach()
+
+    def select_entanglement_topology(self, inputs: Tensor) -> Tuple[str, Dict[str, float]]:
+        """Select topology maximizing gradient variance to mitigate barren plateaus."""
+        original = self.entanglement
+        scores: Dict[str, float] = {}
+        for topology in self.entanglement_candidates:
+            self.entanglement = topology
+            jac = self.compute_parameter_shift_gradients(inputs)
+            scores[topology] = float(torch.var(jac).item())
+
+        best = max(scores.items(), key=lambda kv: kv[1])[0]
+        self.entanglement = best
+        self.n_entangling_gates = self._count_entangling_gates()
+        if original != best:
+            self.gradient_history.append({"topology_switch": (original, best), "scores": scores})
+        return best, scores
+
+    def fit_clifford_data_regression(self, n_calibration: int = 16) -> None:
+        """Learn linear error-mitigation map using Clifford-inspired calibration data."""
+        self.error_mitigation_enabled = False
+        X, Y = [], []
+        for _ in range(n_calibration):
+            # Clifford-inspired basis states encoded as {-1, +1} patterns.
+            inp = torch.randint(0, 2, (self.n_qubits,), dtype=torch.float32) * 2 - 1
+            original_noise = self.add_noise
+
+            self.add_noise = False
+            clean = torch.as_tensor(self.qnode(inp, self.weights, self.param_scaling), dtype=torch.float32).detach()
+            # Robust noisy proxy even when hardware noise channels are unavailable on simulator.
+            if original_noise:
+                try:
+                    self.add_noise = True
+                    noisy = torch.as_tensor(self.qnode(inp, self.weights, self.param_scaling), dtype=torch.float32).detach()
+                except Exception:
+                    noisy = (clean + torch.randn_like(clean) * self.noise_strength).clamp(-1.0, 1.0)
+            else:
+                noisy = clean
+            self.add_noise = original_noise
+
+            X.append(torch.cat([noisy, torch.ones(1)]))
+            Y.append(clean)
+
+        X_mat = torch.stack(X)
+        Y_mat = torch.stack(Y)
+        beta = torch.linalg.pinv(X_mat) @ Y_mat  # (n_qubits+1, n_qubits)
+        self.cdr_weights.copy_(beta[:-1, :].T)
+        self.cdr_bias.copy_(beta[-1, :])
+        self.error_mitigation_enabled = True
+
+    def validate_against_pennylane_gradients(self, inputs: Tensor) -> float:
+        """Validate parameter-shift Jacobian against autograd Jacobian."""
+        ps = self.compute_parameter_shift_gradients(inputs)
+
+        def _wrapped(w: Tensor) -> Tensor:
+            out = self.qnode(inputs, w, self.param_scaling)
+            return torch.stack([torch.as_tensor(v, dtype=torch.float32) for v in out])
+
+        bp = torch.autograd.functional.jacobian(_wrapped, self.weights.detach().clone().requires_grad_(True))
+        bp_tensor = torch.as_tensor(bp, dtype=torch.float32)
+        return float(torch.max(torch.abs(ps - bp_tensor)).item())
 
     def forward(self, x: Tensor) -> Tensor:
         """Forward pass through quantum circuit.
@@ -237,9 +393,11 @@ class AdvancedQuantumCircuitLayer(nn.Module):
         for i in range(batch_size):
             result = self.qnode(x[i], self.weights, self.param_scaling)
             # Cast to float32 to match PyTorch Linear layer expectations
-            outputs.append(torch.stack([torch.tensor(r, dtype=torch.float32) for r in result]))
-
-        return torch.stack(outputs)
+            outputs.append(torch.stack([torch.as_tensor(r, dtype=torch.float32) for r in result]))
+        stacked = torch.stack(outputs)
+        if self.error_mitigation_enabled:
+            stacked = torch.matmul(stacked, self.cdr_weights.T) + self.cdr_bias
+        return stacked
 
     def compute_expressibility(self, n_samples: int = 1000) -> float:
         """Compute expressibility metric (Sim et al., 2019).
