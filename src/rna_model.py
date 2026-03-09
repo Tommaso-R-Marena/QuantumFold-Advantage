@@ -14,6 +14,9 @@ class RNAStructureModule(nn.Module):
         super().__init__()
         self.use_base_pair_constraints = use_base_pair_constraints
         self.ipa_layers = nn.ModuleList([InvariantPointAttention(c_s=c_s, c_z=c_z) for _ in range(8)])
+        self.ipa_layers = nn.ModuleList(
+            [InvariantPointAttention(c_s=c_s, c_z=c_z) for _ in range(8)]
+        )
         self.base_pair_predictor = nn.Sequential(
             nn.Linear(c_z, c_z // 2), nn.ReLU(), nn.Linear(c_z // 2, 1), nn.Sigmoid()
         )

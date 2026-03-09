@@ -25,3 +25,6 @@ class PDBBindBenchmark:
 
     def evaluate_docking(self) -> pd.DataFrame:
         return pd.DataFrame([{"split": self.split, "success_rate": 0.0, "pearson_r": 0.0, "rmse": 0.0}])
+        return pd.DataFrame(
+            [{"split": self.split, "success_rate": 0.0, "pearson_r": 0.0, "rmse": 0.0}]
+        )
