@@ -239,25 +239,6 @@ def get_casp16_benchmark_set(cache_dir: Optional[Path] = None, category: str = "
     loader = CASP16DataLoader(cache_dir=str(cache_dir) if cache_dir else "./data/casp16")
     targets = loader.download_targets(categories=[category])
     return CASP16Dataset(targets)
-        if self.load_coordinates:
-            coords = target.load_structure()
-            if coords is not None:
-                if self.max_length and len(coords) > self.max_length:
-                    coords = coords[: self.max_length]
-                item["coordinates"] = torch.from_numpy(coords).float()
-            else:
-                # Return placeholder if structure unavailable
-                item["coordinates"] = torch.zeros((len(sequence), 3), dtype=torch.float32)
-
-        return item
-
-
-def get_casp16_benchmark_set(
-    cache_dir: Optional[Path] = None,
-    category: str = "Regular",
-    min_length: int = 30,
-    max_length: int = 512,
-) -> CASP16Dataset:
     """Get CASP16 benchmark dataset ready for evaluation.
 
     Args:
