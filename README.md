@@ -431,3 +431,15 @@ The Catholic University of America
 **🎨 Create [beautiful visualizations](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/03_atomic_visualization_showcase.ipynb) for presentations!**
 
 **🚀 Train [production models](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/02_a100_ULTIMATE_MAXIMIZED.ipynb) for best results!**
+## Quantum Code Discovery (Phase-1)
+
+A new exploratory module is available under `src/quantum_codes_discovery/` with:
+- graph-based stabilizer construction over GF(2),
+- commutation checks and logical-operator extraction,
+- SQLite storage for discovered candidates,
+- Monte Carlo logical-error sweep utilities.
+
+Run locally with:
+```bash
+./scripts/run_quantum_code_discovery.sh
+```
