@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+### Changed
+- **BREAKING**: Refactored IPA module to match AlphaFold-3 semantics with SE(3)-equivariant frame handling
+  - Replaced axis-angle rotations with quaternion representations
+  - Added geodesic interpolation (SLERP) for frame updates
+  - Implemented proper batched Kabsch alignment with determinant correction
+
+### Added
+- Multi-scale attention bias in IPA (local 5Å, medium 15Å, global)
+- Distance-bin attention embeddings (64 bins, 0-32Å range)
+- Gradient checkpointing for sequences > 500 residues to reduce memory
+- Comprehensive auxiliary geometric losses:
+  - Clash penalty (2.0Å van der Waals radius)
+  - Bond length constraint (1.53Å C-C target)
+  - Bond angle violation (109.5° tetrahedral target)
+  - Chirality constraint (proper handedness)
+  - Distance geometry loss (contact map consistency)
+- Contact probability prediction from pair representation
+- Attention pattern visualization helper for IPA layers
+- Structure module equivariance validation method
+- Profiling helper for structure module bottleneck analysis
+- Test suite for quaternion operations and Kabsch alignment
+- Comprehensive test coverage for auxiliary losses
+
+### Fixed
+- Determinant correction in Kabsch alignment now handles per-batch-element sign
+- Mixed precision training context properly respects input dtype
+- IPA memory efficiency for long sequences via selective checkpointing
+
+### Performance
+- Added recycling parameter (default 2 iterations) for iterative refinement
+- Optimized einsum operations in IPA core attention
+- Reduced redundant coordinate transformations
+
+### Documentation
+- Added comprehensive docstrings for all quaternion utilities
+- Documented geometric loss physical meanings and units
+- Added references to Kabsch algorithm paper
+
+
 ### Major Feature Release - February 1, 2026
 
 ## Added
