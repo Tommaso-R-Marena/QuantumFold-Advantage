@@ -1,0 +1,46 @@
+================================================================================
+QUANTUM vs. CLASSICAL — STATISTICAL COMPARISON REPORT
+================================================================================
+
+Metric: rmsd
+  Quantum mean:   9.5353
+  Classical mean: 9.4843
+  Mean diff:      +0.0510  95% CI [-0.4331, +0.5558]
+  Cohen's d:      +0.089  (negligible)
+  Wilcoxon p:     0.875  n.s.
+  Bootstrap p:    0.8466  n.s.
+
+Metric: tm_score
+  Quantum mean:   0.0511
+  Classical mean: 0.0515
+  Mean diff:      -0.0004  95% CI [-0.0190, +0.0106]
+  Cohen's d:      -0.021  (negligible)
+  Wilcoxon p:     0.875  n.s.
+  Bootstrap p:    0.9068  n.s.
+
+Metric: gdt_ts
+  Quantum mean:   0.1543
+  Classical mean: 0.1445
+  Mean diff:      +0.0098  95% CI [-0.0098, +0.0352]
+  Cohen's d:      +0.367  (small)
+  Wilcoxon p:     0.75  n.s.
+  Bootstrap p:    0.4492  n.s.
+
+Metric: gdt_ha
+  Quantum mean:   0.0312
+  Classical mean: 0.0352
+  Mean diff:      -0.0039  95% CI [-0.0273, +0.0117]
+  Cohen's d:      -0.161  (negligible)
+  Wilcoxon p:     1  n.s.
+  Bootstrap p:    0.6623  n.s.
+
+Metric: lddt
+  Quantum mean:   0.2601
+  Classical mean: 0.2812
+  Mean diff:      -0.0211  95% CI [-0.0289, -0.0126]
+  Cohen's d:      -2.049  (large)
+  Wilcoxon p:     0.125  n.s.
+  Bootstrap p:    0.0001  *
+
+================================================================================
+* significant after Holm–Bonferroni correction (α = 0.05)
