@@ -1,0 +1,5 @@
+*.pyc
+__pycache__/
+results_smoke/
+results_ci/
+checkpoints/

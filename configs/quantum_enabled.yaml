@@ -1,0 +1,40 @@
+model:
+  d_model: 128
+  d_pair: 64
+  n_heads: 8
+  n_evoformer_blocks: 4
+  n_structure_iterations: 4
+  max_seq_len: 256
+  dropout: 0.1
+  quantum_enabled: true
+
+quantum:
+  n_qubits: 8
+  n_circuit_layers: 4
+  circuit_type: strongly_entangling
+  window_size: 16
+  noise_model: null
+  noise_rate: 0.01
+  quantum_lr: 0.01
+
+training:
+  batch_size: 4
+  epochs: 100
+  lr: 0.0001
+  weight_decay: 0.00001
+  grad_clip: 1.0
+  early_stopping_patience: 15
+  scheduler: cosine
+
+data:
+  n_proteins: 100
+  max_len: 256
+  train_frac: 0.8
+  val_frac: 0.1
+
+evaluation:
+  metrics: [rmsd, tm_score, gdt_ts, gdt_ha, lddt]
+  n_bootstrap: 10000
+  confidence_level: 0.95
+
+seed: 42

@@ -1,433 +1,240 @@
-# QuantumFold-Advantage 🧬⚛️
+# QuantumFold-Advantage
 
-<!-- Build Status Badges -->
-[![CI](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/ci.yml/badge.svg)](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/ci.yml)
-[![Test Notebooks](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/test-notebooks.yml/badge.svg)](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/test-notebooks.yml)
-[![Docker](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/docker-publish.yml)
-[![codecov](https://codecov.io/gh/Tommaso-R-Marena/QuantumFold-Advantage/branch/main/graph/badge.svg)](https://codecov.io/gh/Tommaso-R-Marena/QuantumFold-Advantage)
+[![CI](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/ci.yml/badge.svg)](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
-<!-- Technology Badges -->
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
-[![PennyLane](https://img.shields.io/badge/PennyLane-0.33+-green.svg)](https://pennylane.ai/)
-[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-<!-- Quick Links -->
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/02_quantum_advantage_benchmark.ipynb)
-[![GitHub Stars](https://img.shields.io/github/stars/Tommaso-R-Marena/QuantumFold-Advantage?style=social)](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/stargazers)
-[![GitHub Forks](https://img.shields.io/github/forks/Tommaso-R-Marena/QuantumFold-Advantage?style=social)](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/network/members)
-
-**State-of-the-art quantum-classical hybrid architecture for protein structure prediction**
-
-QuantumFold-Advantage demonstrates rigorous quantum advantage in protein structure prediction by integrating quantum computing with advanced deep learning techniques from AlphaFold, ESM-2, and modern ML best practices.
+A hybrid quantum-classical framework for protein structure prediction that
+rigorously evaluates whether variational quantum circuits can improve upon
+purely classical deep learning baselines inspired by AlphaFold.
 
 ---
 
-## ⭐ **NEW: Research-Grade Notebooks**
+## Abstract
 
-### 🔬 **Publication-Quality Statistical Validation**
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/02_quantum_advantage_benchmark.ipynb)
+Protein structure prediction remains a central challenge in computational
+biology with implications for drug discovery, genetic disease understanding,
+and protein engineering.  While classical deep learning approaches such as
+AlphaFold2 have achieved remarkable accuracy, the exponential growth of Hilbert
+space dimensionality in quantum systems suggests potential advantages for
+capturing long-range correlations in protein sequences.
 
-**`02_quantum_advantage_benchmark.ipynb`** - Rigorous statistical testing of quantum advantage
+**QuantumFold-Advantage** integrates hardware-efficient variational quantum
+circuits with an AlphaFold-inspired neural architecture — Evoformer blocks,
+Invariant Point Attention (IPA), and an iterative Structure Module — to produce
+3D backbone coordinates from amino acid sequences.  A single `quantum_enabled`
+flag controls whether quantum enhancement layers are active, enabling rigorous
+ablation: the only difference between the two conditions is the presence of
+quantum processing.
 
-✨ **Research Features:**
-- 📊 Real CASP15 protein targets
-- 📈 Paired quantum vs. classical comparison
-- 🧮 Wilcoxon signed-rank tests + t-tests
-- 📉 Bootstrap confidence intervals (10K samples)
-- 📐 Effect sizes (Cohen's d, rank-biserial)
-- ⚡ Power analysis
-- 📄 LaTeX tables for papers
-
-⏱️ **30-45 minutes** on free Colab (T4 GPU)  
-🎯 **Use for:** Research papers, grant proposals, thesis work
-
----
-
-### 🎨 **World-Class Visualization Showcase**
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/03_atomic_visualization_showcase.ipynb)
-
-**`03_atomic_visualization_showcase.ipynb`** - Publication-quality visualizations
-
-✨ **Visualization Features:**
-- 🧬 Interactive 3D molecular structures (py3Dmol)
-- 📊 Ramachandran plots with secondary structure
-- 🗺️ Contact maps with annotations
-- 🎯 Attention mechanism heatmaps
-- ⚛️ Quantum circuit diagrams
-- 🎬 Structure refinement animations
-- 📈 Confidence visualization (pLDDT-style)
-- 🖼️ Multi-panel publication figures
-
-⏱️ **20-30 minutes** on free Colab  
-🎯 **Use for:** Publications, presentations, posters
+Evaluation follows CASP (Critical Assessment of protein Structure Prediction)
+standards using RMSD, TM-score, GDT-TS, GDT-HA, and lDDT.  Statistical
+validation employs paired bootstrap hypothesis tests, Wilcoxon signed-rank
+tests, Cohen's d effect sizes, and Holm–Bonferroni multiple-testing correction.
 
 ---
 
-## 🚀 **Production Training Pipelines**
+## Architecture
 
-### 🔥 **ULTIMATE A100 MAXIMIZED**
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/02_a100_ULTIMATE_MAXIMIZED.ipynb)
-
-**200M Parameter AlphaFold2-Level Pipeline**
-
-✨ **Ultimate Specifications:**
-- 🧬 **200M parameters** - 1536 hidden, 16 encoder, 12 structure layers
-- 📊 **CASP13/14/15 + RCSB + AlphaFoldDB** - Real benchmark targets
-- ⚡ **Batch size 24** - 50% larger with smart bucketing
-- 📦 **167GB RAM** - ALL embeddings in-memory
-- 🎨 **BF16 precision** - Numerical stability
-- 📈 **100K steps** - Full convergence training
-
-🎯 **Target Performance (AlphaFold2-level):**
-- RMSD: <1.5Å
-- TM-score: >0.75  
-- GDT_TS: >70
-- pLDDT: >80
-
-⏱️ **~10-12 hours** on A100 High RAM  
-💾 **Requires:** Colab Pro with A100 (80GB GPU, 167GB RAM)
-
----
-
-### 🏭 **A100 Production Training**
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/02_a100_production.ipynb)
-
-**85M Parameter Production Pipeline**
-
-✨ **Production Features:**
-- 🧬 **5000+ diverse proteins** from PDB
-- 🏗️ **Proper IPA architecture** - Geometric attention
-- 💪 **85M parameters** - 1024 hidden, 12 encoder, 8 structure layers
-- 🎯 **Advanced losses** - FAPE + geometry + perceptual
-- ⚡ **Batch size 16** with length bucketing
-- 📊 **50K steps** - Full production training
-
-🎯 **Expected Performance:**
-- RMSD: <2.0Å
-- TM-score: >0.70
-- GDT_TS: >60
-
-⏱️ **~6-8 hours** on A100  
-💾 **Requires:** Colab Pro with A100
-
----
-
-### 🧪 **Complete Production Benchmark**
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/complete_production_run.ipynb)
-
-**Full Quantum + Classical Benchmarking**
-
-- Both quantum and classical training
-- Statistical comparison
-- Publication-ready analysis
-
-⏱️ **Several hours** on A100
-
----
-
-## 🎯 Quick Start Options
-
-### 1. **Research Validation** (Free Colab) ⭐ **#1 RECOMMENDED**
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/02_quantum_advantage_benchmark.ipynb)
-
-**Publication-quality statistical testing** - Ready for papers!
-
-### 2. **Beautiful Visualizations** (Free Colab) ⭐ **#2 RECOMMENDED**
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/03_atomic_visualization_showcase.ipynb)
-
-**World-class figures** - Perfect for presentations!
-
-### 3. **Quick Demo** (Free Colab)
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/colab_quickstart.ipynb)
-
-**5-minute introduction** - See it in action
-
-### 4. **Production Training** (Colab Pro A100)
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/02_a100_ULTIMATE_MAXIMIZED.ipynb)
-
-**AlphaFold2-level results** - Ultimate performance
-
-### 5. Docker (Local)
-```bash
-docker-compose up
-# Access JupyterLab at http://localhost:8888
+```
+Input: Amino acid sequence
+         │
+         ▼
+┌──────────────────────────┐
+│  Protein Embedding       │  Learned AA embedding + physicochemical features
+│  + Positional Encoding   │  + sinusoidal position encoding
+└──────────┬───────────────┘
+           │
+           ▼
+┌──────────────────────────┐
+│  Quantum Enhancement     │  Sliding-window VQC (PennyLane)
+│  Layer  [if enabled]     │  with gated residual fusion
+└──────────┬───────────────┘
+           │
+           ▼
+┌──────────────────────────┐
+│  Evoformer Stack         │  Self-attention → pair update → transition
+│  (N blocks)              │  (inspired by AlphaFold2 Evoformer)
+└──────────┬───────────────┘
+           │
+           ▼
+┌──────────────────────────┐
+│  Quantum Attention       │  Quantum-modulated multi-head attention
+│  [if enabled]            │  (one head replaced by VQC)
+└──────────┬───────────────┘
+           │
+           ▼
+┌──────────────────────────┐
+│  Structure Module        │  Iterative IPA refinement →
+│  (K iterations)          │  backbone frames → atom coordinates
+└──────────┬───────────────┘
+           │
+           ▼
+Output: 3D backbone coordinates (N, Cα, C)
 ```
 
----
+### Quantum Components
 
-## 🎯 Key Features
-
-### Quantum Computing
-- **Advanced Quantum Circuits**: Hardware-efficient ansatz with multiple entanglement topologies
-- **Barren Plateau Mitigation**: Parameter scaling and Haar-random initialization
-- **Quantum Kernels**: Sequence similarity in Hilbert space
-- **Hybrid Architecture**: Gated fusion of quantum and classical representations
-- **Noise Simulation**: Depolarizing noise for realistic quantum device modeling
-
-### Deep Learning Architecture
-- **Invariant Point Attention (IPA)**: Rotation and translation equivariant attention
-- **Structure Module**: Iterative refinement with 8-12 layers of geometric reasoning
-- **Pre-trained Embeddings**: ESM-2 (Meta AI) and ProtT5 (Rostlab) integration
-- **Evolutionary Features**: PSSM, conservation scores, co-evolution matrices
-- **Confidence Prediction**: pLDDT-style per-residue confidence scores
-
-### Advanced Training
-- **FAPE Loss**: Frame Aligned Point Error from AlphaFold
-- **Mixed Precision**: FP16/BF16 training with automatic scaling
-- **Exponential Moving Average (EMA)**: Stable weight averaging
-- **Cosine Annealing**: Learning rate scheduling with warmup
-- **Gradient Management**: Clipping and accumulation for stable training
-
-### Statistical Validation
-- **Hypothesis Testing**: Paired Wilcoxon and t-tests
-- **Effect Sizes**: Cohen's d and rank-biserial correlation
-- **Bootstrap CI**: 10,000-sample confidence intervals
-- **Multiple Comparison Correction**: Bonferroni and Benjamini-Hochberg FDR
-- **Power Analysis**: Statistical power calculation and sample size estimation
-
-### World-Class Visualization
-- **Interactive 3D**: py3Dmol molecular viewer
-- **Structural Analysis**: Ramachandran plots, contact maps
-- **Model Internals**: Attention heatmaps, quantum circuits
-- **Publication Figures**: Multi-panel high-resolution outputs
-- **Animations**: Structure refinement trajectories
+| Component | Purpose | Qubits | Circuit Depth |
+|---|---|---|---|
+| **Quantum Enhancement** | Sliding-window feature augmentation via VQC | 4–8 | 2–4 layers |
+| **Quantum Attention** | Modulate attention weights with quantum kernels | 2–4 | 1–3 layers |
+| **Barren Plateau Mitigation** | Haar-random init + per-layer gradient scaling | — | — |
+| **Noise Simulation** | Depolarizing channels for hardware realism | — | — |
 
 ---
 
-## 🔬 Research Methodology
+## Installation
 
-This project implements a rigorous experimental framework for evaluating quantum advantage:
-
-### Evaluation Metrics
-- **TM-score**: Template Modeling score (Zhang-Skolnick algorithm)
-- **RMSD**: Root Mean Square Deviation with Kabsch alignment
-- **GDT-TS/GDT-HA**: Global Distance Test scores
-- **lDDT**: Local Distance Difference Test
-- **pLDDT**: Per-residue confidence (0-100)
-- **Contact Precision**: Residue-residue contact accuracy
-
-### Quantum Advantage Testing
-**Paired Comparison Protocol:**
-1. Train quantum-enhanced model on protein dataset
-2. Train identical classical baseline (quantum layers disabled)
-3. Evaluate both on held-out CASP test set
-4. Apply paired statistical tests (Wilcoxon, t-test)
-5. Compute effect sizes (Cohen's d) and confidence intervals
-6. Correct for multiple comparisons (Bonferroni/FDR)
-
-**Statistical Validation:**
-```python
-from src.benchmarks.research_metrics import ResearchMetrics
-
-metrics = ResearchMetrics()
-results = metrics.compare_methods(
-    quantum_scores=quantum_tm_scores,
-    classical_scores=classical_tm_scores,
-    metric_name='TM-score',
-    higher_is_better=True
-)
-# p-values, effect sizes, CI, power analysis
-```
-
----
-
-## 🚀 Installation
-
-### Option 1: Local Installation
 ```bash
 git clone https://github.com/Tommaso-R-Marena/QuantumFold-Advantage.git
 cd QuantumFold-Advantage
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -e .[dev,protein-lm]
-pytest tests/
+pip install pennylane torch numpy scipy matplotlib seaborn biopython pyyaml
 ```
 
-### Option 2: Docker (Recommended for Production)
+### Quick Start
+
 ```bash
-docker-compose up -d
-# JupyterLab: http://localhost:8888
-# TensorBoard: http://localhost:6006
+# Run a full experiment (synthetic data, both models, statistical comparison)
+python scripts/run_experiment.py --epochs 20
+
+# Classical-only baseline
+python scripts/run_experiment.py --no-quantum --epochs 20
+
+# Small demo (fast, ~2 min)
+python scripts/run_experiment.py \
+  --n-proteins 20 --max-len 32 --d-model 32 --d-pair 16 \
+  --n-heads 2 --n-evoformer 1 --n-struct-iter 1 \
+  --n-qubits 2 --n-circuit-layers 1 --epochs 5
 ```
 
-### Basic Usage
-```python
-import torch
-from src.advanced_model import AdvancedProteinFoldingModel
-from src.protein_embeddings import ESM2Embedder
+### Run Tests
 
-embedder = ESM2Embedder(model_name='esm2_t33_650M_UR50D')
-model = AdvancedProteinFoldingModel(
-    input_dim=1280,
-    c_s=384,
-    c_z=128,
-    use_quantum=True
-)
-
-sequence = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEK"
-embeddings = embedder([sequence])
-
-with torch.no_grad():
-    output = model(embeddings['embeddings'])
-    coordinates = output['coordinates']
-    plddt = output['plddt']
-
-print(f"Mean confidence: {plddt.mean():.3f}")
+```bash
+pip install pytest pytest-timeout
+python -m pytest tests/test_hybrid_model.py -v
 ```
 
 ---
 
-## 📁 Repository Structure
+## Project Structure
 
 ```
 QuantumFold-Advantage/
 ├── src/
-│   ├── quantum_layers.py              # Quantum circuits & hybrid layers
-│   ├── advanced_model.py              # IPA, Structure Module, Confidence
-│   ├── advanced_training.py           # FAPE, mixed precision, EMA
-│   ├── protein_embeddings.py          # ESM-2, ProtT5, evolutionary features
-│   ├── benchmarks/
-│   │   └── research_metrics.py        # TM-score, RMSD, GDT, statistics
-│   ├── visualization/
-│   │   └── atomic_viz.py              # 3D, Ramachandran, contact maps
+│   ├── quantum_layers.py                 # Variational quantum circuits (VQC)
+│   ├── models/
+│   │   └── quantumfold_advantage.py      # Main hybrid model
+│   ├── classical/
+│   │   ├── attention.py                  # Multi-head self-attention + IPA
+│   │   ├── evoformer.py                  # Evoformer stack
+│   │   └── structure_module.py           # Iterative 3D coordinate prediction
+│   ├── training/
+│   │   ├── trainer.py                    # Training loop (dual-mode)
+│   │   └── losses.py                     # FAPE, distance matrix, combined
+│   ├── evaluation/
+│   │   ├── metrics.py                    # RMSD, TM-score, GDT-TS, lDDT
+│   │   ├── statistical_tests.py          # Bootstrap, Wilcoxon, Cohen's d
+│   │   └── visualization.py             # Publication-quality plots
 │   ├── data/
-│   │   └── casp_loader.py             # CASP14/15, PDB, AlphaFold DB
-│   └── utils/
-│       ├── data_loader.py             # Dataset utilities
-│       └── visualization.py           # Plotting functions
-├── examples/
-│   ├── 02_quantum_advantage_benchmark.ipynb    # ⭐ Statistical validation
-│   ├── 03_atomic_visualization_showcase.ipynb  # ⭐ Publication figures
-│   ├── 02_a100_ULTIMATE_MAXIMIZED.ipynb        # Production training
-│   ├── 02_a100_production.ipynb                # A100 pipeline
-│   ├── complete_production_run.ipynb           # Full benchmark
-│   ├── colab_quickstart.ipynb                  # Quick demo
-│   ├── 01_getting_started.ipynb                # Tutorial
-│   ├── 02_quantum_vs_classical.ipynb           # Comparison
-│   └── complete_benchmark.ipynb                # 30-60 min pipeline
+│   │   ├── hybrid_dataset.py             # PyTorch dataset + synthetic generator
+│   │   └── casp_loader.py               # CASP data loading
+│   └── statistical_tests.py             # Legacy statistical validation
+├── scripts/
+│   ├── run_experiment.py                 # Main experiment runner
+│   ├── download_casp_data.py             # CASP data download utility
+│   └── compare_models.py                # Model comparison pipeline
+├── configs/
+│   ├── quantum_enabled.yaml
+│   ├── classical_only.yaml
+│   └── default_config.yaml
 ├── tests/
-│   ├── test_quantum_layers.py
-│   ├── test_model.py
-│   ├── test_benchmarks.py
-│   └── test_visualization.py
-├── .github/workflows/
-│   ├── ci.yml                         # Continuous Integration
-│   ├── test-notebooks.yml             # Comprehensive notebook testing
-│   └── docker-publish.yml             # Docker CI/CD
-├── Dockerfile
-├── docker-compose.yml
-├── pyproject.toml
-└── README.md
+│   └── test_hybrid_model.py              # 29 comprehensive tests
+└── .github/workflows/ci.yml             # CI pipeline
 ```
 
 ---
 
-## 🧪 Complete Notebook Catalog
+## Evaluation Metrics
 
-### ⭐ Research-Grade (Publication Ready)
-| Notebook | Description | Runtime | GPU | Colab |
-|----------|-------------|---------|-----|-------|
-| **02_quantum_advantage_benchmark** | Statistical validation, CASP15, LaTeX tables | 45 min | Free T4 | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/02_quantum_advantage_benchmark.ipynb) |
-| **03_atomic_visualization_showcase** | Interactive 3D, publication figures | 30 min | Free T4 | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/03_atomic_visualization_showcase.ipynb) |
-
-### 🔥 Production Training (Colab Pro)
-| Notebook | Params | Data | Runtime | GPU | Colab |
-|----------|--------|------|---------|-----|-------|
-| **02_a100_ULTIMATE_MAXIMIZED** | 200M | CASP+RCSB | 10-12 hrs | A100 High RAM | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/02_a100_ULTIMATE_MAXIMIZED.ipynb) |
-| **02_a100_production** | 85M | 5K proteins | 6-8 hrs | A100 | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/02_a100_production.ipynb) |
-| **complete_production_run** | - | CASP | 2-4 hrs | A100 | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/complete_production_run.ipynb) |
-
-### 🎓 Learning & Quick Start (Free Colab)
-| Notebook | Description | Runtime | Colab |
-|----------|-------------|---------|-------|
-| **colab_quickstart** | 5-minute demo | 5 min | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/colab_quickstart.ipynb) |
-| **01_getting_started** | Complete tutorial | 15-20 min | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/01_getting_started.ipynb) |
-| **complete_benchmark** | Synthetic training pipeline | 30-60 min | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/complete_benchmark.ipynb) |
-| **02_quantum_vs_classical** | Comparison analysis | 20-30 min | [![Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/02_quantum_vs_classical.ipynb) |
-
-**📖 See [examples/README.md](examples/README.md) for detailed notebook guide**
+| Metric | Description | Range | Interpretation |
+|---|---|---|---|
+| **RMSD** | Root-mean-square deviation after Kabsch alignment | 0–∞ Å | Lower is better |
+| **TM-score** | Template Modelling score (length-normalised) | (0, 1] | > 0.5 = same fold |
+| **GDT-TS** | Global Distance Test at 1, 2, 4, 8 Å cutoffs | [0, 1] | Higher is better |
+| **GDT-HA** | GDT at stricter 0.5, 1, 2, 4 Å cutoffs | [0, 1] | Higher is better |
+| **lDDT** | Local Distance Difference Test | [0, 1] | Higher is better |
 
 ---
 
-## 📚 Key References
+## Statistical Validation
 
-1. **AlphaFold-3** - Abramson et al., *Nature* (2024) DOI: 10.1038/s41586-024-07487-w
-2. **ESM-2** - Lin et al., *Science* (2023) DOI: 10.1126/science.ade2574
-3. **Quantum ML** - Schuld et al., *Phys. Rev. Lett.* (2019) DOI: 10.1103/PhysRevLett.122.040504
-4. **FAPE Loss** - Jumper et al., *Nature* (2021) DOI: 10.1038/s41586-021-03819-2
-5. **TM-score** - Zhang & Skolnick, *Proteins* (2004) DOI: 10.1002/prot.20264
+The comparison pipeline applies:
+
+1. **Paired bootstrap test** (10,000 resamples) for mean differences.
+2. **Wilcoxon signed-rank test** (non-parametric paired test).
+3. **Cohen's d** effect size with bootstrap confidence intervals.
+4. **Holm–Bonferroni correction** for multiple comparisons across metrics.
 
 ---
 
-## 🎓 Citation
+## Configuration
+
+See `configs/quantum_enabled.yaml` for the full parameter reference:
+
+```yaml
+model:
+  d_model: 128          # Residue representation dimension
+  n_heads: 8            # Attention heads
+  n_evoformer_blocks: 4 # Evoformer depth
+  quantum_enabled: true # Toggle quantum components
+
+quantum:
+  n_qubits: 8           # Qubits per circuit
+  n_circuit_layers: 4   # VQC depth
+  quantum_lr: 0.01      # Quantum parameter learning rate
+
+training:
+  epochs: 100
+  lr: 0.0001            # Classical learning rate
+  grad_clip: 1.0
+  early_stopping_patience: 15
+```
+
+---
+
+## References
+
+1. Jumper, J. et al. "Highly accurate protein structure prediction with AlphaFold." *Nature* **596**, 583–589 (2021). [doi:10.1038/s41586-021-03819-2](https://doi.org/10.1038/s41586-021-03819-2)
+
+2. Casares, P. A. M., Campos, R. & Martin-Delgado, M. A. "QFold: Quantum Walks and Deep Learning to Solve Protein Folding." *Quantum Sci. Technol.* **7**, 025013 (2022). [doi:10.1088/2058-9565/ac4f2f](https://doi.org/10.1088/2058-9565/ac4f2f)
+
+3. Outeiral, C. et al. "The prospects of quantum computing in computational molecular biology." *WIREs Comput Mol Sci* **11**, e1481 (2021). [doi:10.1002/wcms.1481](https://doi.org/10.1002/wcms.1481)
+
+4. Raubenolt, B. et al. "A Perspective on Protein Structure Prediction Using Quantum Computers." *J. Chem. Theory Comput.* (2024). [doi:10.1021/acs.jctc.4c00067](https://doi.org/10.1021/acs.jctc.4c00067)
+
+5. Geoffrey, A. S. "Protein structure prediction using AI and quantum computers." *bioRxiv* (2021). [doi:10.1101/2021.05.22.445242](https://doi.org/10.1101/2021.05.22.445242)
+
+6. Emani, P. S. et al. "Quantum computing at the frontiers of biological sciences." *Nature Methods* **18**, 701–709 (2021). [doi:10.1038/s41592-020-01004-3](https://doi.org/10.1038/s41592-020-01004-3)
+
+7. Zhang, Y. & Skolnick, J. "Scoring function for automated assessment of protein structure template quality." *Proteins* **57**, 702–710 (2004). [doi:10.1002/prot.20264](https://doi.org/10.1002/prot.20264)
+
+---
+
+## Citation
 
 ```bibtex
-@software{quantumfold2026,
-  author = {Marena, Tommaso R.},
-  title = {QuantumFold-Advantage: Quantum-Classical Hybrid Architecture for Protein Structure Prediction},
-  year = {2026},
-  institution = {The Catholic University of America},
-  url = {https://github.com/Tommaso-R-Marena/QuantumFold-Advantage}
+@software{marena2026quantumfold,
+  author  = {Marena, Tommaso R.},
+  title   = {QuantumFold-Advantage: A Hybrid Quantum-Classical Framework
+             for Protein Structure Prediction},
+  year    = {2026},
+  url     = {https://github.com/Tommaso-R-Marena/QuantumFold-Advantage},
 }
 ```
 
 ---
 
-## 🤝 Contributing
+## License
 
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Run tests (`pytest tests/`)
-4. Commit changes (`git commit -m 'Add amazing feature'`)
-5. Push to branch (`git push origin feature/amazing-feature`)
-6. Open Pull Request
-
----
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file.
-
----
-
-## 👤 Author
-
-**Tommaso R. Marena**  
-Undergraduate Researcher  
-The Catholic University of America  
-📧 marena@cua.edu  
-🔗 [GitHub](https://github.com/Tommaso-R-Marena)
-
----
-
-## 🙏 Acknowledgments
-
-- Meta AI for ESM-2
-- DeepMind for AlphaFold architecture
-- Xanadu for PennyLane framework
-- The protein structure prediction community
-
----
-
-## 🔮 Future Directions
-
-- [ ] Benchmark on CASP16 targets
-- [ ] Multi-chain complex prediction
-- [ ] RNA structure prediction
-- [ ] Protein-ligand docking
-- [ ] Real quantum device deployment
-- [ ] Web API and cloud deployment
-
----
-
-**⭐ Star this repository if you find it useful!**
-
-**🔬 Run the [statistical validation](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/02_quantum_advantage_benchmark.ipynb) for publication-ready results!**
-
-**🎨 Create [beautiful visualizations](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/03_atomic_visualization_showcase.ipynb) for presentations!**
-
-**🚀 Train [production models](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/02_a100_ULTIMATE_MAXIMIZED.ipynb) for best results!**
+MIT License. See [LICENSE](LICENSE) for details.
