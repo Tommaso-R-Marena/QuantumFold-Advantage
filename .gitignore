@@ -3,3 +3,4 @@ __pycache__/
 results_smoke/
 results_ci/
 checkpoints/
+results/
