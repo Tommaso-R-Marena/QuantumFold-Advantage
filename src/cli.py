@@ -68,6 +68,8 @@ def train_cli():
     parser.add_argument("--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
+    if args.benchmark_samples < 1:
+        parser.error("--benchmark-samples must be >= 1")
 
     # Setup logging
     logging.basicConfig(
