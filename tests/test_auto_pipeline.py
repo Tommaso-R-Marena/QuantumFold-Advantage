@@ -1,5 +1,7 @@
 """Tests for auto-improvement and auto-benchmark pipeline."""
 
+import pytest
+
 from src.auto_pipeline import AutoBenchmarkRunner, AutoImprovementEngine, BenchmarkCandidate
 
 
@@ -33,3 +35,18 @@ def test_auto_benchmark_returns_ranked_candidates():
     assert len(report["ranked"]) == 2
     assert report["best"]["name"] in {"a", "b"}
     assert report["ranked"][0]["composite_score"] >= report["ranked"][1]["composite_score"]
+
+
+def test_auto_benchmark_rejects_empty_candidates():
+    runner = AutoBenchmarkRunner(seed=123)
+
+    with pytest.raises(ValueError, match="at least one"):
+        runner.benchmark([], n_samples=3)
+
+
+def test_auto_benchmark_rejects_non_positive_samples():
+    runner = AutoBenchmarkRunner(seed=123)
+    candidates = [BenchmarkCandidate("a", 1e-3, 32, 3, False, False)]
+
+    with pytest.raises(ValueError, match=">= 1"):
+        runner.benchmark(candidates, n_samples=0)

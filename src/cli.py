@@ -69,6 +69,9 @@ def train_cli():
 
     args = parser.parse_args()
 
+    if args.benchmark_samples < 1:
+        parser.error("--benchmark-samples must be >= 1")
+
     # Setup logging
     logging.basicConfig(
         level=logging.INFO if args.verbose else logging.WARNING,

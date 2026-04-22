@@ -94,6 +94,11 @@ class AutoBenchmarkRunner:
 
     def benchmark(self, candidates: List[BenchmarkCandidate], n_samples: int = 8) -> Dict[str, object]:
         """Benchmark multiple candidates and return ranked results."""
+        if not candidates:
+            raise ValueError("candidates must contain at least one BenchmarkCandidate")
+        if n_samples < 1:
+            raise ValueError("n_samples must be >= 1")
+
         results = []
 
         for candidate in candidates:
