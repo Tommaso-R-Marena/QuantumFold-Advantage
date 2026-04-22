@@ -3,12 +3,19 @@
 [![CI](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions/workflows/ci.yml/badge.svg)](https://github.com/Tommaso-R-Marena/QuantumFold-Advantage/actions)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+[![Benchmark Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Tommaso-R-Marena/QuantumFold-Advantage/blob/main/examples/10_af3_head_to_head_benchmark_colab.ipynb)
 
 A hybrid quantum-classical framework for protein structure prediction that
 rigorously evaluates whether variational quantum circuits can improve upon
 purely classical deep learning baselines inspired by AlphaFold.
 
 ---
+
+## Rigorous AF3 Benchmark Notebook
+
+Run the full Google Colab benchmark to evaluate QuantumFold head-to-head against AlphaFold 3 with paired statistics, bootstrap confidence intervals, and Holm–Bonferroni correction:
+
+- `examples/10_af3_head_to_head_benchmark_colab.ipynb`
 
 ## Abstract
 
