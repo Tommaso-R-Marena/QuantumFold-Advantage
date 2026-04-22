@@ -14,6 +14,14 @@ from pathlib import Path
 
 import torch
 
+from .auto_pipeline import (
+    AutoBenchmarkRunner,
+    AutoImprovementEngine,
+    BenchmarkCandidate,
+    load_history_json,
+    save_json,
+)
+
 
 def train_cli():
     """CLI entry point for training."""
@@ -47,6 +55,11 @@ def train_cli():
         "--checkpoint-dir", type=Path, default="checkpoints", help="Checkpoint directory"
     )
 
+    parser.add_argument("--auto-improve", action="store_true", help="Automatically suggest improved training settings")
+    parser.add_argument("--auto-benchmark", action="store_true", help="Automatically benchmark candidate settings")
+    parser.add_argument("--history-file", type=Path, default=None, help="Optional JSON training history for auto-improvement")
+    parser.add_argument("--benchmark-samples", type=int, default=8, help="Number of synthetic benchmark samples per candidate")
+
     # Misc
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument(
@@ -79,9 +92,66 @@ def train_cli():
         logger.error(f"Failed to import modules: {e}")
         sys.exit(1)
 
-    # TODO: Implement full training pipeline
-    logger.info("Training not yet fully implemented in CLI")
-    logger.info("Please use train_advanced.py directly or Jupyter notebooks")
+    current_settings = {
+        "learning_rate": float(args.learning_rate),
+        "batch_size": float(args.batch_size),
+        "weight_decay": 1e-4,
+        "model_width_multiplier": 1.0,
+    }
+
+    if args.auto_improve:
+        history = load_history_json(args.history_file)
+        improver = AutoImprovementEngine()
+        improved = improver.suggest(history=history, current=current_settings)
+
+        improvement_path = args.output_dir / "auto_improvement.json"
+        save_json(
+            improvement_path,
+            {
+                "current": current_settings,
+                "history_file": str(args.history_file) if args.history_file else None,
+                "improved": improved,
+            },
+        )
+        logger.info(f"Saved auto-improvement suggestions to {improvement_path}")
+
+    if args.auto_benchmark:
+        runner = AutoBenchmarkRunner(seed=args.seed)
+        candidates = [
+            BenchmarkCandidate(
+                name="baseline",
+                learning_rate=float(args.learning_rate),
+                batch_size=int(args.batch_size),
+                quantum_depth=int(args.quantum_depth),
+                use_amp=bool(args.use_amp),
+                use_ema=bool(args.use_ema),
+            ),
+            BenchmarkCandidate(
+                name="stability_focused",
+                learning_rate=max(float(args.learning_rate) * 0.5, 1e-6),
+                batch_size=max(int(args.batch_size), 32),
+                quantum_depth=max(int(args.quantum_depth), 3),
+                use_amp=True,
+                use_ema=True,
+            ),
+            BenchmarkCandidate(
+                name="speed_focused",
+                learning_rate=float(args.learning_rate),
+                batch_size=max(int(args.batch_size) * 2, 64),
+                quantum_depth=max(1, int(args.quantum_depth) - 1),
+                use_amp=True,
+                use_ema=False,
+            ),
+        ]
+
+        benchmark_results = runner.benchmark(candidates, n_samples=args.benchmark_samples)
+        benchmark_path = args.output_dir / "auto_benchmark.json"
+        save_json(benchmark_path, benchmark_results)
+        logger.info(f"Saved auto-benchmark report to {benchmark_path}")
+
+    if not args.auto_improve and not args.auto_benchmark:
+        logger.info("Training pipeline in CLI is still minimal.")
+        logger.info("Use --auto-improve and/or --auto-benchmark for automated optimization workflows.")
 
     return 0
 
