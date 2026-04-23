@@ -1,129 +1,124 @@
 #!/usr/bin/env python3
-"""Q
-QuantumFold-Advantage Main Entrypoint
+"""Run a minimal end-to-end QuantumFold demo on a short synthetic sequence.
 
-Runs the full pipeline: fetch data → train model → evaluate → visualize.
-Outputs saved to outputs/ directory.
-
-Usage:
-    python run_demo.py
-    python run_demo.py --seed 42 --mode cpu
-    python run_demo.py --quantum --epochs 20
+This script intentionally avoids external APIs and hardware-specific backends.
+It trains for a few quick steps on synthetic proteins and runs inference on a
+short sequence (<=10 residues). If PennyLane is available, it uses the hybrid
+quantum model on the ``default.qubit`` simulator; otherwise it falls back to
+the classical model.
 """
 
 import argparse
+import json
 import logging
 import sys
 from pathlib import Path
 
-from src.pipeline import run_full_pipeline
-from src.utils import setup_logging, set_seed
+import torch
+from torch.utils.data import DataLoader
 
-# Default configuration
-DEFAULT_SEED = 42
-DEFAULT_EPOCHS = 10
-DEFAULT_BATCH_SIZE = 4
+import importlib.util
+
+from src.model import create_model
+from src.train import evaluate_model, train_model
 
 
-def parse_args():
-    """Parse command-line arguments."""
-    parser = argparse.ArgumentParser(
-        description="QuantumFold-Advantage: Hybrid Quantum-Classical Protein Folding"
-    )
+def _load_data_module():
+    data_py = Path(__file__).resolve().parent / "src" / "data.py"
+    spec = importlib.util.spec_from_file_location("qf_data_module", data_py)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    spec.loader.exec_module(module)
+    return module
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="QuantumFold-Advantage quick demo")
+    parser.add_argument("--epochs", type=int, default=2, help="Training epochs for quick demo")
+    parser.add_argument("--batch-size", type=int, default=2, help="Training batch size")
+    parser.add_argument("--output-dir", type=str, default="outputs/demo", help="Output directory")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument(
-        "--seed", type=int, default=DEFAULT_SEED, help="Random seed for reproducibility"
-    )
-    parser.add_argument(
-        "--epochs", type=int, default=DEFAULT_EPOCHS, help="Number of training epochs"
-    )
-    parser.add_argument(
-        "--batch-size", type=int, default=DEFAULT_BATCH_SIZE, help="Training batch size"
-    )
-    parser.add_argument(
-        "--mode",
-        type=str,
-        choices=["auto", "cpu", "gpu"],
-        default="auto",
-        help="Device mode (auto-detects by default)",
-    )
-    parser.add_argument(
-        "--quantum",
-        action="store_true",
-        help="Enable hybrid quantum-classical model (requires PennyLane)",
-    )
-    parser.add_argument(
-        "--output-dir",
-        type=str,
-        default="outputs",
-        help="Directory for outputs",
-    )
-    parser.add_argument(
-        "--log-level",
-        type=str,
-        default="INFO",
-        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
-        help="Logging level",
+        "--model",
+        choices=["classical", "quantum"],
+        default="quantum",
+        help="Try quantum by default; automatically falls back if PennyLane unavailable.",
     )
     return parser.parse_args()
 
 
-def main():
-    """Main execution function."""
+def _set_seed(seed: int) -> None:
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def main() -> int:
     args = parse_args()
-    
-    # Setup logging
-    setup_logging(level=args.log_level)
-    logger = logging.getLogger(__name__)
-    
-    logger.info("=" * 60)
-    logger.info("QuantumFold-Advantage: Hybrid Protein Folding Pipeline")
-    logger.info("=" * 60)
-    logger.info(f"Configuration:")
-    logger.info(f"  Seed: {args.seed}")
-    logger.info(f"  Epochs: {args.epochs}")
-    logger.info(f"  Batch Size: {args.batch_size}")
-    logger.info(f"  Device Mode: {args.mode}")
-    logger.info(f"  Quantum Mode: {args.quantum}")
-    logger.info(f"  Output Directory: {args.output_dir}")
-    logger.info("=" * 60)
-    
-    # Set random seed
-    set_seed(args.seed)
-    
-    # Create output directory
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+    logger = logging.getLogger("run_demo")
+    _set_seed(args.seed)
+
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Run full pipeline
-    try:
-        results = run_full_pipeline(
-            seed=args.seed,
-            epochs=args.epochs,
-            batch_size=args.batch_size,
-            device_mode=args.mode,
-            use_quantum=args.quantum,
-            output_dir=str(output_dir),
-        )
-        
-        logger.info("=" * 60)
-        logger.info("Pipeline completed successfully!")
-        logger.info(f"Results saved to: {output_dir}")
-        logger.info(f"  - Training metrics: {output_dir / 'train_metrics.json'}")
-        logger.info(f"  - Predictions: {output_dir / 'predictions.pdb'}")
-        logger.info(f"  - Visualization: {output_dir / 'structure_viz.html'}")
-        logger.info("=" * 60)
-        
-        # Print summary statistics
-        if "test_rmsd" in results:
-            logger.info(f"Test RMSD: {results['test_rmsd']:.4f} Å")
-        if "test_tm_score" in results:
-            logger.info(f"Test TM-Score: {results['test_tm_score']:.4f}")
-        
-        return 0
-        
-    except Exception as e:
-        logger.error(f"Pipeline failed with error: {e}", exc_info=True)
-        return 1
+
+    data_module = _load_data_module()
+
+    # Keep residue count <= 10 per request.
+    sequences, coordinates = data_module.generate_synthetic_data(
+        num_samples=8,
+        min_length=10,
+        max_length=10,
+        seed=args.seed,
+    )
+
+    train_dataset = data_module.ProteinDataset(sequences[:6], coordinates[:6])
+    test_dataset = data_module.ProteinDataset(sequences[6:], coordinates[6:])
+
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model_type = args.model
+    model = create_model(model_type=model_type, input_dim=20, hidden_dim=32, output_dim=3, n_qubits=4)
+
+    # If quantum requested but PennyLane unavailable, model will disable quantum internally.
+    model = model.to(device)
+    logger.info("Training %s model on %s", model_type, device)
+
+    model, history = train_model(
+        model=model,
+        train_loader=train_loader,
+        test_loader=test_loader,
+        device=device,
+        epochs=args.epochs,
+        lr=1e-3,
+    )
+    metrics = evaluate_model(model, test_loader, device)
+
+    # Inference on one short synthetic protein (<=10 residues)
+    sample = test_dataset[0]
+    sample_batch = sample["sequence"].unsqueeze(0).to(device)
+    with torch.no_grad():
+        pred_coords = model(sample_batch).squeeze(0).cpu().tolist()
+
+    result = {
+        "sequence": sequences[6],
+        "sequence_length": len(sequences[6]),
+        "metrics": metrics,
+        "history": history,
+        "predicted_coordinates": pred_coords,
+        "quantum_backend": "default.qubit (simulator fallback)",
+    }
+
+    out_file = output_dir / "demo_results.json"
+    with open(out_file, "w", encoding="utf-8") as f:
+        json.dump(result, f, indent=2)
+
+    logger.info("Demo complete. Results saved to %s", out_file)
+    logger.info("Sequence length: %d", result["sequence_length"])
+    logger.info("Test RMSD: %.4f | TM-score: %.4f", metrics["rmsd"], metrics["tm_score"])
+    return 0
 
 
 if __name__ == "__main__":

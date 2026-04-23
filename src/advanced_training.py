@@ -597,7 +597,6 @@ def compute_base_pair_loss(pred_bp_matrix: Tensor, native_bp_matrix: Tensor) -> 
     return F.binary_cross_entropy(pred_bp_matrix, native_bp_matrix)
 
 
-def compute_docking_loss(pred_complex: Dict[str, Tensor], native_complex: Dict[str, Tensor]) -> Tensor:
 def compute_docking_loss(
     pred_complex: Dict[str, Tensor], native_complex: Dict[str, Tensor]
 ) -> Tensor:

@@ -45,6 +45,15 @@ repos:
         additional_dependencies: ['types-all']
         exclude: '^(tests/|examples/)'
 
+  - repo: local
+    hooks:
+      - id: block-binary-and-artifact-extensions
+        name: Block binary files and forbidden artifact extensions
+        entry: python scripts/check_no_binary_artifacts.py
+        language: system
+        pass_filenames: true
+        stages: [pre-commit]
+
 ci:
   autofix_commit_msg: 'style: Auto-fix pre-commit hooks [skip ci]'
   autofix_prs: true

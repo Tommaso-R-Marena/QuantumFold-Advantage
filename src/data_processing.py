@@ -11,9 +11,17 @@ import numpy as np
 
 try:
     from Bio.PDB import PDBParser
-    from Bio.PDB.Polypeptide import is_aa, three_to_one
+    from Bio.PDB.Polypeptide import is_aa
+    from Bio.Data.IUPACData import protein_letters_3to1
 except ImportError:
-    print("Warning: Biopython not installed. Install with: pip install biopython")
+    PDBParser = None
+    is_aa = None
+    protein_letters_3to1 = {}
+
+
+def _three_to_one(resname: str) -> str:
+    key = resname.strip().title()
+    return protein_letters_3to1.get(key, "X")
 
 
 class ProteinFeatureExtractor:
@@ -45,39 +53,63 @@ class ProteinFeatureExtractor:
                 - distances: Pairwise distance matrix (N, N)
                 - angles: Backbone angles (phi, psi, omega) (N, 3)
         """
-        parser = PDBParser(QUIET=True)
-        structure = parser.get_structure("protein", pdb_path)
-
-        # Get chain
-        if chain_id is None:
-            chain = list(structure.get_chains())[0]
-        else:
-            chain = structure[0][chain_id]
-
-        # Extract sequence and coordinates
         sequence = []
         coordinates = []
         residue_types = []
 
-        for residue in chain:
-            if is_aa(residue, standard=True):
-                try:
-                    # Get amino acid type
-                    aa = three_to_one(residue.get_resname())
+        if PDBParser is not None and is_aa is not None:
+            parser = PDBParser(QUIET=True)
+            structure = parser.get_structure("protein", pdb_path)
+
+            if chain_id is None:
+                chain = list(structure.get_chains())[0]
+            else:
+                chain = structure[0][chain_id]
+
+            for residue in chain:
+                if is_aa(residue, standard=True):
+                    try:
+                        aa = _three_to_one(residue.get_resname())
+                        sequence.append(aa)
+                        ca_atom = residue["CA"]
+                        coordinates.append(ca_atom.get_coord())
+
+                        one_hot = np.zeros(len(self.aa_types))
+                        if aa in self.aa_to_idx:
+                            one_hot[self.aa_to_idx[aa]] = 1.0
+                        residue_types.append(one_hot)
+                    except KeyError:
+                        continue
+        else:
+            # Lightweight fallback parser for CA atoms when Biopython is unavailable.
+            selected_chain = chain_id
+            with open(pdb_path, "r", encoding="utf-8") as handle:
+                for line in handle:
+                    if not line.startswith("ATOM"):
+                        continue
+                    atom_name = line[12:16].strip()
+                    if atom_name != "CA":
+                        continue
+                    chain = line[21].strip()
+                    if selected_chain is not None and chain != selected_chain:
+                        continue
+                    if selected_chain is None:
+                        selected_chain = chain
+                    if chain != selected_chain:
+                        continue
+
+                    resname = line[17:20].strip()
+                    aa = _three_to_one(resname)
                     sequence.append(aa)
+                    x = float(line[30:38])
+                    y = float(line[38:46])
+                    z = float(line[46:54])
+                    coordinates.append([x, y, z])
 
-                    # Get CA coordinates
-                    ca_atom = residue["CA"]
-                    coordinates.append(ca_atom.get_coord())
-
-                    # One-hot encode residue type
                     one_hot = np.zeros(len(self.aa_types))
                     if aa in self.aa_to_idx:
                         one_hot[self.aa_to_idx[aa]] = 1.0
                     residue_types.append(one_hot)
-
-                except KeyError:
-                    continue
 
         sequence = "".join(sequence)
         coordinates = np.array(coordinates)
