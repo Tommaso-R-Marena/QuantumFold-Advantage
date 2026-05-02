@@ -2,15 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 
 import numpy as np
 import requests
 import torch
 from Bio.PDB import PDBParser, PPBuilder
-from typing import Dict, List, Optional, Sequence
-
-import torch
 from torch.utils.data import Dataset
 
 
@@ -80,9 +77,26 @@ class ComplexDataset(Dataset):
             return "".join(str(p.get_sequence()) for p in peptides)
         # fallback map from residue names
         map3 = {
-            "ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D", "CYS": "C", "GLN": "Q", "GLU": "E", "GLY": "G",
-            "HIS": "H", "ILE": "I", "LEU": "L", "LYS": "K", "MET": "M", "PHE": "F", "PRO": "P", "SER": "S",
-            "THR": "T", "TRP": "W", "TYR": "Y", "VAL": "V"
+            "ALA": "A",
+            "ARG": "R",
+            "ASN": "N",
+            "ASP": "D",
+            "CYS": "C",
+            "GLN": "Q",
+            "GLU": "E",
+            "GLY": "G",
+            "HIS": "H",
+            "ILE": "I",
+            "LEU": "L",
+            "LYS": "K",
+            "MET": "M",
+            "PHE": "F",
+            "PRO": "P",
+            "SER": "S",
+            "THR": "T",
+            "TRP": "W",
+            "TYR": "Y",
+            "VAL": "V",
         }
         seq = []
         for res in chain:
@@ -113,7 +127,12 @@ class ComplexDataset(Dataset):
                     seq = seq[:l]
                     coords_arr = coords_arr[:l]
                     chains.append(
-                        ChainData(chain_id=chain.id, sequence=seq, coordinates=coords_arr, start_residue=start)
+                        ChainData(
+                            chain_id=chain.id,
+                            sequence=seq,
+                            coordinates=coords_arr,
+                            start_residue=start,
+                        )
                     )
                     start += l
                 if len(chains) < 2:
@@ -124,7 +143,11 @@ class ComplexDataset(Dataset):
                 stoich: Dict[str, int] = {}
                 for c in chains:
                     stoich[c.chain_id] = stoich.get(c.chain_id, 0) + 1
-                out.append(ProteinComplex(chains=chains, inter_chain_contacts=contacts, stoichiometry=stoich))
+                out.append(
+                    ProteinComplex(
+                        chains=chains, inter_chain_contacts=contacts, stoichiometry=stoich
+                    )
+                )
             except Exception:
                 continue
         return out
@@ -136,9 +159,16 @@ class ComplexDataset(Dataset):
         comp = self.complexes[idx]
         sequence = "".join(c.sequence for c in comp.chains)
         chain_breaks = comp.get_chain_breaks()
-        native_coords = torch.tensor(np.concatenate([c.coordinates for c in comp.chains], axis=0), dtype=torch.float32)
-        contacts = comp.inter_chain_contacts if comp.inter_chain_contacts is not None else torch.zeros((len(sequence), len(sequence)), dtype=torch.bool)
+        native_coords = torch.tensor(
+            np.concatenate([c.coordinates for c in comp.chains], axis=0), dtype=torch.float32
+        )
+        contacts = (
+            comp.inter_chain_contacts
+            if comp.inter_chain_contacts is not None
+            else torch.zeros((len(sequence), len(sequence)), dtype=torch.bool)
+        )
         return sequence, chain_breaks, native_coords, contacts
+
     """Container for multi-chain complexes."""
 
     chains: List[ChainData]

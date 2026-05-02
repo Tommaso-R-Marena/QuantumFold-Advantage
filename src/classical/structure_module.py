@@ -40,8 +40,8 @@ class BackboneUpdate(nn.Module):
             trans_update: (B, L, 3) translation update
         """
         out = self.net(s)
-        angle_axis = out[..., :3]   # (B, L, 3)
-        trans = out[..., 3:]        # (B, L, 3)
+        angle_axis = out[..., :3]  # (B, L, 3)
+        trans = out[..., 3:]  # (B, L, 3)
 
         # Convert axis-angle to rotation matrices
         rot = self._axis_angle_to_rotation(angle_axis)
@@ -64,11 +64,14 @@ class BackboneUpdate(nn.Module):
         # Skew-symmetric matrix
         x, y, z = axis.unbind(-1)
         zero = torch.zeros_like(x)
-        K = torch.stack([
-            torch.stack([zero, -z, y], dim=-1),
-            torch.stack([z, zero, -x], dim=-1),
-            torch.stack([-y, x, zero], dim=-1),
-        ], dim=-2)  # (*, 3, 3)
+        K = torch.stack(
+            [
+                torch.stack([zero, -z, y], dim=-1),
+                torch.stack([z, zero, -x], dim=-1),
+                torch.stack([-y, x, zero], dim=-1),
+            ],
+            dim=-2,
+        )  # (*, 3, 3)
 
         eye = torch.eye(3, device=aa.device, dtype=aa.dtype).expand_as(K)
         # K^2 via batch matmul — flatten all leading dims
@@ -151,7 +154,13 @@ class StructureModule(nn.Module):
 
     def _init_frames(self, B: int, L: int, device: torch.device, dtype: torch.dtype):
         """Initialize backbone frames to identity."""
-        rotations = torch.eye(3, device=device, dtype=dtype).unsqueeze(0).unsqueeze(0).expand(B, L, 3, 3).clone()
+        rotations = (
+            torch.eye(3, device=device, dtype=dtype)
+            .unsqueeze(0)
+            .unsqueeze(0)
+            .expand(B, L, 3, 3)
+            .clone()
+        )
         translations = torch.zeros(B, L, 3, device=device, dtype=dtype)
         return rotations, translations
 
@@ -186,8 +195,12 @@ class StructureModule(nn.Module):
 
         # Transform to global frame
         # atoms_global = R @ ideal_atoms^T + T
-        atoms_local = ideal_atoms.unsqueeze(0).unsqueeze(0).expand(B, L, 3, 3)  # (B, L, 3_atoms, 3_xyz)
-        atoms_global = torch.einsum("blij,blaj->blai", rotations, atoms_local) + translations.unsqueeze(2)
+        atoms_local = (
+            ideal_atoms.unsqueeze(0).unsqueeze(0).expand(B, L, 3, 3)
+        )  # (B, L, 3_atoms, 3_xyz)
+        atoms_global = torch.einsum(
+            "blij,blaj->blai", rotations, atoms_local
+        ) + translations.unsqueeze(2)
 
         return atoms_global
 
@@ -219,9 +232,7 @@ class StructureModule(nn.Module):
 
             # Compose with existing frames
             rotations = torch.einsum("blij,bljk->blik", rot_update, rotations)
-            translations = translations + torch.einsum(
-                "blij,blj->bli", rotations, trans_update
-            )
+            translations = translations + torch.einsum("blij,blj->bli", rotations, trans_update)
 
         s = self.final_norm(s)
         torsions = self.torsion_head(s)

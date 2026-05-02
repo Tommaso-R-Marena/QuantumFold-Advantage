@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 import nbformat
+import pytest
 from nbconvert.preprocessors import ExecutePreprocessor
 
 NOTEBOOKS_DIR = Path(__file__).parent.parent / "examples"
