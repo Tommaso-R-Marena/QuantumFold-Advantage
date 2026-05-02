@@ -20,7 +20,9 @@ class ProteinLigandComplexModel(nn.Module):
         super().__init__()
         self.protein_model = protein_model
         self.ligand_encoder = ligand_encoder
-        self.protein_ligand_attention = nn.MultiheadAttention(embed_dim=384, num_heads=8, kdim=64, vdim=64)
+        self.protein_ligand_attention = nn.MultiheadAttention(
+            embed_dim=384, num_heads=8, kdim=64, vdim=64
+        )
         self.protein_ligand_attention = nn.MultiheadAttention(
             embed_dim=384, num_heads=8, kdim=64, vdim=64
         )
@@ -29,7 +31,9 @@ class ProteinLigandComplexModel(nn.Module):
             if binding_site_predictor
             else None
         )
-        self.pose_refinement = nn.ModuleList([nn.TransformerEncoderLayer(d_model=384, nhead=8) for _ in range(4)])
+        self.pose_refinement = nn.ModuleList(
+            [nn.TransformerEncoderLayer(d_model=384, nhead=8) for _ in range(4)]
+        )
         self.pose_refinement = nn.ModuleList(
             [nn.TransformerEncoderLayer(d_model=384, nhead=8) for _ in range(4)]
         )
@@ -40,8 +44,15 @@ class ProteinLigandComplexModel(nn.Module):
             return torch.zeros(protein_repr.shape[:-1], device=protein_repr.device)
         return self.site_predictor(protein_repr).squeeze(-1)
 
-    def dock_ligand(self, protein_coords: Tensor, ligand_coords: Tensor, binding_site_mask: Tensor) -> Dict:
-        centroid = protein_coords[binding_site_mask > 0.5].mean(dim=0) if binding_site_mask.any() else protein_coords.mean(dim=0)
+    def dock_ligand(
+        self, protein_coords: Tensor, ligand_coords: Tensor, binding_site_mask: Tensor
+    ) -> Dict:
+        centroid = (
+            protein_coords[binding_site_mask > 0.5].mean(dim=0)
+            if binding_site_mask.any()
+            else protein_coords.mean(dim=0)
+        )
+
     def dock_ligand(
         self, protein_coords: Tensor, ligand_coords: Tensor, binding_site_mask: Tensor
     ) -> Dict:

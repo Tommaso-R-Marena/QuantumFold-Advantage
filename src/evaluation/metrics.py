@@ -19,10 +19,10 @@ from typing import Dict, Tuple
 
 import numpy as np
 
-
 # ---------------------------------------------------------------------------
 # Kabsch alignment
 # ---------------------------------------------------------------------------
+
 
 def kabsch_align(
     mobile: np.ndarray, target: np.ndarray
@@ -65,6 +65,7 @@ def kabsch_align(
 # RMSD
 # ---------------------------------------------------------------------------
 
+
 def compute_rmsd(pred: np.ndarray, true: np.ndarray, align: bool = True) -> float:
     """Root-mean-square deviation between two coordinate sets.
 
@@ -80,12 +81,13 @@ def compute_rmsd(pred: np.ndarray, true: np.ndarray, align: bool = True) -> floa
     if align:
         pred, _, _ = kabsch_align(pred, true)
     diff = pred - true
-    return float(np.sqrt(np.mean(np.sum(diff ** 2, axis=1))))
+    return float(np.sqrt(np.mean(np.sum(diff**2, axis=1))))
 
 
 # ---------------------------------------------------------------------------
 # TM-score
 # ---------------------------------------------------------------------------
+
 
 def compute_tm_score(
     pred: np.ndarray,
@@ -129,6 +131,7 @@ def compute_tm_score(
 # GDT-TS / GDT-HA
 # ---------------------------------------------------------------------------
 
+
 def _gdt_at_cutoff(pred: np.ndarray, true: np.ndarray, cutoff: float) -> float:
     """Fraction of Cα atoms within *cutoff* Å after superposition."""
     distances = np.sqrt(np.sum((pred - true) ** 2, axis=1))
@@ -164,6 +167,7 @@ def compute_gdt_ha(pred: np.ndarray, true: np.ndarray, align: bool = True) -> fl
 # ---------------------------------------------------------------------------
 # lDDT
 # ---------------------------------------------------------------------------
+
 
 def compute_lddt(
     pred: np.ndarray,
@@ -206,6 +210,7 @@ def compute_lddt(
 # ---------------------------------------------------------------------------
 # Convenience: evaluate all metrics at once
 # ---------------------------------------------------------------------------
+
 
 def evaluate_structure(
     pred: np.ndarray,

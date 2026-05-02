@@ -29,7 +29,6 @@ from src.classical.evoformer import EvoformerStack
 from src.classical.structure_module import StructureModule
 from src.quantum_layers import AdvancedQuantumCircuitLayer, QuantumAttentionLayer
 
-
 # ---------------------------------------------------------------------------
 # Amino acid constants
 # ---------------------------------------------------------------------------
@@ -38,13 +37,26 @@ N_AMINO_ACIDS = len(AMINO_ACIDS)
 
 # Physicochemical properties: hydrophobicity (Kyte-Doolittle), charge, MW
 AA_PROPERTIES = {
-    "A": [1.8, 0, 89],  "C": [2.5, 0, 121], "D": [-3.5, -1, 133],
-    "E": [-3.5, -1, 147], "F": [2.8, 0, 165], "G": [-0.4, 0, 75],
-    "H": [-3.2, 0.5, 155], "I": [4.5, 0, 131], "K": [-3.9, 1, 146],
-    "L": [3.8, 0, 131], "M": [1.9, 0, 149], "N": [-3.5, 0, 132],
-    "P": [-1.6, 0, 115], "Q": [-3.5, 0, 146], "R": [-4.5, 1, 174],
-    "S": [-0.8, 0, 105], "T": [-0.7, 0, 119], "V": [4.2, 0, 117],
-    "W": [-0.9, 0, 204], "Y": [-1.3, 0, 181],
+    "A": [1.8, 0, 89],
+    "C": [2.5, 0, 121],
+    "D": [-3.5, -1, 133],
+    "E": [-3.5, -1, 147],
+    "F": [2.8, 0, 165],
+    "G": [-0.4, 0, 75],
+    "H": [-3.2, 0.5, 155],
+    "I": [4.5, 0, 131],
+    "K": [-3.9, 1, 146],
+    "L": [3.8, 0, 131],
+    "M": [1.9, 0, 149],
+    "N": [-3.5, 0, 132],
+    "P": [-1.6, 0, 115],
+    "Q": [-3.5, 0, 146],
+    "R": [-4.5, 1, 174],
+    "S": [-0.8, 0, 105],
+    "T": [-0.7, 0, 119],
+    "V": [4.2, 0, 117],
+    "W": [-0.9, 0, 204],
+    "Y": [-1.3, 0, 181],
 }
 
 N_PHYSCHEM = 3  # hydrophobicity, charge, MW
@@ -134,7 +146,8 @@ class QuantumEnhancementLayer(nn.Module):
         x_t = x.transpose(1, 2)  # (B, D, L)
         x_pooled = nn.functional.avg_pool1d(
             nn.functional.pad(x_t, (pad, pad), mode="constant", value=0),
-            kernel_size=ws, stride=1,
+            kernel_size=ws,
+            stride=1,
         )  # (B, D, L')
         # Trim to L
         local_ctx = x_pooled[:, :, :L].transpose(1, 2)  # (B, L, D)
@@ -291,8 +304,8 @@ class QuantumFoldAdvantage(nn.Module):
         coords, rotations, translations = self.structure_module(s, mask=mask)
 
         return {
-            "coords_backbone": coords,         # (B, L, 3, 3)
-            "coords_ca": coords[:, :, 1, :],    # (B, L, 3) — Cα
+            "coords_backbone": coords,  # (B, L, 3, 3)
+            "coords_ca": coords[:, :, 1, :],  # (B, L, 3) — Cα
             "rotations": rotations,
             "translations": translations,
         }
@@ -320,6 +333,7 @@ class QuantumFoldAdvantage(nn.Module):
 # ---------------------------------------------------------------------------
 # Factory helpers
 # ---------------------------------------------------------------------------
+
 
 def create_quantum_model(**kwargs) -> QuantumFoldAdvantage:
     """Create a quantum-enhanced model."""
