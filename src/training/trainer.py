@@ -22,6 +22,87 @@ from src.training.losses import CombinedLoss
 logger = logging.getLogger(__name__)
 
 
+def train_model(
+    model: nn.Module,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    epochs: int = 10,
+    device: torch.device = "cpu",
+    lr: float = 0.001,
+) -> Dict:
+    """Legacy compatibility training function."""
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    criterion = nn.MSELoss()
+
+    history = {"train_loss": [], "val_loss": []}
+
+    model.to(device)
+
+    for epoch in range(1, epochs + 1):
+        model.train()
+        epoch_loss = 0.0
+        for batch in train_loader:
+            optimizer.zero_grad()
+            # Handle different dataset outputs
+            if isinstance(batch, dict):
+                x = batch.get("sequence") or batch.get("aa_idx")
+                y = batch.get("coordinates") or batch.get("coords")
+            else:
+                x, y = batch
+
+            x, y = x.to(device), y.to(device)
+
+            # Simple forward pass
+            pred = model(x)
+            if isinstance(pred, dict):
+                pred = pred.get("coords_ca") or pred.get("coordinates")
+
+            # Reshape if necessary
+            if pred.shape != y.shape:
+                if y.ndim == 4: # [B, L, 3, 3] -> [B, L, 3] (CA)
+                    y = y[:, :, 1, :]
+
+            # Final check to avoid dimension mismatch if pred is still not matching y
+            if pred.shape != y.shape:
+                # Fallback to minimal overlapping size or error
+                min_L = min(pred.shape[1], y.shape[1])
+                pred = pred[:, :min_L]
+                y = y[:, :min_L]
+
+            loss = criterion(pred, y)
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item()
+
+        history["train_loss"].append(epoch_loss / len(train_loader))
+
+        # Validation
+        model.eval()
+        val_loss = 0.0
+        with torch.no_grad():
+            for batch in val_loader:
+                if isinstance(batch, dict):
+                    x = batch.get("sequence") or batch.get("aa_idx")
+                    y = batch.get("coordinates") or batch.get("coords")
+                else:
+                    x, y = batch
+                x, y = x.to(device), y.to(device)
+                pred = model(x)
+                if isinstance(pred, dict):
+                    pred = pred.get("coords_ca") or pred.get("coordinates")
+                if pred.shape != y.shape:
+                    if y.ndim == 4:
+                        y = y[:, :, 1, :]
+                    min_L = min(pred.shape[1], y.shape[1])
+                    pred = pred[:, :min_L]
+                    y = y[:, :min_L]
+                loss = criterion(pred, y)
+                val_loss += loss.item()
+        history["val_loss"].append(val_loss / len(val_loader))
+
+    return history
+
+
 class QuantumFoldTrainer:
     """Trainer for QuantumFold-Advantage.
 

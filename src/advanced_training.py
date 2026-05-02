@@ -21,7 +21,7 @@ References:
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -227,7 +227,7 @@ class StructureAwareLoss(nn.Module):
 
     def forward(
         self,
-        pred_coords: Tensor,
+        pred_coords: Union[Tensor, Dict[str, Tensor]],
         true_coords: Tensor,
         pred_confidence: Optional[Tensor] = None,
         true_confidence: Optional[Tensor] = None,
@@ -236,7 +236,7 @@ class StructureAwareLoss(nn.Module):
         """Compute combined structural loss.
 
         Args:
-            pred_coords: Predicted coordinates (batch, N, 3)
+            pred_coords: Predicted coordinates (batch, N, 3) or dict with 'coordinates'
             true_coords: True coordinates (batch, N, 3)
             pred_confidence: Predicted confidence scores (batch, N)
             true_confidence: True confidence scores (batch, N)
@@ -245,6 +245,11 @@ class StructureAwareLoss(nn.Module):
         Returns:
             Dictionary with loss components
         """
+        if isinstance(pred_coords, dict):
+            if pred_confidence is None:
+                pred_confidence = pred_coords.get("plddt")
+            pred_coords = pred_coords["coordinates"]
+
         losses = {}
 
         # FAPE loss
@@ -399,6 +404,8 @@ class AdvancedTrainer:
             # Move to device
             sequences = batch["sequence"].to(self.device)
             coords_true = batch["coordinates"].to(self.device)
+            if coords_true.ndim == 2:
+                coords_true = coords_true.unsqueeze(0)
             mask = batch.get("mask", None)
             if mask is not None:
                 mask = mask.to(self.device)
@@ -474,6 +481,8 @@ class AdvancedTrainer:
         for batch in tqdm(val_loader, desc="Validating"):
             sequences = batch["sequence"].to(self.device)
             coords_true = batch["coordinates"].to(self.device)
+            if coords_true.ndim == 2:
+                coords_true = coords_true.unsqueeze(0)
             mask = batch.get("mask", None)
             if mask is not None:
                 mask = mask.to(self.device)
@@ -597,7 +606,6 @@ def compute_base_pair_loss(pred_bp_matrix: Tensor, native_bp_matrix: Tensor) -> 
     return F.binary_cross_entropy(pred_bp_matrix, native_bp_matrix)
 
 
-def compute_docking_loss(pred_complex: Dict[str, Tensor], native_complex: Dict[str, Tensor]) -> Tensor:
 def compute_docking_loss(
     pred_complex: Dict[str, Tensor], native_complex: Dict[str, Tensor]
 ) -> Tensor:

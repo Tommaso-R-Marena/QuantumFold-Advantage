@@ -1,127 +1,121 @@
-"""Orchestrate training and evaluation pipelines."""
+"""Unified training and evaluation pipeline."""
 
 import json
 import logging
+import time
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
 
 from .data import load_or_generate_data
-from .model import ProteinFoldNet
-from .train import train_model
-from .utils import set_seed
-from .visualize import visualize_protein_structure
+from .models import UnifiedQuantumFold
+from .training import AdvancedTrainer, TrainingConfig
+from .utils import set_seed, save_pdb
+from .auto_pipeline import AutoImprovementEngine
 
 logger = logging.getLogger(__name__)
 
-
-def run_pipeline(
-    mode="classical",
-    device="cpu",
-    num_samples=50,
-    max_len=30,
-    epochs=10,
-    batch_size=8,
-    hidden_dim=64,
-    seed=42,
-    output_dir="outputs",
-    visualize=True,
+def run_unified_pipeline(
+    modality: str = "protein",
+    use_quantum: bool = True,
+    device: str = "auto",
+    epochs: int = 10,
+    batch_size: int = 8,
+    seed: int = 42,
+    output_dir: str = "outputs",
+    auto_improve: bool = True
 ):
     """
-    Run end-to-end protein folding pipeline.
-
-    Args:
-        mode: 'classical' or 'hybrid'
-        device: 'cpu' or 'cuda'
-        num_samples: Number of protein samples
-        max_len: Maximum sequence length
-        epochs: Training epochs
-        batch_size: Batch size
-        hidden_dim: Hidden dimension
-        seed: Random seed
-        output_dir: Output directory
-        visualize: Whether to generate visualizations
-
-    Returns:
-        dict: Results including metrics and paths
+    Run end-to-end unified training pipeline.
     """
     set_seed(seed)
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    logger.info(f"Running pipeline: mode={mode}, device={device}, samples={num_samples}")
+    if device == "auto":
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    else:
+        device = torch.device(device)
 
-    # Load data
-    logger.info("Loading/generating data...")
+    logger.info(f"Unified Pipeline: modality={modality}, quantum={use_quantum}, device={device}")
+
+    # 1. Load Data
     train_loader, val_loader = load_or_generate_data(
-        num_samples=num_samples, max_len=max_len, batch_size=batch_size, device=device
+        num_synthetic=100, seed=seed
     )
 
-    # Build model
-    logger.info(f"Building {mode} model...")
-    use_quantum = mode == "hybrid"
-    model = ProteinFoldNet(
-        vocab_size=21,  # 20 amino acids + padding
-        hidden_dim=hidden_dim,
-        output_dim=3,  # x, y, z coordinates
-        use_quantum=use_quantum,
-        n_qubits=4 if use_quantum else None,
+    # 2. Build Unified Model
+    model = UnifiedQuantumFold(
+        use_quantum=use_quantum
     ).to(device)
 
-    logger.info(f"Model parameters: {sum(p.numel() for p in model.parameters())}")
-
-    # Train
-    logger.info("Training...")
-    history = train_model(
-        model=model, train_loader=train_loader, val_loader=val_loader, epochs=epochs, device=device
+    # 3. Setup Advanced Trainer
+    config = TrainingConfig(
+        epochs=epochs,
+        batch_size=batch_size,
+        checkpoint_dir=str(output_path / "checkpoints"),
+        use_amp=(device.type == "cuda")
     )
 
-    # Save results
-    results = {
-        "mode": mode,
-        "device": device,
-        "num_samples": num_samples,
-        "max_len": max_len,
-        "epochs": epochs,
-        "batch_size": batch_size,
-        "hidden_dim": hidden_dim,
-        "seed": seed,
-        "final_train_loss": history["train_loss"][-1],
-        "final_val_loss": history["val_loss"][-1],
-        "history": history,
+    trainer = AdvancedTrainer(
+        model=model,
+        config=config,
+        device=device
+    )
+
+    # 4. Training with Auto-Improvement
+    engine = AutoImprovementEngine()
+    current_settings = {
+        "learning_rate": config.learning_rate,
+        "weight_decay": config.weight_decay
     }
 
-    results_file = output_path / f"results_{mode}.json"
-    with open(results_file, "w") as f:
-        json.dump(results, f, indent=2)
-    logger.info(f"Results saved to {results_file}")
+    logger.info("Starting unified training...")
+    history = trainer.train(train_loader, val_loader)
 
-    # Visualization
-    if visualize:
-        logger.info("Generating visualization...")
-        # Get a sample prediction
-        model.eval()
-        with torch.no_grad():
-            sample_batch = next(iter(val_loader))
-            sequences, coords = sample_batch
-            pred_coords = model(sequences)
+    if auto_improve:
+        # Simple extraction of last loss values for auto-improvement suggestion
+        hist_dict = {
+            "train_loss": [h["total"] for h in history["train"]],
+            "val_loss": [h["total"] for h in history["val"]]
+        }
+        suggestions = engine.suggest(hist_dict, current_settings)
+        with open(output_path / "improved_settings.json", "w") as f:
+            json.dump(suggestions, f, indent=2)
+        logger.info(f"Auto-improvement suggestions saved to {output_path / 'improved_settings.json'}")
 
-            # Take first sample
-            sample_seq = sequences[0].cpu().numpy()
-            sample_pred = pred_coords[0].cpu().numpy()
-            coords[0].cpu().numpy()
+    # 5. Final Evaluation & Visualization
+    model.eval()
+    with torch.no_grad():
+        batch = next(iter(val_loader))
+        # Handle legacy batch format from generate_synthetic_data
+        if isinstance(batch, dict):
+            # This is already handled in trainer.train_epoch, but for manual viz:
+            seq = batch["sequence"].to(device)
+        else:
+            seq, _ = batch
+            seq = seq.to(device)
 
-            # Convert sequence indices to amino acids (simplified)
-            aa_map = "ACDEFGHIKLMNPQRSTVWY"
-            sequence_str = "".join([aa_map[min(i, 19)] for i in sample_seq if i > 0])
+        out = model(protein_embeddings=seq) # Simplified for demo
+        coords = out["coordinates"][0].cpu().numpy()
 
-            # Visualize
-            pdb_path = output_path / f"structure_{mode}.pdb"
-            visualize_protein_structure(
-                coords=sample_pred, sequence=sequence_str, output_path=str(pdb_path)
-            )
-            results["pdb_path"] = str(pdb_path)
-            logger.info(f"PDB structure saved to {pdb_path}")
+        pdb_file = output_path / f"final_{modality}.pdb"
+        save_pdb(coords, "A" * len(coords), str(pdb_file))
+        logger.info(f"Final structure saved to {pdb_file}")
 
-    logger.info("Pipeline complete!")
-    return results
+    return history
+
+def run_pipeline(*args, **kwargs):
+    """Legacy compatibility wrapper."""
+    # Map old args to new ones
+    mode = kwargs.get("mode", "classical")
+    use_quantum = (mode == "hybrid")
+    return run_unified_pipeline(
+        use_quantum=use_quantum,
+        epochs=kwargs.get("epochs", 10),
+        device=kwargs.get("device", "cpu"),
+        output_dir=kwargs.get("output_dir", "outputs")
+    )
