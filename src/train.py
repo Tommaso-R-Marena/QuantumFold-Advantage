@@ -27,11 +27,11 @@ def compute_rmsd(pred_coords: np.ndarray, true_coords: np.ndarray) -> float:
     Compute RMSD between predicted and true coordinates.
 
     Args:
-        pred_coords: Predicted coordinates (N, 3)
-        true_coords: True coordinates (N, 3)
+        pred_coords: Predicted coordinates (N, 3) or (B, N, 3)
+        true_coords: True coordinates (N, 3) or (B, N, 3)
 
     Returns:
-        RMSD in Angstroms
+        RMSD in Angstroms (mean over batch if B > 1)
 
     Notes:
         Does NOT apply Kabsch superposition. For aligned RMSD, use
@@ -42,8 +42,9 @@ def compute_rmsd(pred_coords: np.ndarray, true_coords: np.ndarray) -> float:
     """
     assert pred_coords.shape == true_coords.shape, "Coordinate shape mismatch"
     diff = pred_coords - true_coords
-    rmsd = np.sqrt(np.mean(np.sum(diff**2, axis=1)))
-    return float(rmsd)
+    # Vectorized computation for single samples or batches
+    rmsd = np.sqrt(np.mean(np.sum(diff**2, axis=-1), axis=-1))
+    return float(np.mean(rmsd))
 
 
 def compute_tm_score(pred_coords: np.ndarray, true_coords: np.ndarray) -> float:
@@ -51,11 +52,11 @@ def compute_tm_score(pred_coords: np.ndarray, true_coords: np.ndarray) -> float:
     Compute simplified TM-score.
 
     Args:
-        pred_coords: Predicted coordinates (N, 3)
-        true_coords: True coordinates (N, 3)
+        pred_coords: Predicted coordinates (N, 3) or (B, N, 3)
+        true_coords: True coordinates (N, 3) or (B, N, 3)
 
     Returns:
-        TM-score (0-1, higher is better)
+        TM-score (0-1, higher is better, mean over batch if B > 1)
 
     Notes:
         This is a SIMPLIFIED version for demonstration. Full TM-score requires
@@ -69,14 +70,19 @@ def compute_tm_score(pred_coords: np.ndarray, true_coords: np.ndarray) -> float:
         TM-score ≈ (1/N) * Σ [1 / (1 + (d_i / d0)^2)]
         where d_i = distance between residue i, d0 = 1.24 * N^(1/3) - 1.8
     """
-    N = len(pred_coords)
+    # Handle both (N, 3) and (B, N, 3)
+    if pred_coords.ndim == 3:
+        N = pred_coords.shape[1]
+    else:
+        N = pred_coords.shape[0]
+
     d0 = 1.24 * (N ** (1.0 / 3.0)) - 1.8
 
-    distances = np.sqrt(np.sum((pred_coords - true_coords) ** 2, axis=1))
+    distances = np.sqrt(np.sum((pred_coords - true_coords) ** 2, axis=-1))
     scores = 1.0 / (1.0 + (distances / d0) ** 2)
-    tm_score = np.mean(scores)
+    tm_score = np.mean(scores, axis=-1)
 
-    return float(tm_score)
+    return float(np.mean(tm_score))
 
 
 def train_epoch(
@@ -125,11 +131,9 @@ def train_epoch(
         # Metrics
         total_loss += loss.item()
 
-        # Compute RMSD for first sample in batch
+        # Compute batch-wide RMSD efficiently
         with torch.no_grad():
-            pred_np = coords_pred[0].cpu().numpy()
-            true_np = coords_true[0].cpu().numpy()
-            rmsd = compute_rmsd(pred_np, true_np)
+            rmsd = compute_rmsd(coords_pred.cpu().numpy(), coords_true.cpu().numpy())
             total_rmsd += rmsd
 
         n_batches += 1
@@ -175,17 +179,16 @@ def evaluate_model(
             loss = criterion(coords_pred, coords_true)
             total_loss += loss.item() * len(sequences)
 
-            # Compute metrics for each sample
-            for i in range(len(sequences)):
-                pred_np = coords_pred[i].cpu().numpy()
-                true_np = coords_true[i].cpu().numpy()
+            # Compute metrics for the entire batch at once (vectorized)
+            pred_np = coords_pred.cpu().numpy()
+            true_np = coords_true.cpu().numpy()
 
-                rmsd = compute_rmsd(pred_np, true_np)
-                tm_score = compute_tm_score(pred_np, true_np)
+            batch_rmsd = compute_rmsd(pred_np, true_np)
+            batch_tm = compute_tm_score(pred_np, true_np)
 
-                total_rmsd += rmsd
-                total_tm_score += tm_score
-                n_samples += 1
+            total_rmsd += batch_rmsd * len(sequences)
+            total_tm_score += batch_tm * len(sequences)
+            n_samples += len(sequences)
 
     results = {
         "loss": total_loss / n_samples,
