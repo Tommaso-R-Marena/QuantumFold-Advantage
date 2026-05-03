@@ -134,7 +134,7 @@ class FrameAlignedPointError(nn.Module):
     def forward(
         self, pred_coords: Tensor, true_coords: Tensor, mask: Optional[Tensor] = None
     ) -> Tensor:
-        """Compute FAPE loss.
+        """Compute FAPE loss (vectorized implementation).
 
         Args:
             pred_coords: Predicted coordinates (batch, N, 3)
@@ -148,38 +148,43 @@ class FrameAlignedPointError(nn.Module):
         pred_origins, pred_frames = self._construct_frames(pred_coords)
         true_origins, true_frames = self._construct_frames(true_coords)
 
-        # Transform predicted coordinates to true frames
+        # Subsample frames for efficiency if there are many residues
         n_frames = pred_origins.shape[1]
-        errors = []
+        if n_frames > 100:
+            indices = torch.linspace(0, n_frames - 1, 100, device=pred_coords.device).long()
+            pred_origins = pred_origins[:, indices]
+            pred_frames = pred_frames[:, indices]
+            true_origins = true_origins[:, indices]
+            true_frames = true_frames[:, indices]
 
-        for i in range(min(n_frames, 100)):  # Limit for efficiency
-            # Get frame
-            origin_true = true_origins[:, i : i + 1]  # (batch, 1, 3)
-            frame_true = true_frames[:, i]  # (batch, 3, 3)
+        # Vectorized transform to local frames
+        # x_local = R^T @ (x_global - t)
+        # We use true_frames to define the local coordinate systems as in AF2
 
-            # Transform predicted coords to this frame
-            pred_in_frame = pred_coords - pred_origins[:, i : i + 1]
-            pred_in_frame = torch.einsum("bij,bkj->bki", frame_true, pred_in_frame)
+        # pred_coords: (B, N, 3) -> (B, 1, N, 3)
+        # pred_origins: (B, F, 3) -> (B, F, 1, 3)
+        # pred_relative: (B, F, N, 3)
+        pred_relative = pred_coords.unsqueeze(1) - pred_origins.unsqueeze(2)
+        # true_frames: (B, F, 3, 3)
+        # pred_in_frame: (B, F, N, 3)
+        pred_in_frame = torch.einsum("bfij,bfkj->bfki", true_frames, pred_relative)
 
-            # Transform true coords to this frame
-            true_in_frame = true_coords - origin_true
-            true_in_frame = torch.einsum("bij,bkj->bki", frame_true, true_in_frame)
+        # Same for true coordinates
+        true_relative = true_coords.unsqueeze(1) - true_origins.unsqueeze(2)
+        true_in_frame = torch.einsum("bfij,bfkj->bfki", true_frames, true_relative)
 
-            # Compute distances
-            distances = torch.sqrt(torch.sum((pred_in_frame - true_in_frame) ** 2, dim=-1) + 1e-8)
+        # Compute distances: (B, F, N)
+        distances = torch.sqrt(torch.sum((pred_in_frame - true_in_frame) ** 2, dim=-1) + 1e-8)
 
-            # Clamp and normalize
-            clamped = torch.clamp(distances, max=self.clamp_distance)
-            normalized = clamped / self.loss_unit_distance
-
-            errors.append(normalized)
-
-        # Average over frames and residues
-        errors = torch.stack(errors, dim=1)  # (batch, n_frames, N)
+        # Clamp and normalize
+        clamped = torch.clamp(distances, max=self.clamp_distance)
+        errors = clamped / self.loss_unit_distance
 
         if mask is not None:
+            # mask: (B, N) -> (B, 1, N)
             errors = errors * mask.unsqueeze(1)
-            loss = errors.sum() / (mask.sum() + 1e-8)
+            # Normalize by total number of active pairs (frames * residues)
+            loss = errors.sum() / (mask.sum() * errors.shape[1] + 1e-8)
         else:
             loss = errors.mean()
 
@@ -587,7 +592,6 @@ def compute_complex_fape(pred_coords: Tensor, native_coords: Tensor, chain_break
 
 
 def compute_rna_geometry_loss(pred_coords: Tensor, native_coords: Tensor) -> Tensor:
-    return F.smooth_l1_loss(torch.cdist(pred_coords, pred_coords), torch.cdist(native_coords, native_coords))
     return F.smooth_l1_loss(
         torch.cdist(pred_coords, pred_coords), torch.cdist(native_coords, native_coords)
     )
@@ -597,7 +601,6 @@ def compute_base_pair_loss(pred_bp_matrix: Tensor, native_bp_matrix: Tensor) -> 
     return F.binary_cross_entropy(pred_bp_matrix, native_bp_matrix)
 
 
-def compute_docking_loss(pred_complex: Dict[str, Tensor], native_complex: Dict[str, Tensor]) -> Tensor:
 def compute_docking_loss(
     pred_complex: Dict[str, Tensor], native_complex: Dict[str, Tensor]
 ) -> Tensor:
