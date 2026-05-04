@@ -115,7 +115,7 @@ jobs:
     
     - name: Upload executed notebook
       if: always()
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v4
       with:
         name: executed-${{ matrix.notebook }}
         path: /tmp/executed/${{ matrix.notebook }}
@@ -139,7 +139,7 @@ jobs:
       run: |
         pip install --upgrade pip
         # Add nbconvert for ExecutePreprocessor import in test file
-        pip install pytest nbformat nbconvert torch
+        pip install pytest nbformat nbconvert torch numpy
     
     - name: Run structure tests
       run: |
@@ -166,7 +166,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil
+        pip install pytest nbformat nbconvert torch numpy
     
     - name: Test notebook structure
       run: |
