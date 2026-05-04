@@ -44,7 +44,6 @@ jobs:
           python - <<'EOF'
           import nbformat
           from nbformat import v4 as nbf
-          from nbformat import v4 as nbf
           import glob
           import sys
           
@@ -69,7 +68,6 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          from nbformat import v4 as nbf
           from nbformat import v4 as nbf
           import glob
           
@@ -97,7 +95,6 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          from nbformat import v4 as nbf
           from nbformat import v4 as nbf
           import glob
           import re
@@ -153,7 +150,6 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          from nbformat import v4 as nbf
           from nbformat import v4 as nbf
           import glob
           import ast
@@ -214,7 +210,6 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          from nbformat import v4 as nbf
           from nbformat import v4 as nbf
           import glob
           import re
@@ -283,8 +278,6 @@ jobs:
           mkdir -p test_outputs
           python - <<'EOF'
           import nbformat
-          from nbformat import v4 as nbf
-          from nbformat import v4 as nbf
           from nbformat import v4 as nbf
           import glob
           import os
@@ -356,8 +349,6 @@ jobs:
           python - <<'EOF'
           import nbformat
           from nbformat import v4 as nbf
-          from nbformat import v4 as nbf
-          
           with open('examples/colab_quickstart.ipynb', 'r') as f:
               nb = nbformat.read(f, as_version=4)
           
@@ -397,11 +388,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Install dependencies
+        run: pip install nbformat
       - name: Check Colab compatibility
         run: |
           python - <<'EOF'
           import nbformat
-          from nbformat import v4 as nbf
           from nbformat import v4 as nbf
           import glob
           import json

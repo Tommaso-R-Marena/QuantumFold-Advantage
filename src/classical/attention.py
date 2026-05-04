@@ -150,30 +150,9 @@ class InvariantPointAttention(nn.Module):
         R = rotations.unsqueeze(2).unsqueeze(3)  # (B, L, 1, 1, 3, 3)
         T = translations.unsqueeze(2).unsqueeze(3)  # (B, L, 1, 1, 3)
 
-        q_pts_global = (
-            torch.einsum(
-                "blhpc,blhpcd->blhpd",
-                q_pts,
-                R.expand(-1, -1, self.n_heads, self.n_query_points, -1, -1),
-            )
-            + T
-        )
-        k_pts_global = (
-            torch.einsum(
-                "blhpc,blhpcd->blhpd",
-                k_pts,
-                R.expand(-1, -1, self.n_heads, self.n_query_points, -1, -1),
-            )
-            + T
-        )
-        v_pts_global = (
-            torch.einsum(
-                "blhpc,blhpcd->blhpd",
-                v_pts,
-                R.expand(-1, -1, self.n_heads, self.n_value_points, -1, -1),
-            )
-            + T
-        )
+        q_pts_global = torch.einsum("blhpc,blhpcd->blhpd", q_pts, R.expand(-1, -1, self.n_heads, self.n_query_points, -1, -1)) + T
+        k_pts_global = torch.einsum("blhpc,blhpcd->blhpd", k_pts, R.expand(-1, -1, self.n_heads, self.n_query_points, -1, -1)) + T
+        v_pts_global = torch.einsum("blhpc,blhpcd->blhpd", v_pts, R.expand(-1, -1, self.n_heads, self.n_value_points, -1, -1)) + T
 
         # Scalar attention scores
         scalar_attn = torch.einsum("bihd,bjhd->bhij", q_s, k_s) / math.sqrt(self.head_dim)

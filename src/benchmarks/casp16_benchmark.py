@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import json
 import signal
+import json
 import time
 from pathlib import Path
 from typing import Dict, List
@@ -165,18 +165,10 @@ class CASP16Benchmark:
             "per_target_results": df_results,
             "statistical_tests": stat_results,
             "aggregate_stats": {
-                "quantum_mean_tm": (
-                    float(valid["quantum_tm"].mean()) if len(valid) else float("nan")
-                ),
-                "classical_mean_tm": (
-                    float(valid["classical_tm"].mean()) if len(valid) else float("nan")
-                ),
-                "quantum_mean_runtime": (
-                    float(df_results["quantum_time"].mean()) if len(df_results) else 0.0
-                ),
-                "classical_mean_runtime": (
-                    float(df_results["classical_time"].mean()) if len(df_results) else 0.0
-                ),
+                "quantum_mean_tm": float(valid["quantum_tm"].mean()) if len(valid) else float("nan"),
+                "classical_mean_tm": float(valid["classical_tm"].mean()) if len(valid) else float("nan"),
+                "quantum_mean_runtime": float(df_results["quantum_time"].mean()) if len(df_results) else 0.0,
+                "classical_mean_runtime": float(df_results["classical_time"].mean()) if len(df_results) else 0.0,
             },
             "raw_quantum": quantum_results,
             "raw_classical": classical_results,
@@ -190,11 +182,7 @@ class CASP16Benchmark:
         latex_table = (
             df.sort_values("improvement", ascending=False)
             .head(20)
-            .to_latex(
-                columns=["target_id", "quantum_tm", "classical_tm", "improvement"],
-                float_format="%.3f",
-                index=False,
-            )
+            .to_latex(columns=["target_id", "quantum_tm", "classical_tm", "improvement"], float_format="%.3f", index=False)
         )
         (output_dir / "casp16_table.tex").write_text(latex_table)
 
@@ -211,10 +199,7 @@ class CASP16Benchmark:
         ax.set_ylabel("Quantum TM-score")
 
         ax = axes[0, 1]
-        ax.boxplot(
-            [df["classical_tm"].dropna(), df["quantum_tm"].dropna()],
-            labels=["Classical", "Quantum"],
-        )
+        ax.boxplot([df["classical_tm"].dropna(), df["quantum_tm"].dropna()], labels=["Classical", "Quantum"])
         ax.set_title("TM-score distribution")
 
         ax = axes[1, 0]
@@ -229,8 +214,6 @@ class CASP16Benchmark:
         fig.tight_layout()
         fig.savefig(output_dir / "casp16_analysis.png", dpi=300)
         plt.close(fig)
-
-
 import numpy as np
 import pandas as pd
 import torch

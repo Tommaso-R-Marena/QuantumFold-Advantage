@@ -55,26 +55,10 @@ def train_cli():
         "--checkpoint-dir", type=Path, default="checkpoints", help="Checkpoint directory"
     )
 
-    parser.add_argument(
-        "--auto-improve",
-        action="store_true",
-        help="Automatically suggest improved training settings",
-    )
-    parser.add_argument(
-        "--auto-benchmark", action="store_true", help="Automatically benchmark candidate settings"
-    )
-    parser.add_argument(
-        "--history-file",
-        type=Path,
-        default=None,
-        help="Optional JSON training history for auto-improvement",
-    )
-    parser.add_argument(
-        "--benchmark-samples",
-        type=int,
-        default=8,
-        help="Number of synthetic benchmark samples per candidate",
-    )
+    parser.add_argument("--auto-improve", action="store_true", help="Automatically suggest improved training settings")
+    parser.add_argument("--auto-benchmark", action="store_true", help="Automatically benchmark candidate settings")
+    parser.add_argument("--history-file", type=Path, default=None, help="Optional JSON training history for auto-improvement")
+    parser.add_argument("--benchmark-samples", type=int, default=8, help="Number of synthetic benchmark samples per candidate")
 
     # Misc
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
@@ -169,9 +153,7 @@ def train_cli():
 
     if not args.auto_improve and not args.auto_benchmark:
         logger.info("Training pipeline in CLI is still minimal.")
-        logger.info(
-            "Use --auto-improve and/or --auto-benchmark for automated optimization workflows."
-        )
+        logger.info("Use --auto-improve and/or --auto-benchmark for automated optimization workflows.")
 
     return 0
 

@@ -40,7 +40,6 @@ class ComparisonResult:
 # Bootstrap utilities
 # ---------------------------------------------------------------------------
 
-
 def bootstrap_ci(
     data: np.ndarray,
     statistic=np.mean,
@@ -93,7 +92,6 @@ def paired_bootstrap_test(
 # Effect sizes
 # ---------------------------------------------------------------------------
 
-
 def cohens_d(a: np.ndarray, b: np.ndarray) -> float:
     """Paired Cohen's d = mean(a - b) / std(a - b)."""
     diff = a - b
@@ -119,11 +117,7 @@ def cohens_d_ci(
         ds.append(cohens_d(a[idx], b[idx]))
     ds = np.array(ds)
     alpha = 1 - ci
-    return (
-        float(np.mean(ds)),
-        float(np.percentile(ds, 100 * alpha / 2)),
-        float(np.percentile(ds, 100 * (1 - alpha / 2))),
-    )
+    return float(np.mean(ds)), float(np.percentile(ds, 100 * alpha / 2)), float(np.percentile(ds, 100 * (1 - alpha / 2)))
 
 
 def interpret_effect(d: float) -> str:
@@ -141,7 +135,6 @@ def interpret_effect(d: float) -> str:
 # ---------------------------------------------------------------------------
 # Multiple-testing correction (Holm–Bonferroni)
 # ---------------------------------------------------------------------------
-
 
 def holm_bonferroni(p_values: List[float], alpha: float = 0.05) -> List[bool]:
     """Holm–Bonferroni step-down correction.
@@ -163,7 +156,6 @@ def holm_bonferroni(p_values: List[float], alpha: float = 0.05) -> List[bool]:
 # ---------------------------------------------------------------------------
 # Full comparison pipeline
 # ---------------------------------------------------------------------------
-
 
 def compare_quantum_classical(
     quantum_metrics: Dict[str, np.ndarray],
@@ -208,22 +200,20 @@ def compare_quantum_classical(
         diff = q - c
         _, ci_lo, ci_hi = bootstrap_ci(diff, n_bootstrap=n_bootstrap, seed=seed)
 
-        results.append(
-            ComparisonResult(
-                metric_name=metric,
-                quantum_mean=float(q.mean()),
-                classical_mean=float(c.mean()),
-                mean_diff=float(diff.mean()),
-                ci_lower=ci_lo,
-                ci_upper=ci_hi,
-                p_value_wilcoxon=p_w,
-                p_value_bootstrap=p_b,
-                cohens_d=d,
-                effect_interpretation=interpret_effect(d),
-                significant_wilcoxon=False,  # filled after correction
-                significant_bootstrap=False,
-            )
-        )
+        results.append(ComparisonResult(
+            metric_name=metric,
+            quantum_mean=float(q.mean()),
+            classical_mean=float(c.mean()),
+            mean_diff=float(diff.mean()),
+            ci_lower=ci_lo,
+            ci_upper=ci_hi,
+            p_value_wilcoxon=p_w,
+            p_value_bootstrap=p_b,
+            cohens_d=d,
+            effect_interpretation=interpret_effect(d),
+            significant_wilcoxon=False,  # filled after correction
+            significant_bootstrap=False,
+        ))
 
     # Holm–Bonferroni correction
     reject_w = holm_bonferroni(p_values_w, alpha)
@@ -247,19 +237,13 @@ def format_comparison_report(results: List[ComparisonResult]) -> str:
         lines.append(f"Metric: {r.metric_name}")
         lines.append(f"  Quantum mean:   {r.quantum_mean:.4f}")
         lines.append(f"  Classical mean: {r.classical_mean:.4f}")
-        lines.append(
-            f"  Mean diff:      {r.mean_diff:+.4f}  "
-            f"95% CI [{r.ci_lower:+.4f}, {r.ci_upper:+.4f}]"
-        )
+        lines.append(f"  Mean diff:      {r.mean_diff:+.4f}  "
+                      f"95% CI [{r.ci_lower:+.4f}, {r.ci_upper:+.4f}]")
         lines.append(f"  Cohen's d:      {r.cohens_d:+.3f}  ({r.effect_interpretation})")
-        lines.append(
-            f"  Wilcoxon p:     {r.p_value_wilcoxon:.4g}  "
-            f"{'*' if r.significant_wilcoxon else 'n.s.'}"
-        )
-        lines.append(
-            f"  Bootstrap p:    {r.p_value_bootstrap:.4g}  "
-            f"{'*' if r.significant_bootstrap else 'n.s.'}"
-        )
+        lines.append(f"  Wilcoxon p:     {r.p_value_wilcoxon:.4g}  "
+                      f"{'*' if r.significant_wilcoxon else 'n.s.'}")
+        lines.append(f"  Bootstrap p:    {r.p_value_bootstrap:.4g}  "
+                      f"{'*' if r.significant_bootstrap else 'n.s.'}")
         lines.append("")
     lines.append("=" * 80)
     lines.append("* significant after Holm–Bonferroni correction (α = 0.05)")

@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import matplotlib
-
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -67,32 +66,13 @@ def plot_training_curves(
     # Loss
     ax = axes[0]
     if "train_loss" in quantum_history:
-        ax.plot(
-            epochs_q, quantum_history["train_loss"], color=QUANTUM_COLOR, label="Quantum (train)"
-        )
+        ax.plot(epochs_q, quantum_history["train_loss"], color=QUANTUM_COLOR, label="Quantum (train)")
     if "test_loss" in quantum_history:
-        ax.plot(
-            epochs_q,
-            quantum_history["test_loss"],
-            color=QUANTUM_COLOR,
-            linestyle="--",
-            label="Quantum (val)",
-        )
+        ax.plot(epochs_q, quantum_history["test_loss"], color=QUANTUM_COLOR, linestyle="--", label="Quantum (val)")
     if "train_loss" in classical_history:
-        ax.plot(
-            epochs_c,
-            classical_history["train_loss"],
-            color=CLASSICAL_COLOR,
-            label="Classical (train)",
-        )
+        ax.plot(epochs_c, classical_history["train_loss"], color=CLASSICAL_COLOR, label="Classical (train)")
     if "test_loss" in classical_history:
-        ax.plot(
-            epochs_c,
-            classical_history["test_loss"],
-            color=CLASSICAL_COLOR,
-            linestyle="--",
-            label="Classical (val)",
-        )
+        ax.plot(epochs_c, classical_history["test_loss"], color=CLASSICAL_COLOR, linestyle="--", label="Classical (val)")
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Loss")
     ax.set_title("Training / Validation Loss")
@@ -103,9 +83,7 @@ def plot_training_curves(
     if "test_tm_score" in quantum_history:
         ax.plot(epochs_q, quantum_history["test_tm_score"], color=QUANTUM_COLOR, label="Quantum")
     if "test_tm_score" in classical_history:
-        ax.plot(
-            epochs_c, classical_history["test_tm_score"], color=CLASSICAL_COLOR, label="Classical"
-        )
+        ax.plot(epochs_c, classical_history["test_tm_score"], color=CLASSICAL_COLOR, label="Classical")
     ax.set_xlabel("Epoch")
     ax.set_ylabel("TM-score")
     ax.set_title("Validation TM-score")
@@ -157,17 +135,10 @@ def plot_effect_size_forest(
 
     y_pos = range(len(results))
     ax.barh(y_pos, ds, color=QUANTUM_COLOR, alpha=0.6, height=0.5)
-    ax.errorbar(
-        ds,
-        y_pos,
-        xerr=[
-            [d - lo for d, lo in zip(ds, ci_lo)],
-            [hi - d for d, hi in zip(ds, ci_hi)],
-        ],
-        fmt="o",
-        color="black",
-        capsize=4,
-    )
+    ax.errorbar(ds, y_pos, xerr=[
+        [d - lo for d, lo in zip(ds, ci_lo)],
+        [hi - d for d, hi in zip(ds, ci_hi)],
+    ], fmt="o", color="black", capsize=4)
     ax.axvline(0, color="gray", linestyle="--", linewidth=1)
     ax.set_yticks(list(y_pos))
     ax.set_yticklabels(names)

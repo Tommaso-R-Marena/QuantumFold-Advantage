@@ -53,7 +53,6 @@ class AdvancedQuantumCircuitLayer(nn.Module):
         add_noise: Simulate depolarizing noise
         noise_strength: Depolarizing probability (0-1)
     """
-
     def __init__(
         self,
         n_qubits: int = 4,
@@ -81,9 +80,7 @@ class AdvancedQuantumCircuitLayer(nn.Module):
         assert init_strategy in ["identity", "random", "haar"], "Invalid initialization strategy"
 
         # Initialize quantum device (default.mixed supports noise channels)
-        effective_device = (
-            "default.mixed" if add_noise and device_name == "default.qubit" else device_name
-        )
+        effective_device = "default.mixed" if add_noise and device_name == "default.qubit" else device_name
         self.dev = qml.device(effective_device, wires=n_qubits)
 
         # Calculate parameter dimensions
@@ -246,16 +243,10 @@ class AdvancedQuantumCircuitLayer(nn.Module):
             w_plus[p_idx] += shift
             w_minus[p_idx] -= shift
             out_plus = torch.stack(
-                [
-                    torch.as_tensor(v, dtype=torch.float32)
-                    for v in self.param_shift_qnode(inputs, w_plus, self.param_scaling)
-                ]
+                [torch.as_tensor(v, dtype=torch.float32) for v in self.param_shift_qnode(inputs, w_plus, self.param_scaling)]
             )
             out_minus = torch.stack(
-                [
-                    torch.as_tensor(v, dtype=torch.float32)
-                    for v in self.param_shift_qnode(inputs, w_minus, self.param_scaling)
-                ]
+                [torch.as_tensor(v, dtype=torch.float32) for v in self.param_shift_qnode(inputs, w_minus, self.param_scaling)]
             )
             grads.append(0.5 * (out_plus - out_minus))
 
@@ -296,9 +287,7 @@ class AdvancedQuantumCircuitLayer(nn.Module):
         eye = torch.eye(metric.shape[0], device=metric.device, dtype=metric.dtype)
         return metric + damping * eye
 
-    def natural_gradient_step(
-        self, inputs: Tensor, loss_fn, lr: float = 1e-2, damping: float = 1e-4
-    ):
+    def natural_gradient_step(self, inputs: Tensor, loss_fn, lr: float = 1e-2, damping: float = 1e-4):
         """Apply one quantum natural-gradient step using the Fubini-Study metric."""
         loss = loss_fn(self, inputs)
         grads = torch.autograd.grad(loss, [self.weights], retain_graph=False, create_graph=False)[0]
@@ -334,16 +323,12 @@ class AdvancedQuantumCircuitLayer(nn.Module):
             original_noise = self.add_noise
 
             self.add_noise = False
-            clean = torch.as_tensor(
-                self.qnode(inp, self.weights, self.param_scaling), dtype=torch.float32
-            ).detach()
+            clean = torch.as_tensor(self.qnode(inp, self.weights, self.param_scaling), dtype=torch.float32).detach()
             # Robust noisy proxy even when hardware noise channels are unavailable on simulator.
             if original_noise:
                 try:
                     self.add_noise = True
-                    noisy = torch.as_tensor(
-                        self.qnode(inp, self.weights, self.param_scaling), dtype=torch.float32
-                    ).detach()
+                    noisy = torch.as_tensor(self.qnode(inp, self.weights, self.param_scaling), dtype=torch.float32).detach()
                 except Exception:
                     noisy = (clean + torch.randn_like(clean) * self.noise_strength).clamp(-1.0, 1.0)
             else:
@@ -368,9 +353,7 @@ class AdvancedQuantumCircuitLayer(nn.Module):
             out = self.qnode(inputs, w, self.param_scaling)
             return torch.stack([torch.as_tensor(v, dtype=torch.float32) for v in out])
 
-        bp = torch.autograd.functional.jacobian(
-            _wrapped, self.weights.detach().clone().requires_grad_(True)
-        )
+        bp = torch.autograd.functional.jacobian(_wrapped, self.weights.detach().clone().requires_grad_(True))
         bp_tensor = torch.as_tensor(bp, dtype=torch.float32)
         return float(torch.max(torch.abs(ps - bp_tensor)).item())
 
