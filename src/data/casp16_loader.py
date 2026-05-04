@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 
 _VALID_AA = set("ACDEFGHIKLMNPQRSTVWY")
 
+class CASP16Config:
+    BASE_URL = "https://predictioncenter.org/casp16"
+    CACHE_DIR = Path("./data/casp16")
+    TARGET_CATEGORIES = ["Regular", "TBM", "FM/TBM", "FM"]
 
 @dataclass
 class CASP16Target:
@@ -25,13 +29,26 @@ class CASP16Target:
 
     target_id: str
     sequence: str
-    native_pdb_path: Optional[Path]
-    category: str
-    length: int
-    release_date: Optional[str]
-    has_domains: bool
-    domains: List[Dict]
+    native_pdb_path: Optional[Path] = None
+    category: str = "Regular"
+    length: Optional[int] = None
+    release_date: Optional[str] = None
+    has_domains: bool = False
+    domains: List[Dict] = None
 
+    def __post_init__(self):
+        if self.length is None:
+            self.length = len(self.sequence)
+        if self.domains is None:
+            self.domains = []
+
+    @property
+    def has_structure(self) -> bool:
+        return self.native_pdb_path is not None and self.native_pdb_path.exists()
+
+    @property
+    def structure_path(self) -> Optional[Path]:
+        return self.native_pdb_path
 
 class _TargetListParser(HTMLParser):
     """Very small HTML parser for CASP target table pages."""
@@ -54,8 +71,8 @@ class CASP16DataLoader:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.native_dir = self.cache_dir / "native_structures"
         self.native_dir.mkdir(parents=True, exist_ok=True)
-        self.api_endpoint = "https://predictioncenter.org/casp16/targetlist.cgi"
-        self.pdb_endpoint = "https://predictioncenter.org/casp16/target.cgi"
+        self.api_endpoint = f"{CASP16Config.BASE_URL}/targetlist.cgi"
+        self.pdb_endpoint = f"{CASP16Config.BASE_URL}/target.cgi"
         self.cache_file = self.cache_dir / "targets.json"
         self._targets: List[CASP16Target] = []
 
@@ -214,132 +231,43 @@ class CASP16DataLoader:
         if assembled:
             yield assembled
 
-
-# Backward-compatible aliases used in src.data.__init__
-class CASP16Config:
-    CACHE_DIR = Path("./data/casp16")
-
+    def load_all_targets(self, category="Regular", load_structures=True, min_length=0, max_length=1000):
+        targets = self.download_targets(categories=[category])
+        return [t for t in targets if min_length <= t.length <= max_length]
 
 class CASP16Loader(CASP16DataLoader):
-    pass
+    def __init__(self, cache_dir=None, download=True, verbose=True):
+        super().__init__(cache_dir or "./data/casp16")
+        self.download = download
+        self.verbose = verbose
 
+    def list_available_targets(self) -> List[str]:
+        return [t.target_id for t in self.download_targets()]
 
 class CASP16Dataset:
-    def __init__(self, targets: List[CASP16Target]):
+    def __init__(self, targets: List[CASP16Target], load_coordinates=False, max_length=None):
         self.targets = targets
+        self.load_coordinates = load_coordinates
+        self.max_length = max_length
 
     def __len__(self):
         return len(self.targets)
 
     def __getitem__(self, idx):
-        return self.targets[idx]
+        target = self.targets[idx]
+        if self.load_coordinates:
+            return {
+                "target_id": target.target_id,
+                "sequence": target.sequence,
+                "coordinates": torch.zeros(target.length, 3), # Mock
+                "length": target.length
+            }
+        return target
 
 
-def get_casp16_benchmark_set(cache_dir: Optional[Path] = None, category: str = "Regular", **_) -> CASP16Dataset:
-    loader = CASP16DataLoader(cache_dir=str(cache_dir) if cache_dir else "./data/casp16")
-    targets = loader.download_targets(categories=[category])
+def get_casp16_benchmark_set(cache_dir: Optional[Path] = None, category: str = "Regular", **kwargs) -> CASP16Dataset:
+    loader = CASP16Loader(cache_dir=str(cache_dir) if cache_dir else "./data/casp16")
+    min_length = kwargs.get("min_length", 0)
+    max_length = kwargs.get("max_length", 1000)
+    targets = loader.load_all_targets(category=category, min_length=min_length, max_length=max_length)
     return CASP16Dataset(targets)
-    """Get CASP16 benchmark dataset ready for evaluation.
-
-    Args:
-        cache_dir: Cache directory for downloaded files
-        category: Target category to load
-        min_length: Minimum sequence length
-        max_length: Maximum sequence length
-
-    Returns:
-        CASP16Dataset ready for DataLoader
-    """
-    loader = CASP16Loader(cache_dir=cache_dir, download=True, verbose=True)
-    targets = loader.load_all_targets(
-        category=category,
-        load_structures=True,
-        min_length=min_length,
-        max_length=max_length,
-    )
-
-    return CASP16Dataset(targets, load_coordinates=True, max_length=max_length)
-
-
-if __name__ == "__main__":
-    # Example usage
-    logging.basicConfig(level=logging.INFO)
-
-    print("Loading CASP16 dataset...")
-    dataset = get_casp16_benchmark_set(category="Regular", max_length=256)
-
-    print(f"\nLoaded {len(dataset)} targets")
-
-    if len(dataset) > 0:
-        sample = dataset[0]
-        print(f"\nExample target:")
-        print(f"  ID: {sample['target_id']}")
-        print(f"  Sequence length: {sample['length']}")
-        print(f"  Coordinates shape: {sample['coordinates'].shape}")
-
-
-class CASP16DataLoader:
-    """Download and process CASP16 targets with metadata."""
-
-    def __init__(self, cache_dir: str = "./data/casp16"):
-        self.cache_dir = Path(cache_dir)
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self.api_endpoint = "https://predictioncenter.org/casp16/targetlist.cgi"
-        self._targets: List[Dict] = []
-
-    def download_targets(
-        self,
-        categories: List[str] = ["Regular", "TBM", "FM/TBM", "FM"],
-        domains: List[str] = ["Human", "Monomer"],
-    ) -> List[Dict]:
-        """Download CASP16 targets with filtering.
-
-        Fallbacks to cached synthetic metadata when no public API payload is available.
-        """
-        mock_targets = [
-            {
-                "target_id": "T1200",
-                "sequence": "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQ",
-                "native_structure": None,
-                "category": "TBM",
-                "length": 35,
-                "release_date": None,
-                "has_domains": False,
-                "domain": "Human",
-            },
-            {
-                "target_id": "T1201s1",
-                "sequence": "GAMGKKYVSLKSGEE",
-                "native_structure": None,
-                "category": "FM",
-                "length": 16,
-                "release_date": None,
-                "has_domains": True,
-                "domain": "Monomer",
-            },
-        ]
-        self._targets = [
-            t for t in mock_targets if t["category"] in categories and t["domain"] in domains
-        ]
-        return self._targets
-
-    def get_target_batch(self, batch_size: int = 20, difficulty_stratified: bool = True):
-        """Yield stratified batches for parallel prediction."""
-        if not self._targets:
-            self.download_targets()
-        targets = self._targets
-        if difficulty_stratified:
-            targets = sorted(targets, key=lambda x: x["category"])
-        for i in range(0, len(targets), batch_size):
-            yield targets[i : i + batch_size]
-
-    def validate_predictions(
-        self, predicted_pdb: Path, target_id: str
-    ) -> Optional[Dict[str, float]]:
-        """Compute metrics against native structure if available."""
-        if not predicted_pdb.exists():
-            return None
-        target = next((t for t in self._targets if t["target_id"] == target_id), None)
-        if target is None or target["native_structure"] is None:
-            return None
-        return {"tm_score": 0.0, "rmsd": 0.0}

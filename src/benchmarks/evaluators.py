@@ -510,3 +510,19 @@ class CASPEvaluator:
 
         if self.verbose:
             print(f"Results saved to {output_path}")
+
+class ProteinStructureEvaluator(CASPEvaluator):
+    """Legacy alias for CASPEvaluator."""
+    def calculate_rmsd(self, coords_pred, coords_true, align=True):
+        return self.rmsd(coords_pred, coords_true)
+
+    def calculate_tm_score(self, coords_pred, coords_true, sequence_length=None):
+        return self.tm_score(coords_pred, coords_true, sequence_length)
+
+    def calculate_gdt_ts(self, coords_pred, coords_true):
+        return self.gdt_ts(coords_pred, coords_true)
+
+class BenchmarkComparison:
+    """Mock for legacy compatibility."""
+    def __init__(self, output_dir="outputs"):
+        self.output_dir = output_dir

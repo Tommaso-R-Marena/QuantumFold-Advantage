@@ -33,3 +33,16 @@ if not _CASP16_AVAILABLE:
     import warnings
 
     warnings.warn(f"CASP16 loader not available: {_CASP16_ERROR}")
+
+from .loader import ProteinDataset, generate_synthetic_data, fetch_pdb_structures, load_data as load_or_generate_data
+from .hybrid_dataset import create_dataloaders, generate_synthetic_proteins, ProteinStructureDataset
+
+__all__.extend([
+    "ProteinDataset",
+    "generate_synthetic_data",
+    "fetch_pdb_structures",
+    "load_or_generate_data",
+    "create_dataloaders",
+    "generate_synthetic_proteins",
+    "ProteinStructureDataset",
+])

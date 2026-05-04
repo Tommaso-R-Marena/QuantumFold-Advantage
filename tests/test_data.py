@@ -43,7 +43,7 @@ class TestCASP16Target:
         target = CASP16Target(
             target_id="T1104",
             sequence="MKTAYIAK",
-            structure_path=structure_file,
+            native_pdb_path=structure_file,
         )
         assert target.has_structure
 

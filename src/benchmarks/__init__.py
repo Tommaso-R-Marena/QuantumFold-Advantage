@@ -82,3 +82,10 @@ __all__ = [
     "calculate_rmsd",
     "calculate_tm_score",
 ]
+
+from .research_metrics import compute_tm_score, compute_rmsd, compute_gdt_ts
+
+from src.benchmarks.casp16_benchmark import CASP16Benchmark
+from .evaluators import ProteinStructureEvaluator, StructureMetrics, BenchmarkComparison
+
+__all__.extend(["ProteinStructureEvaluator", "StructureMetrics", "BenchmarkComparison", "CASP16Benchmark"])
