@@ -115,7 +115,7 @@ jobs:
     
     - name: Upload executed notebook
       if: always()
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v4
       with:
         name: executed-${{ matrix.notebook }}
         path: /tmp/executed/${{ matrix.notebook }}
@@ -139,15 +139,15 @@ jobs:
       run: |
         pip install --upgrade pip
         # Add nbconvert for ExecutePreprocessor import in test file
-        pip install pytest nbformat nbconvert torch
+        pip install pytest nbformat nbconvert torch numpy
     
-    - name: Run structure tests
+    - name: Run execution tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookStructure -v
+        pytest tests/test_notebook_execution.py::TestNotebookExecution -v
     
-    - name: Run content tests
+    - name: Run content coverage tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookContent -v
+        pytest tests/test_notebook_execution.py::TestNotebookContentCoverage -v
   
   test-production-notebook:
     name: Test Production Notebook
@@ -166,51 +166,31 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil
+        pip install pytest nbformat nbconvert torch numpy
     
     - name: Test notebook structure
       run: |
         pytest tests/test_production_notebook.py::TestNotebookStructure -v
     
-    - name: Test configuration cells
+    - name: Test configuration and setup
       run: |
-        pytest tests/test_production_notebook.py::TestConfigurationCells -v
+        pytest tests/test_production_notebook.py::TestConfigurationAndSetup -v
     
-    - name: Test data processing
+    - name: Test data, training, and evaluation flow
       run: |
-        pytest tests/test_production_notebook.py::TestDataProcessing -v
+        pytest tests/test_production_notebook.py::TestDataTrainingEvaluationFlow -v
     
-    - name: Test model training
+    - name: Test visualization and export
       run: |
-        pytest tests/test_production_notebook.py::TestModelTraining -v
+        pytest tests/test_production_notebook.py::TestVisualizationAndExport -v
     
-    - name: Test evaluation
+    - name: Test reliability and reproducibility
       run: |
-        pytest tests/test_production_notebook.py::TestEvaluation -v
-    
-    - name: Test visualization
+        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
+
+    - name: Test legacy parity
       run: |
-        pytest tests/test_production_notebook.py::TestVisualization -v
-    
-    - name: Test results export
-      run: |
-        pytest tests/test_production_notebook.py::TestResultsExport -v
-    
-    - name: Test memory management
-      run: |
-        pytest tests/test_production_notebook.py::TestMemoryManagement -v
-    
-    - name: Test error handling
-      run: |
-        pytest tests/test_production_notebook.py::TestErrorHandling -v
-    
-    - name: Test reproducibility
-      run: |
-        pytest tests/test_production_notebook.py::TestReproducibility -v
-    
-    - name: Test documentation
-      run: |
-        pytest tests/test_production_notebook.py::TestDocumentation -v
+        pytest tests/test_production_notebook.py::TestProductionNotebookLegacyParity -v
   
   summary:
     name: Test Summary

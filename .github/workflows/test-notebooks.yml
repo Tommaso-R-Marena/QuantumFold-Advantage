@@ -342,7 +342,7 @@ jobs:
           # Create minimal test version
           python - <<'EOF'
           import nbformat
-          
+
           with open('examples/colab_quickstart.ipynb', 'r') as f:
               nb = nbformat.read(f, as_version=4)
           

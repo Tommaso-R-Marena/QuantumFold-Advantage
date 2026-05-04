@@ -69,7 +69,7 @@ jobs:
           git commit -m "style: Auto-format code with Black and isort [skip ci]"
       
       - name: Push changes
-        if: steps.verify_diff.outputs.changed == 'true'
+        if: steps.verify_diff.outputs.changed == "true" && github.event_name != "pull_request"
         uses: ad-m/github-push-action@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

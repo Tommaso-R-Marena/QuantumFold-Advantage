@@ -150,32 +150,25 @@ class FrameAlignedPointError(nn.Module):
 
         # Transform predicted coordinates to true frames
         n_frames = pred_origins.shape[1]
-        errors = []
+        num_iters = min(n_frames, 100)
 
-        for i in range(min(n_frames, 100)):  # Limit for efficiency
-            # Get frame
-            origin_true = true_origins[:, i : i + 1]  # (batch, 1, 3)
-            frame_true = true_frames[:, i]  # (batch, 3, 3)
+        # Select subset of frames for efficiency
+        true_origins_sub = true_origins[:, :num_iters]
+        true_frames_sub = true_frames[:, :num_iters]
+        pred_origins_sub = pred_origins[:, :num_iters]
 
-            # Transform predicted coords to this frame
-            pred_in_frame = pred_coords - pred_origins[:, i : i + 1]
-            pred_in_frame = torch.einsum("bij,bkj->bki", frame_true, pred_in_frame)
+        # Vectorized coordinate transformation
+        # pred_diff: (batch, n_frames, N, 3)
+        pred_diff = pred_coords.unsqueeze(1) - pred_origins_sub.unsqueeze(2)
+        true_diff = true_coords.unsqueeze(1) - true_origins_sub.unsqueeze(2)
 
-            # Transform true coords to this frame
-            true_in_frame = true_coords - origin_true
-            true_in_frame = torch.einsum("bij,bkj->bki", frame_true, true_in_frame)
+        # Apply frames: (batch, n_frames, 3, 3) x (batch, n_frames, N, 3) -> (batch, n_frames, N, 3)
+        pred_in_frame = torch.einsum("bfij,bfnj->bfni", true_frames_sub, pred_diff)
+        true_in_frame = torch.einsum("bfij,bfnj->bfni", true_frames_sub, true_diff)
 
-            # Compute distances
-            distances = torch.sqrt(torch.sum((pred_in_frame - true_in_frame) ** 2, dim=-1) + 1e-8)
-
-            # Clamp and normalize
-            clamped = torch.clamp(distances, max=self.clamp_distance)
-            normalized = clamped / self.loss_unit_distance
-
-            errors.append(normalized)
-
-        # Average over frames and residues
-        errors = torch.stack(errors, dim=1)  # (batch, n_frames, N)
+        # Compute distances, clamp and normalize
+        distances = torch.sqrt(torch.sum((pred_in_frame - true_in_frame) ** 2, dim=-1) + 1e-8)
+        errors = torch.clamp(distances, max=self.clamp_distance) / self.loss_unit_distance
 
         if mask is not None:
             errors = errors * mask.unsqueeze(1)
@@ -587,7 +580,6 @@ def compute_complex_fape(pred_coords: Tensor, native_coords: Tensor, chain_break
 
 
 def compute_rna_geometry_loss(pred_coords: Tensor, native_coords: Tensor) -> Tensor:
-    return F.smooth_l1_loss(torch.cdist(pred_coords, pred_coords), torch.cdist(native_coords, native_coords))
     return F.smooth_l1_loss(
         torch.cdist(pred_coords, pred_coords), torch.cdist(native_coords, native_coords)
     )
@@ -597,7 +589,6 @@ def compute_base_pair_loss(pred_bp_matrix: Tensor, native_bp_matrix: Tensor) -> 
     return F.binary_cross_entropy(pred_bp_matrix, native_bp_matrix)
 
 
-def compute_docking_loss(pred_complex: Dict[str, Tensor], native_complex: Dict[str, Tensor]) -> Tensor:
 def compute_docking_loss(
     pred_complex: Dict[str, Tensor], native_complex: Dict[str, Tensor]
 ) -> Tensor:
