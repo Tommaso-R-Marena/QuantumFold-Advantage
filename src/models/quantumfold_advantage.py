@@ -29,7 +29,6 @@ from src.classical.evoformer import EvoformerStack
 from src.classical.structure_module import StructureModule
 from src.quantum_layers import AdvancedQuantumCircuitLayer, QuantumAttentionLayer
 
-
 # ---------------------------------------------------------------------------
 # Amino acid constants
 # ---------------------------------------------------------------------------

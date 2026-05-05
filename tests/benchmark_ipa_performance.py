@@ -1,8 +1,8 @@
 """Performance benchmarks for new IPA implementation."""
 
+import sys
 import time
 from pathlib import Path
-import sys
 
 import torch
 
