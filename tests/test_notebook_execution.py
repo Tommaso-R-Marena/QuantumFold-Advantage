@@ -91,7 +91,7 @@ def notebook_stats(nb) -> dict:
     return stats
 
 
-class TestNotebookExecution:
+class TestNotebookStructure:
     @pytest.mark.parametrize("name", EXECUTION_TARGETS)
     def test_notebook_file_exists(self, name):
         assert (NOTEBOOKS_DIR / name).exists(), f"Missing notebook: {name}"
@@ -143,7 +143,7 @@ class TestNotebookExecution:
         assert execution_counts == sorted(execution_counts), "Execution counts should be monotonic"
 
 
-class TestNotebookContentCoverage:
+class TestNotebookContent:
     @pytest.mark.parametrize("name", EXECUTION_TARGETS)
     def test_has_markdown_and_code_cells(self, name):
         nb = _read_notebook(NOTEBOOKS_DIR / name)

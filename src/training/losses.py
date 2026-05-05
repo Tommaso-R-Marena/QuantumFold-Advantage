@@ -135,15 +135,24 @@ class CombinedLoss(nn.Module):
         self.dm_weight = dm_weight
         self.coord_weight = coord_weight
 
-    def forward(self, pred: dict, true_coords: Tensor, true_rotations: Tensor,
-                true_translations: Tensor, mask: Tensor | None = None) -> Tensor:
+    def forward(
+        self,
+        pred: dict,
+        true_coords: Tensor,
+        true_rotations: Tensor,
+        true_translations: Tensor,
+        mask: Tensor | None = None,
+    ) -> Tensor:
         loss = torch.tensor(0.0, device=true_coords.device)
 
         if self.fape_weight > 0:
             loss = loss + self.fape_weight * self.fape(
-                pred["coords_backbone"], true_coords,
-                pred["rotations"], true_rotations,
-                pred["translations"], true_translations,
+                pred["coords_backbone"],
+                true_coords,
+                pred["rotations"],
+                true_rotations,
+                pred["translations"],
+                true_translations,
                 mask,
             )
         if self.dm_weight > 0:
@@ -154,7 +163,9 @@ class CombinedLoss(nn.Module):
             true_ca = true_coords[:, :, 1, :]
             if mask is not None:
                 diff = ((pred["coords_ca"] - true_ca) ** 2).sum(-1)
-                loss = loss + self.coord_weight * (diff * mask.float()).sum() / (mask.float().sum() + 1e-8)
+                loss = loss + self.coord_weight * (diff * mask.float()).sum() / (
+                    mask.float().sum() + 1e-8
+                )
             else:
                 loss = loss + self.coord_weight * nn.functional.mse_loss(pred["coords_ca"], true_ca)
         return loss
