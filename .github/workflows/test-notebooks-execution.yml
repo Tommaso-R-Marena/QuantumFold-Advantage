@@ -66,6 +66,9 @@ jobs:
         
         # Install notebook execution tools
         pip install nbconvert nbformat jupyter ipykernel
+
+        # Explicitly register the python3 kernel
+        python -m ipykernel install --user --name python3
     
     - name: Verify NumPy version
       run: |
@@ -139,7 +142,7 @@ jobs:
       run: |
         pip install --upgrade pip
         # Add nbconvert for ExecutePreprocessor import in test file
-        pip install pytest nbformat nbconvert torch
+        pip install pytest nbformat nbconvert torch numpy
     
     - name: Run structure tests
       run: |
@@ -166,7 +169,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil
+        pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil numpy
     
     - name: Test notebook structure
       run: |
