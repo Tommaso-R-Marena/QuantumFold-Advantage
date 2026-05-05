@@ -5,8 +5,9 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-import nbformat
 import pytest
+
+import nbformat
 
 NOTEBOOKS_DIR = Path(__file__).parent.parent / "examples"
 NOTEBOOKS = sorted(NOTEBOOKS_DIR.glob("*.ipynb"))

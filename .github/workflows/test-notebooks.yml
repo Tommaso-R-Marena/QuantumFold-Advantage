@@ -163,16 +163,22 @@ jobs:
                       if not source.strip():
                           continue
                       
-                      # Skip cells with shell commands
-                      if source.strip().startswith('!'):
-                          continue
+                      # Filter out magics and shell commands
+                      filtered_lines = []
+                      for line in source.splitlines():
+                          stripped = line.strip()
+                          if stripped.startswith('!') or stripped.startswith('%'):
+                              indent = line[:len(line) - len(line.lstrip())]
+                              filtered_lines.append(indent + "pass")
+                          else:
+                              filtered_lines.append(line)
                       
-                      # Skip cells with IPython magic
-                      if source.strip().startswith('%'):
+                      filtered_source = '\n'.join(filtered_lines)
+                      if not filtered_source.strip():
                           continue
                       
                       try:
-                          ast.parse(source)
+                          ast.parse(filtered_source)
                       except SyntaxError as e:
                           errors.append(f"{nb_path} cell {i}: {str(e)}")
                           print(f"✗ {nb_path} cell {i}: Syntax error")
@@ -382,7 +388,11 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
-      
+
+      - name: Install dependencies
+        run: |
+          pip install nbformat
+
       - name: Check Colab compatibility
         run: |
           python - <<'EOF'

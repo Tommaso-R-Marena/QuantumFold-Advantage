@@ -35,6 +35,7 @@ from src.models.quantumfold_advantage import (
 )
 from src.training.losses import CombinedLoss, DistanceMatrixLoss, FAPELoss
 
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional
 
 import numpy as np
 import requests
 import torch
 from Bio.PDB import PDBParser, PPBuilder
+from typing import Dict, List, Optional, Sequence
+
+import torch
 from torch.utils.data import Dataset
 
 

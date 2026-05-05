@@ -66,6 +66,9 @@ jobs:
         
         # Install notebook execution tools
         pip install nbconvert nbformat jupyter ipykernel
+
+        # Explicitly register the python3 kernel
+        python -m ipykernel install --user --name python3
     
     - name: Verify NumPy version
       run: |
