@@ -138,8 +138,8 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        # Add nbconvert for ExecutePreprocessor import in test file
-        pip install pytest nbformat nbconvert torch
+        # Add dependencies needed for test collection and execution
+        pip install pytest nbformat nbconvert torch numpy
     
     - name: Run structure tests
       run: |
@@ -166,7 +166,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil
+        pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil numpy
     
     - name: Test notebook structure
       run: |
@@ -174,7 +174,7 @@ jobs:
     
     - name: Test configuration cells
       run: |
-        pytest tests/test_production_notebook.py::TestConfigurationCells -v
+        pytest tests/test_production_notebook.py::TestConfigurationAndSetup -v
     
     - name: Test data processing
       run: |
