@@ -55,45 +55,33 @@ class FAPELoss(nn.Module):
         n_frames = min(L, 32)
         frame_idx = torch.linspace(0, L - 1, n_frames, device=pred_coords.device).long()
 
-        # Vectorized implementation for full speed ⚡
-        # Extract sampled frames
+        # Subset the rotations and translations
         R_pred = pred_rotations[:, frame_idx]  # (B, F, 3, 3)
         t_pred = pred_translations[:, frame_idx]  # (B, F, 3)
         R_true = true_rotations[:, frame_idx]  # (B, F, 3, 3)
         t_true = true_translations[:, frame_idx]  # (B, F, 3)
 
+        # Vectorized transform of all atoms into all sampled frames
         # Local frame: R^T @ (x - t)
-        # Reshape for broadcasting: (B, F, L, A, 3)
-        pred_coords_rel = pred_coords.unsqueeze(1) - t_pred.unsqueeze(2).unsqueeze(3)
-        true_coords_rel = true_coords.unsqueeze(1) - t_true.unsqueeze(2).unsqueeze(3)
+        # diff_pred: (B, F, L, A, 3)
+        diff_pred = pred_coords.unsqueeze(1) - t_pred.unsqueeze(2).unsqueeze(3)
+        pred_local = torch.einsum("bfij,bflaj->bflai", R_pred.transpose(-1, -2), diff_pred)
 
-        # Transform all atoms into all sampled frames fi using einsum
-        pred_local = torch.einsum(
-            "bfij,bflaj->bflai",
-            R_pred.transpose(-1, -2),
-            pred_coords_rel,
-        )
-        true_local = torch.einsum(
-            "bfij,bflaj->bflai",
-            R_true.transpose(-1, -2),
-            true_coords_rel,
-        )
+        diff_true = true_coords.unsqueeze(1) - t_true.unsqueeze(2).unsqueeze(3)
+        true_local = torch.einsum("bfij,bflaj->bflai", R_true.transpose(-1, -2), diff_true)
 
-        # Per-atom distance, clamped
-        dist = torch.sqrt(
-            torch.sum((pred_local - true_local) ** 2, dim=-1) + self.eps
-        )
+        # Per-atom distance, clamped: (B, F, L, A)
+        dist = torch.sqrt(torch.sum((pred_local - true_local)**2, dim=-1) + self.eps)
         dist = torch.clamp(dist, max=self.d_clamp)
 
         if mask is not None:
-            # mask: (B, L) -> (B, 1, L, 1)
+            # mask: (B, L)
             dist = dist * mask.unsqueeze(1).unsqueeze(-1).float()
-            # Average over frames and residues
-            total_loss = dist.sum() / (mask.sum() * n_frames * A + self.eps)
+            # Average over atoms and residues per frame, then average over frames
+            loss_per_frame = dist.sum(dim=(2, 3)) / (mask.sum(dim=1, keepdim=True) * A + self.eps)
+            return loss_per_frame.mean()
         else:
-            total_loss = dist.mean()
-
-        return total_loss
+            return dist.mean()
 
 
 class DistanceMatrixLoss(nn.Module):

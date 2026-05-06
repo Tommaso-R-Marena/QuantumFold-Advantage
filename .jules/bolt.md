@@ -6,6 +6,6 @@
 **Learning:** Broad cleanup of "known issues" in unrelated files can lead to regressions or be flagged in code review.
 **Action:** Focus on the primary optimization task and only apply surgical fixes to other files if they block testing or verification of the main change.
 
-## 2025-05-15 - Vectorizing Loss Frames
-**Learning:** Even when frame-level loops are limited to a small number (e.g., 32), the Python overhead in a tight training loop is significant. Vectorizing across the frame dimension using `einsum` and broadcasting yielded a ~2.6x speedup on CPU.
-**Action:** Consistently apply vectorization to all loss components that iterate over spatial or structural frames.
+## 2024-05-15 - Vectorized FAPE Loss Implementation
+**Learning:** Python loops in the inner training loop (like iterating over 32 frames in FAPE loss) are a major bottleneck. Vectorizing this operation using `torch.einsum` and broadcasting yielded a ~2.6x speedup on CPU. Also, automated notebook validation is sensitive to missing metadata keys which can occur if a notebook is manually edited or truncated.
+**Action:** Always prefer vectorized operations over Python loops in loss functions. When fixing CI, check for YAML boolean alias pitfalls (like `on:` becoming `true:`) and verify notebook JSON integrity.

@@ -49,6 +49,8 @@ class QuantumBackendManager:
         candidates = [
             d for d in self.list_available_devices() if d["num_qubits"] >= n_qubits_required
         ]
+        if not candidates:
+            return "simulator"
         return sorted(candidates, key=lambda d: (d["queue_depth"], d["error_rates"]["2q"]))[0][
             "name"
         ]
