@@ -201,7 +201,7 @@ class QuantumHybridModel(nn.Module):
                     q_out = self.quantum_circuit(q_input[j], self.q_weights)
                     q_output_batch.append(torch.stack(q_out))
 
-                q_output = torch.stack(q_output_batch)  # (batch, n_qubits)
+                q_output = torch.stack(q_output_batch).to(h.dtype)  # (batch, n_qubits)
                 h_quantum.append(q_output)
 
             h_quantum = torch.stack(h_quantum, dim=1)  # (batch, length, n_qubits)

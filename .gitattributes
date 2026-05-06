@@ -1,0 +1,18 @@
+# Treat source/text formats as text
+*.py text
+*.md text
+*.yaml text
+*.yml text
+*.json text
+*.toml text
+*.txt text
+
+# Explicitly mark disallowed artifact/blob formats as binary
+*.pkl binary
+*.pt binary
+*.h5 binary
+*.npy binary
+*.npz binary
+*.bin binary
+*.ckpt binary
+*.pdb binary
