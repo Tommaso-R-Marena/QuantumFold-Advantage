@@ -22,16 +22,19 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 
-def compute_rmsd(pred_coords: np.ndarray, true_coords: np.ndarray) -> float:
+def compute_rmsd(
+    pred_coords: torch.Tensor | np.ndarray, true_coords: torch.Tensor | np.ndarray
+) -> float | torch.Tensor | np.ndarray:
     """
     Compute RMSD between predicted and true coordinates.
+    Supports both individual samples and batches.
 
     Args:
-        pred_coords: Predicted coordinates (N, 3)
-        true_coords: True coordinates (N, 3)
+        pred_coords: Predicted coordinates (..., N, 3)
+        true_coords: True coordinates (..., N, 3)
 
     Returns:
-        RMSD in Angstroms
+        RMSD in Angstroms (scalar float for single sample, Tensor/ndarray for batch)
 
     Notes:
         Does NOT apply Kabsch superposition. For aligned RMSD, use
@@ -40,22 +43,33 @@ def compute_rmsd(pred_coords: np.ndarray, true_coords: np.ndarray) -> float:
     References:
         RMSD definition: sqrt(mean(||pred - true||^2))
     """
+    if isinstance(pred_coords, torch.Tensor):
+        diff = pred_coords - true_coords
+        # Sum over coords (dim -1), mean over residues (dim -2)
+        rmsd = torch.sqrt(torch.mean(torch.sum(diff**2, dim=-1), dim=-1))
+        return rmsd
+
     assert pred_coords.shape == true_coords.shape, "Coordinate shape mismatch"
     diff = pred_coords - true_coords
-    rmsd = np.sqrt(np.mean(np.sum(diff**2, axis=1)))
-    return float(rmsd)
+    rmsd = np.sqrt(np.mean(np.sum(diff**2, axis=-1), axis=-1))
+    if np.isscalar(rmsd):
+        return float(rmsd)
+    return rmsd
 
 
-def compute_tm_score(pred_coords: np.ndarray, true_coords: np.ndarray) -> float:
+def compute_tm_score(
+    pred_coords: torch.Tensor | np.ndarray, true_coords: torch.Tensor | np.ndarray
+) -> float | torch.Tensor | np.ndarray:
     """
     Compute simplified TM-score.
+    Supports both individual samples and batches.
 
     Args:
-        pred_coords: Predicted coordinates (N, 3)
-        true_coords: True coordinates (N, 3)
+        pred_coords: Predicted coordinates (..., N, 3)
+        true_coords: True coordinates (..., N, 3)
 
     Returns:
-        TM-score (0-1, higher is better)
+        TM-score (0-1, scalar float for single sample, Tensor/ndarray for batch)
 
     Notes:
         This is a SIMPLIFIED version for demonstration. Full TM-score requires
@@ -69,14 +83,27 @@ def compute_tm_score(pred_coords: np.ndarray, true_coords: np.ndarray) -> float:
         TM-score ≈ (1/N) * Σ [1 / (1 + (d_i / d0)^2)]
         where d_i = distance between residue i, d0 = 1.24 * N^(1/3) - 1.8
     """
-    N = len(pred_coords)
+    if isinstance(pred_coords, torch.Tensor):
+        N = pred_coords.shape[-2]
+        d0 = 1.24 * (N ** (1.0 / 3.0)) - 1.8
+        d0 = max(d0, 0.5)
+
+        distances = torch.sqrt(torch.sum((pred_coords - true_coords) ** 2, dim=-1) + 1e-8)
+        scores = 1.0 / (1.0 + (distances / d0) ** 2)
+        tm_score = torch.mean(scores, dim=-1)
+        return tm_score
+
+    N = pred_coords.shape[-2]
     d0 = 1.24 * (N ** (1.0 / 3.0)) - 1.8
+    d0 = max(d0, 0.5)
 
-    distances = np.sqrt(np.sum((pred_coords - true_coords) ** 2, axis=1))
+    distances = np.sqrt(np.sum((pred_coords - true_coords) ** 2, axis=-1))
     scores = 1.0 / (1.0 + (distances / d0) ** 2)
-    tm_score = np.mean(scores)
+    tm_score = np.mean(scores, axis=-1)
 
-    return float(tm_score)
+    if np.isscalar(tm_score):
+        return float(tm_score)
+    return tm_score
 
 
 def train_epoch(
@@ -125,15 +152,14 @@ def train_epoch(
         # Metrics
         total_loss += loss.item()
 
-        # Compute RMSD for first sample in batch
+        # Compute average RMSD for the batch
         with torch.no_grad():
-            pred_np = coords_pred[0].cpu().numpy()
-            true_np = coords_true[0].cpu().numpy()
-            rmsd = compute_rmsd(pred_np, true_np)
-            total_rmsd += rmsd
+            rmsd_batch = compute_rmsd(coords_pred, coords_true)
+            rmsd_mean = rmsd_batch.mean().item()
+            total_rmsd += rmsd_mean
 
         n_batches += 1
-        pbar.set_postfix({"loss": loss.item(), "rmsd": rmsd})
+        pbar.set_postfix({"loss": loss.item(), "rmsd": rmsd_mean})
 
     avg_loss = total_loss / n_batches
     avg_rmsd = total_rmsd / n_batches
@@ -175,17 +201,13 @@ def evaluate_model(
             loss = criterion(coords_pred, coords_true)
             total_loss += loss.item() * len(sequences)
 
-            # Compute metrics for each sample
-            for i in range(len(sequences)):
-                pred_np = coords_pred[i].cpu().numpy()
-                true_np = coords_true[i].cpu().numpy()
+            # Compute metrics for entire batch
+            rmsd_batch = compute_rmsd(coords_pred, coords_true)
+            tm_batch = compute_tm_score(coords_pred, coords_true)
 
-                rmsd = compute_rmsd(pred_np, true_np)
-                tm_score = compute_tm_score(pred_np, true_np)
-
-                total_rmsd += rmsd
-                total_tm_score += tm_score
-                n_samples += 1
+            total_rmsd += rmsd_batch.sum().item()
+            total_tm_score += tm_batch.sum().item()
+            n_samples += len(sequences)
 
     results = {
         "loss": total_loss / n_samples,
