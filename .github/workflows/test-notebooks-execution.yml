@@ -174,43 +174,23 @@ jobs:
     
     - name: Test configuration cells
       run: |
-        pytest tests/test_production_notebook.py::TestConfigurationCells -v
+        pytest tests/test_production_notebook.py::TestConfigurationAndSetup -v
     
-    - name: Test data processing
+    - name: Test data training evaluation flow
       run: |
-        pytest tests/test_production_notebook.py::TestDataProcessing -v
+        pytest tests/test_production_notebook.py::TestDataTrainingEvaluationFlow -v
     
-    - name: Test model training
+    - name: Test visualization and export
       run: |
-        pytest tests/test_production_notebook.py::TestModelTraining -v
+        pytest tests/test_production_notebook.py::TestVisualizationAndExport -v
     
-    - name: Test evaluation
+    - name: Test reliability and reproducibility
       run: |
-        pytest tests/test_production_notebook.py::TestEvaluation -v
+        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
     
-    - name: Test visualization
+    - name: Test production execution
       run: |
-        pytest tests/test_production_notebook.py::TestVisualization -v
-    
-    - name: Test results export
-      run: |
-        pytest tests/test_production_notebook.py::TestResultsExport -v
-    
-    - name: Test memory management
-      run: |
-        pytest tests/test_production_notebook.py::TestMemoryManagement -v
-    
-    - name: Test error handling
-      run: |
-        pytest tests/test_production_notebook.py::TestErrorHandling -v
-    
-    - name: Test reproducibility
-      run: |
-        pytest tests/test_production_notebook.py::TestReproducibility -v
-    
-    - name: Test documentation
-      run: |
-        pytest tests/test_production_notebook.py::TestDocumentation -v
+        pytest tests/test_production_notebook.py::TestProductionExecution -v
   
   summary:
     name: Test Summary
