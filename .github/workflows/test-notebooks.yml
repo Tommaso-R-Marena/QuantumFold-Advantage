@@ -163,19 +163,22 @@ jobs:
                       if not source.strip():
                           continue
                       
-                      # Skip cells with shell commands
-                      if source.strip().startswith('!'):
-                          continue
-                      
-                      # Skip cells with IPython magic
-                      if source.strip().startswith('%'):
-                          continue
+                      # Filter out IPython magics and shell commands line by line
+                      # to allow syntax checking of the rest of the cell
+                      lines = source.splitlines()
+                      clean_lines = []
+                      for line in lines:
+                          if line.strip().startswith(('!', '%')):
+                              clean_lines.append('pass')
+                          else:
+                              clean_lines.append(line)
+                      clean_source = '\n'.join(clean_lines)
                       
                       try:
-                          ast.parse(source)
+                          ast.parse(clean_source)
                       except SyntaxError as e:
                           errors.append(f"{nb_path} cell {i}: {str(e)}")
-                          print(f"✗ {nb_path} cell {i}: Syntax error")
+                          print(f"✗ {nb_path} cell {i}: Syntax error: {e}")
           
           if errors:
               print(f"\n{len(errors)} syntax error(s) found:")
