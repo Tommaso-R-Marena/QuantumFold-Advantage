@@ -21,6 +21,8 @@ jobs:
     needs: [validate-ci, validate-cd, code-quality-gate]
     
     steps:
+      - name: Install dependencies
+        run: pip install nbformat
       - name: Report Success
         run: |
           echo "## ✅ All Checks Passed!" >> $GITHUB_STEP_SUMMARY
@@ -38,8 +40,10 @@ jobs:
     timeout-minutes: 5
     
     steps:
+      - name: Install dependencies
+        run: pip install nbformat
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
       
       - name: Validate workflow files
         run: |
@@ -84,8 +88,10 @@ jobs:
     timeout-minutes: 5
     
     steps:
+      - name: Install dependencies
+        run: pip install nbformat
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
       
       - name: Check Dockerfile
         run: |
@@ -128,8 +134,10 @@ jobs:
     timeout-minutes: 10
     
     steps:
+      - name: Install dependencies
+        run: pip install nbformat
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
       
       - name: Set up Python
         uses: actions/setup-python@v5
