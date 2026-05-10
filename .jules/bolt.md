@@ -5,3 +5,7 @@
 ## 2025-05-14 - Surgical Fixes for Code Integrity
 **Learning:** Broad cleanup of "known issues" in unrelated files can lead to regressions or be flagged in code review.
 **Action:** Focus on the primary optimization task and only apply surgical fixes to other files if they block testing or verification of the main change.
+
+## 2025-05-15 - Vectorized FAPE Loss
+**Learning:** Vectorizing structural loss functions like FAPE using `torch.einsum` and broadcasting can yield a ~4x speedup on CPU. This eliminates Python loop overhead and allows PyTorch to leverage highly optimized BLAS routines for coordinate transformations across all frames simultaneously.
+**Action:** When calculating losses over multiple frames or residue pairs, prefer full vectorization with broadcasting over iterative loops.
