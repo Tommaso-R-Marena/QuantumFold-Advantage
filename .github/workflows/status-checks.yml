@@ -21,6 +21,8 @@ jobs:
     needs: [validate-ci, validate-cd, code-quality-gate]
     
     steps:
+      - name: Install dependencies
+        run: pip install nbformat
       - name: Report Success
         run: |
           echo "## ✅ All Checks Passed!" >> $GITHUB_STEP_SUMMARY
@@ -38,6 +40,8 @@ jobs:
     timeout-minutes: 5
     
     steps:
+      - name: Install dependencies
+        run: pip install nbformat
       - name: Checkout
         uses: actions/checkout@v6
       
@@ -84,6 +88,8 @@ jobs:
     timeout-minutes: 5
     
     steps:
+      - name: Install dependencies
+        run: pip install nbformat
       - name: Checkout
         uses: actions/checkout@v6
       
@@ -128,11 +134,13 @@ jobs:
     timeout-minutes: 10
     
     steps:
+      - name: Install dependencies
+        run: pip install nbformat
       - name: Checkout
         uses: actions/checkout@v6
       
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
           cache: 'pip'
