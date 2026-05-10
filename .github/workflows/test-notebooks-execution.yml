@@ -29,10 +29,10 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v4
     
     - name: Set up Python 3.10
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
         cache: 'pip'
@@ -126,10 +126,10 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v4
     
     - name: Set up Python 3.10
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
     
@@ -139,11 +139,11 @@ jobs:
         # Add nbconvert for ExecutePreprocessor import in test file
         pip install pytest nbformat nbconvert torch numpy
     
-    - name: Run structure tests
+    - name: Run execution tests
       run: |
         pytest tests/test_notebook_execution.py::TestNotebookExecution -v
     
-    - name: Run content tests
+    - name: Run coverage tests
       run: |
         pytest tests/test_notebook_execution.py::TestNotebookContentCoverage -v
   
@@ -154,10 +154,10 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v4
     
     - name: Set up Python 3.10
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
     
@@ -170,7 +170,7 @@ jobs:
       run: |
         pytest tests/test_production_notebook.py::TestNotebookStructure -v
     
-    - name: Test configuration cells
+    - name: Test configuration and setup
       run: |
         pytest tests/test_production_notebook.py::TestConfigurationAndSetup -v
     
