@@ -22,8 +22,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install pennylane torch numpy scipy matplotlib seaborn biopython pytest pyyaml pytest-timeout
+          pip install --upgrade pip numpy
+          pip install pennylane torch numpy scipy matplotlib seaborn biopython pytest pyyaml pytest-timeout numpy
 
       - name: Run tests
         run: |

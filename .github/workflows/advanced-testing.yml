@@ -38,9 +38,9 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install -e .
-          pip install pytest hypothesis pytest-timeout
+          pip install --upgrade pip numpy
+          pip install -e . numpy
+          pip install pytest hypothesis pytest-timeout numpy
       
       - name: Run property-based tests
         run: |
@@ -70,9 +70,9 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install -e .
-          pip install pytest pytest-benchmark pytest-timeout memory_profiler
+          pip install --upgrade pip numpy
+          pip install -e . numpy
+          pip install pytest pytest-benchmark pytest-timeout memory_profiler numpy
       
       - name: Run stress tests
         run: |
@@ -109,9 +109,9 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install -e .
-          pip install pytest pytest-regressions
+          pip install --upgrade pip numpy
+          pip install -e . numpy
+          pip install pytest pytest-regressions numpy
       
       - name: Run regression tests
         run: |
@@ -136,9 +136,9 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install -e .
-          pip install mutmut pytest
+          pip install --upgrade pip numpy
+          pip install -e . numpy
+          pip install mutmut pytest numpy
       
       - name: Run mutation testing
         run: |
@@ -173,9 +173,9 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install -e .
-          pip install pytest pytest-cov coverage[toml]
+          pip install --upgrade pip numpy
+          pip install -e . numpy
+          pip install pytest pytest-cov coverage[toml] numpy
       
       - name: Run tests with detailed coverage
         run: |

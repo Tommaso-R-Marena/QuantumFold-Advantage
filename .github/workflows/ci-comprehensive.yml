@@ -45,8 +45,8 @@ jobs:
       
       - name: Install tools
         run: |
-          pip install --upgrade pip
-          pip install black isort flake8 mypy bandit pylint
+          pip install --upgrade pip numpy
+          pip install black isort flake8 mypy bandit pylint numpy
       
       - name: Format check (Black)
         run: |
@@ -141,9 +141,9 @@ jobs:
       
       - name: Install Python dependencies
         run: |
-          python -m pip install --upgrade pip setuptools wheel
-          pip install -e . || echo "Package install had issues"
-          pip install pytest pytest-cov pytest-xdist pytest-timeout pytest-benchmark pytest-json-report
+          python -m pip install --upgrade pip setuptools wheel numpy
+          pip install -e . || echo "Package install had issues" numpy
+          pip install pytest pytest-cov pytest-xdist pytest-timeout pytest-benchmark pytest-json-report numpy
           # Clean up pip cache
           pip cache purge || true
       
@@ -209,9 +209,9 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install -e .
-          pip install pytest pytest-timeout pytest-json-report
+          pip install --upgrade pip numpy
+          pip install -e . numpy
+          pip install pytest pytest-timeout pytest-json-report numpy
           pip cache purge || true
       
       - name: Run integration tests
@@ -259,9 +259,9 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install -e .
-          pip install pytest pytest-benchmark pytest-json-report
+          pip install --upgrade pip numpy
+          pip install -e . numpy
+          pip install pytest pytest-benchmark pytest-json-report numpy
           pip cache purge || true
       
       - name: Run benchmarks
