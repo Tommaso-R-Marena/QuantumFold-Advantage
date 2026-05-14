@@ -79,6 +79,52 @@ def compute_tm_score(pred_coords: np.ndarray, true_coords: np.ndarray) -> float:
     return float(tm_score)
 
 
+def batch_compute_rmsd(pred_coords: torch.Tensor, true_coords: torch.Tensor) -> torch.Tensor:
+    """
+    Compute RMSD between predicted and true coordinates for a batch.
+
+    Args:
+        pred_coords: Predicted coordinates (B, N, 3)
+        true_coords: True coordinates (B, N, 3)
+
+    Returns:
+        RMSD for each sample in batch (B,)
+
+    References:
+        RMSD definition: sqrt(mean(||pred - true||^2))
+    """
+    diff = pred_coords - true_coords
+    squared_diff = torch.sum(diff**2, dim=-1)
+    rmsd = torch.sqrt(torch.mean(squared_diff, dim=-1) + 1e-8)
+    return rmsd
+
+
+def batch_compute_tm_score(pred_coords: torch.Tensor, true_coords: torch.Tensor) -> torch.Tensor:
+    """
+    Compute simplified TM-score for a batch.
+
+    Args:
+        pred_coords: Predicted coordinates (B, N, 3)
+        true_coords: True coordinates (B, N, 3)
+
+    Returns:
+        TM-score for each sample in batch (B,)
+
+    Formula (simplified):
+        TM-score ≈ (1/N) * Σ [1 / (1 + (d_i / d0)^2)]
+        where d_i = distance between residue i, d0 = 1.24 * N^(1/3) - 1.8
+    """
+    B, N, _ = pred_coords.shape
+    d0 = 1.24 * (N ** (1.0 / 3.0)) - 1.8
+    d0 = max(d0, 0.5)
+
+    distances_sq = torch.sum((pred_coords - true_coords) ** 2, dim=-1)
+    scores = 1.0 / (1.0 + (distances_sq / (d0**2)))
+    tm_score = torch.mean(scores, dim=-1)
+
+    return tm_score
+
+
 def train_epoch(
     model: nn.Module,
     dataloader: DataLoader,
@@ -125,15 +171,14 @@ def train_epoch(
         # Metrics
         total_loss += loss.item()
 
-        # Compute RMSD for first sample in batch
+        # Compute RMSD for batch
         with torch.no_grad():
-            pred_np = coords_pred[0].cpu().numpy()
-            true_np = coords_true[0].cpu().numpy()
-            rmsd = compute_rmsd(pred_np, true_np)
-            total_rmsd += rmsd
+            rmsd_batch = batch_compute_rmsd(coords_pred, coords_true)
+            batch_rmsd_mean = rmsd_batch.mean().item()
+            total_rmsd += batch_rmsd_mean
 
         n_batches += 1
-        pbar.set_postfix({"loss": loss.item(), "rmsd": rmsd})
+        pbar.set_postfix({"loss": loss.item(), "rmsd": batch_rmsd_mean})
 
     avg_loss = total_loss / n_batches
     avg_rmsd = total_rmsd / n_batches
@@ -175,17 +220,13 @@ def evaluate_model(
             loss = criterion(coords_pred, coords_true)
             total_loss += loss.item() * len(sequences)
 
-            # Compute metrics for each sample
-            for i in range(len(sequences)):
-                pred_np = coords_pred[i].cpu().numpy()
-                true_np = coords_true[i].cpu().numpy()
+            # Compute metrics for batch
+            rmsd_batch = batch_compute_rmsd(coords_pred, coords_true)
+            tm_batch = batch_compute_tm_score(coords_pred, coords_true)
 
-                rmsd = compute_rmsd(pred_np, true_np)
-                tm_score = compute_tm_score(pred_np, true_np)
-
-                total_rmsd += rmsd
-                total_tm_score += tm_score
-                n_samples += 1
+            total_rmsd += rmsd_batch.sum().item()
+            total_tm_score += tm_batch.sum().item()
+            n_samples += len(sequences)
 
     results = {
         "loss": total_loss / n_samples,

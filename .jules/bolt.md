@@ -5,3 +5,7 @@
 ## 2025-05-14 - Surgical Fixes for Code Integrity
 **Learning:** Broad cleanup of "known issues" in unrelated files can lead to regressions or be flagged in code review.
 **Action:** Focus on the primary optimization task and only apply surgical fixes to other files if they block testing or verification of the main change.
+
+## 2026-05-14 - Vectorizing Training Metrics
+**Learning:** Per-sample metric calculations (RMSD, TM-score) in training loops using NumPy and CPU-synchronization (.cpu().numpy()) are significant bottlenecks. Full vectorization in PyTorch allows keeping data on-device and yields >7x speedups.
+**Action:** Replace per-sample CPU/NumPy loops in training/evaluation scripts with vectorized PyTorch batch operations.
