@@ -19,15 +19,15 @@ jobs:
         python-version: ['3.8', '3.9', '3.10']
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -51,6 +51,7 @@ jobs:
               try:
                   with open(nb_path, 'r', encoding='utf-8') as f:
                       nb = nbformat.read(f, as_version=4)
+                      if 'metadata' not in nb: nb['metadata'] = {}
                   print(f"✓ {nb_path}: Valid JSON structure")
               except Exception as e:
                   errors.append(f"✗ {nb_path}: {str(e)}")
@@ -73,6 +74,7 @@ jobs:
           for nb_path in glob.glob('examples/*.ipynb'):
               with open(nb_path, 'r', encoding='utf-8') as f:
                   nb = nbformat.read(f, as_version=4)
+                  if 'metadata' not in nb: nb['metadata'] = {}
               
               has_outputs = any(
                   cell.get('outputs', []) or cell.get('execution_count')
@@ -101,6 +103,7 @@ jobs:
           for nb_path in glob.glob('examples/*.ipynb'):
               with open(nb_path, 'r', encoding='utf-8') as f:
                   nb = nbformat.read(f, as_version=4)
+                  if 'metadata' not in nb: nb['metadata'] = {}
               
               for i, cell in enumerate(nb.cells):
                   if cell.cell_type == 'code':
@@ -132,10 +135,10 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
       
@@ -156,6 +159,7 @@ jobs:
           for nb_path in glob.glob('examples/*.ipynb'):
               with open(nb_path, 'r', encoding='utf-8') as f:
                   nb = nbformat.read(f, as_version=4)
+                  if 'metadata' not in nb: nb['metadata'] = {}
               
               for i, cell in enumerate(nb.cells):
                   if cell.cell_type == 'code':
@@ -172,7 +176,9 @@ jobs:
                           continue
                       
                       try:
-                          ast.parse(source)
+                          # Clean source for ast.parse
+                          clean_source = '\n'.join(['pass' if l.strip().startswith(('!', '%')) else l for l in source.splitlines()])
+                          ast.parse(clean_source)
                       except SyntaxError as e:
                           errors.append(f"{nb_path} cell {i}: {str(e)}")
                           print(f"✗ {nb_path} cell {i}: Syntax error")
@@ -191,10 +197,10 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
       
@@ -215,6 +221,7 @@ jobs:
           for nb_path in glob.glob('examples/*.ipynb'):
               with open(nb_path, 'r', encoding='utf-8') as f:
                   nb = nbformat.read(f, as_version=4)
+                  if 'metadata' not in nb: nb['metadata'] = {}
               
               for cell in nb.cells:
                   if cell.cell_type == 'code':
@@ -248,15 +255,15 @@ jobs:
     timeout-minutes: 30
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
       
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-notebook-test-${{ hashFiles('**/requirements.txt') }}
@@ -289,6 +296,7 @@ jobs:
               
               with open(nb_path, 'r', encoding='utf-8') as f:
                   nb = nbformat.read(f, as_version=4)
+                  if 'metadata' not in nb: nb['metadata'] = {}
               
               # Create limited version (first 5 cells only)
               limited_nb = nbformat.v4.new_notebook()
@@ -324,10 +332,10 @@ jobs:
     if: github.event_name != 'schedule'  # Skip on scheduled runs
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
       
@@ -345,6 +353,7 @@ jobs:
           
           with open('examples/colab_quickstart.ipynb', 'r') as f:
               nb = nbformat.read(f, as_version=4)
+              if 'metadata' not in nb: nb['metadata'] = {}
           
           # Modify to skip heavy operations
           for cell in nb.cells:
@@ -380,7 +389,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Check Colab compatibility
         run: |
@@ -392,6 +401,7 @@ jobs:
           for nb_path in glob.glob('examples/*.ipynb'):
               with open(nb_path, 'r', encoding='utf-8') as f:
                   nb = nbformat.read(f, as_version=4)
+                  if 'metadata' not in nb: nb['metadata'] = {}
               
               metadata = nb.get('metadata', {})
               
