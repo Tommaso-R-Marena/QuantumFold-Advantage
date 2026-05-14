@@ -8,7 +8,6 @@ import torch.nn as nn
 
 
 class LigandGraphEncoder(nn.Module):
-    def __init__(self, node_features: int = 64, edge_features: int = 32, use_3d_coords: bool = True):
     def __init__(
         self, node_features: int = 64, edge_features: int = 32, use_3d_coords: bool = True
     ):
@@ -28,5 +27,5 @@ class LigandConformerGenerator:
         self.method = method
 
     def generate_conformers(self, smiles: str, n_conformers: int = 10) -> List[np.ndarray]:
-        n_atoms = max(4, len(smiles) // 2)
-        return [np.random.randn(n_atoms, 3).astype(np.float32) for _ in range(n_conformers)]
+        # Mock implementation
+        return [np.random.randn(20, 3) for _ in range(n_conformers)]
