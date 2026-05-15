@@ -55,32 +55,34 @@ class FAPELoss(nn.Module):
         n_frames = min(L, 32)
         frame_idx = torch.linspace(0, L - 1, n_frames, device=pred_coords.device).long()
 
-        # Vectorized gather of frames
-        R_pred = pred_rotations[:, frame_idx]  # (B, F, 3, 3)
-        t_pred = pred_translations[:, frame_idx]  # (B, F, 3)
-        R_true = true_rotations[:, frame_idx]
-        t_true = true_translations[:, frame_idx]
+        # Vectorized implementation: process all sampled frames at once
+        # Extract rotations and translations for sampled frames
+        R_pred = pred_rotations[:, frame_idx]  # (B, n_frames, 3, 3)
+        R_true = true_rotations[:, frame_idx]  # (B, n_frames, 3, 3)
+        t_pred = pred_translations[:, frame_idx]  # (B, n_frames, 3)
+        t_true = true_translations[:, frame_idx]  # (B, n_frames, 3)
 
-        # Transform all atoms into all sampled frames
-        # pred_coords: (B, L, A, 3) -> (B, 1, L, A, 3)
-        # t_pred: (B, F, 3) -> (B, F, 1, 1, 3)
-        pred_relative = pred_coords.unsqueeze(1) - t_pred.unsqueeze(2).unsqueeze(3)
-        true_relative = true_coords.unsqueeze(1) - t_true.unsqueeze(2).unsqueeze(3)
+        # Transform all atoms into each of the n_frames frames
+        # R^T @ (x - t)
+        # Broadcasting coordinates: (B, L, A, 3) -> (B, 1, L, A, 3)
+        # Translations: (B, n_frames, 3) -> (B, n_frames, 1, 1, 3)
+        diff_pred = pred_coords.unsqueeze(1) - t_pred.view(B, n_frames, 1, 1, 3)
+        diff_true = true_coords.unsqueeze(1) - t_true.view(B, n_frames, 1, 1, 3)
 
-        # R: (B, F, 3, 3), relative: (B, F, L, A, 3) -> (B, F, L, A, 3)
-        pred_local = torch.einsum("bfij,bflaj->bflai", R_pred.transpose(-1, -2), pred_relative)
-        true_local = torch.einsum("bfij,bflaj->bflai", R_true.transpose(-1, -2), true_relative)
+        # (B, n_frames, 3, 3) @ (B, n_frames, L, A, 3) -> (B, n_frames, L, A, 3)
+        pred_local = torch.einsum("bnij,bnlaj->bnlai", R_pred.transpose(-1, -2), diff_pred)
+        true_local = torch.einsum("bnij,bnlaj->bnlai", R_true.transpose(-1, -2), diff_true)
 
         # Per-atom distance, clamped
         dist = torch.sqrt(torch.sum((pred_local - true_local) ** 2, dim=-1) + self.eps)
-        dist = torch.clamp(dist, max=self.d_clamp)  # (B, F, L, A)
+        dist = torch.clamp(dist, max=self.d_clamp)
 
         if mask is not None:
             # mask: (B, L) -> (B, 1, L, 1)
-            dist = dist * mask.unsqueeze(1).unsqueeze(-1).float()
-            # Normalize by total number of active atoms per frame, then average over frames
-            loss_per_frame = dist.sum(dim=(0, 2, 3)) / (mask.sum() * A + self.eps)
-            return loss_per_frame.mean()
+            dist = dist * mask.view(B, 1, L, 1)
+            total_dist_per_frame = dist.sum(dim=(0, 2, 3))  # (n_frames)
+            total_mask_sum = mask.sum() * A + self.eps
+            return (total_dist_per_frame / total_mask_sum).mean()
         else:
             return dist.mean()
 

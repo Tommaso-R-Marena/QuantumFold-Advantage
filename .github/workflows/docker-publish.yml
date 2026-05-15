@@ -82,7 +82,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=sha,prefix=sha-
+            type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
           labels: |
             org.opencontainers.image.title=QuantumFold-Advantage
@@ -107,9 +107,6 @@ jobs:
             BUILD_DATE=${{ github.event.repository.updated_at }}
             VCS_REF=${{ github.sha }}
             VERSION=${{ steps.meta.outputs.version }}
-          tags: |
-            ${{ steps.meta.outputs.tags }}
-            ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
           # Disable to save space and time
           provenance: false
           sbom: false
