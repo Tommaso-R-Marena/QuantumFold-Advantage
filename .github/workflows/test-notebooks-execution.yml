@@ -187,27 +187,27 @@ jobs:
     - name: Test evaluation
       run: |
         pytest tests/test_production_notebook.py::TestEvaluation -v
-    
+
     - name: Test visualization
       run: |
         pytest tests/test_production_notebook.py::TestVisualization -v
-    
+
     - name: Test results export
       run: |
         pytest tests/test_production_notebook.py::TestResultsExport -v
-    
+
     - name: Test memory management
       run: |
         pytest tests/test_production_notebook.py::TestMemoryManagement -v
-    
+
     - name: Test error handling
       run: |
         pytest tests/test_production_notebook.py::TestErrorHandling -v
-    
+
     - name: Test reproducibility
       run: |
         pytest tests/test_production_notebook.py::TestReproducibility -v
-    
+
     - name: Test documentation
       run: |
         pytest tests/test_production_notebook.py::TestDocumentation -v
