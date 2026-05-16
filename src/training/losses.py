@@ -50,41 +50,38 @@ class FAPELoss(nn.Module):
         """
         B, L, A, _ = pred_coords.shape
 
-        # Transform atoms into each residue's local frame
-        # For computational efficiency, sample a subset of frames
+        # Select subset of frames for computational efficiency
         n_frames = min(L, 32)
         frame_idx = torch.linspace(0, L - 1, n_frames, device=pred_coords.device).long()
 
-        # Vectorized implementation: process all sampled frames at once
-        # Sample frames: (B, F, 3, 3) and (B, F, 3)
-        R_pred = pred_rotations[:, frame_idx]
-        t_pred = pred_translations[:, frame_idx]
+        # Vectorized transformation: compute all sampled local frames at once
+        R_pred = pred_rotations[:, frame_idx]  # (B, Nf, 3, 3)
+        t_pred = pred_translations[:, frame_idx]  # (B, Nf, 3)
         R_true = true_rotations[:, frame_idx]
         t_true = true_translations[:, frame_idx]
 
-        # Transform all atoms into each sampled frame
-        # pred_coords: (B, L, A, 3) -> (B, 1, L, A, 3)
-        # t_pred: (B, F, 3) -> (B, F, 1, 1, 3)
-        # pred_rel: (B, F, L, A, 3)
-        pred_rel = pred_coords.unsqueeze(1) - t_pred.unsqueeze(2).unsqueeze(3)
-        # R_pred: (B, F, 3, 3) -> (B, F, 1, 1, 3, 3)
-        # pred_local: (B, F, L, A, 3)
-        pred_local = torch.einsum("bfij,bflaj->bflai", R_pred.transpose(-1, -2), pred_rel)
+        # Local frame: R^T @ (x - t)
+        # Broadcasting coordinates: (B, L, A, 3) -> (B, 1, L, A, 3)
+        # Translations: (B, Nf, 3) -> (B, Nf, 1, 1, 3)
+        pred_diff = pred_coords.unsqueeze(1) - t_pred.unsqueeze(2).unsqueeze(3)
+        true_diff = true_coords.unsqueeze(1) - t_true.unsqueeze(2).unsqueeze(3)
 
-        true_rel = true_coords.unsqueeze(1) - t_true.unsqueeze(2).unsqueeze(3)
-        true_local = torch.einsum("bfij,bflaj->bflai", R_true.transpose(-1, -2), true_rel)
+        # Optimized batch matrix-vector product with einsum
+        pred_local = torch.einsum("bfij,bflaj->bflai", R_pred.transpose(-1, -2), pred_diff)
+        true_local = torch.einsum("bfij,bflaj->bflai", R_true.transpose(-1, -2), true_diff)
 
-        # Per-atom distance, clamped: (B, F, L, A)
+        # Per-atom distance, clamped: (B, Nf, L, A)
         dist = torch.sqrt(torch.sum((pred_local - true_local) ** 2, dim=-1) + self.eps)
         dist = torch.clamp(dist, max=self.d_clamp)
 
         if mask is not None:
-            # mask: (B, L) -> (B, 1, L, 1)
-            dist = dist * mask.unsqueeze(1).unsqueeze(-1).float()
-            # Average over active frames, residues, and atoms
-            return dist.sum() / (mask.sum() * n_frames * A + self.eps)
-
-        return dist.mean()
+            # Broadmask: (B, L) -> (B, 1, L, 1)
+            dist = dist * mask.view(B, 1, L, 1).float()
+            # Mean over sampled frames of the per-frame masked loss
+            frame_loss = dist.sum(dim=(0, 2, 3)) / (mask.sum() * A + self.eps)
+            return frame_loss.mean()
+        else:
+            return dist.mean()
 
 
 class DistanceMatrixLoss(nn.Module):
@@ -130,24 +127,15 @@ class CombinedLoss(nn.Module):
         self.dm_weight = dm_weight
         self.coord_weight = coord_weight
 
-    def forward(
-        self,
-        pred: dict,
-        true_coords: Tensor,
-        true_rotations: Tensor,
-        true_translations: Tensor,
-        mask: Tensor | None = None,
-    ) -> Tensor:
+    def forward(self, pred: dict, true_coords: Tensor, true_rotations: Tensor,
+                true_translations: Tensor, mask: Tensor | None = None) -> Tensor:
         loss = torch.tensor(0.0, device=true_coords.device)
 
         if self.fape_weight > 0:
             loss = loss + self.fape_weight * self.fape(
-                pred["coords_backbone"],
-                true_coords,
-                pred["rotations"],
-                true_rotations,
-                pred["translations"],
-                true_translations,
+                pred["coords_backbone"], true_coords,
+                pred["rotations"], true_rotations,
+                pred["translations"], true_translations,
                 mask,
             )
         if self.dm_weight > 0:
@@ -158,9 +146,7 @@ class CombinedLoss(nn.Module):
             true_ca = true_coords[:, :, 1, :]
             if mask is not None:
                 diff = ((pred["coords_ca"] - true_ca) ** 2).sum(-1)
-                loss = loss + self.coord_weight * (diff * mask.float()).sum() / (
-                    mask.float().sum() + 1e-8
-                )
+                loss = loss + self.coord_weight * (diff * mask.float()).sum() / (mask.float().sum() + 1e-8)
             else:
                 loss = loss + self.coord_weight * nn.functional.mse_loss(pred["coords_ca"], true_ca)
         return loss

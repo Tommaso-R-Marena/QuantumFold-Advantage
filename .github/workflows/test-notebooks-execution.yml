@@ -138,15 +138,16 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install pytest nbformat nbconvert torch numpy
+        # Add nbconvert for ExecutePreprocessor import in test file
+        pip install pytest nbformat nbconvert torch
     
     - name: Run structure tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookExecution -v
+        pytest tests/test_notebook_execution.py::TestNotebookStructure -v
     
     - name: Run content tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookContentCoverage -v
+        pytest tests/test_notebook_execution.py::TestNotebookContent -v
   
   test-production-notebook:
     name: Test Production Notebook
@@ -165,27 +166,51 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil numpy
+        pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil
     
     - name: Test notebook structure
       run: |
         pytest tests/test_production_notebook.py::TestNotebookStructure -v
     
-    - name: Test configuration and setup
+    - name: Test configuration cells
       run: |
-        pytest tests/test_production_notebook.py::TestConfigurationAndSetup -v
+        pytest tests/test_production_notebook.py::TestConfigurationCells -v
     
-    - name: Test data training evaluation flow
+    - name: Test data processing
       run: |
-        pytest tests/test_production_notebook.py::TestDataTrainingEvaluationFlow -v
+        pytest tests/test_production_notebook.py::TestDataProcessing -v
     
-    - name: Test visualization and export
+    - name: Test model training
       run: |
-        pytest tests/test_production_notebook.py::TestVisualizationAndExport -v
+        pytest tests/test_production_notebook.py::TestModelTraining -v
     
-    - name: Test reliability and reproducibility
+    - name: Test evaluation
       run: |
-        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
+        pytest tests/test_production_notebook.py::TestEvaluation -v
+
+    - name: Test visualization
+      run: |
+        pytest tests/test_production_notebook.py::TestVisualization -v
+
+    - name: Test results export
+      run: |
+        pytest tests/test_production_notebook.py::TestResultsExport -v
+
+    - name: Test memory management
+      run: |
+        pytest tests/test_production_notebook.py::TestMemoryManagement -v
+
+    - name: Test error handling
+      run: |
+        pytest tests/test_production_notebook.py::TestErrorHandling -v
+
+    - name: Test reproducibility
+      run: |
+        pytest tests/test_production_notebook.py::TestReproducibility -v
+
+    - name: Test documentation
+      run: |
+        pytest tests/test_production_notebook.py::TestDocumentation -v
   
   summary:
     name: Test Summary
@@ -225,8 +250,23 @@ jobs:
         
         if [[ "${{ needs.test-production-notebook.result }}" == "success" ]]; then
           echo "✅ Production notebook tests passed!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Production Notebook Validation" >> $GITHUB_STEP_SUMMARY
+          echo "- Structure and metadata ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Configuration cells ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Data processing ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Model training ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Evaluation and statistics ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Visualization ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Results export ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Memory management ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Error handling ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Reproducibility ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Documentation ✅" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ Production notebook tests failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check test logs for details." >> $GITHUB_STEP_SUMMARY
         fi
         
         echo "" >> $GITHUB_STEP_SUMMARY
