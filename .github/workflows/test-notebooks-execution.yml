@@ -57,7 +57,7 @@ jobs:
         
         # Install in correct order with strict versions
         pip install 'numpy>=1.23.0,<2.0.0'
-        pip install 'autoray>=0.6.1,<0.7.0'  # Compatible with PennyLane NumpyMimic
+        pip install 'autoray>=0.6.1,<0.7.0'
         pip install 'autograd>=1.6.2'
         pip install 'pennylane>=0.33.0,<0.35.0'
         
@@ -75,6 +75,8 @@ jobs:
     - name: Execute notebook
       run: |
         echo "Testing ${{ matrix.notebook }}..."
+        # Use ipykernel to register kernel explicitly to avoid NoSuchKernel errors
+        python -m ipykernel install --user --name python3
         jupyter nbconvert --to notebook --execute \
           --ExecutePreprocessor.timeout=600 \
           --ExecutePreprocessor.kernel_name=python3 \
@@ -138,16 +140,15 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        # Add nbconvert for ExecutePreprocessor import in test file
-        pip install pytest nbformat nbconvert torch
+        pip install pytest nbformat nbconvert torch numpy
     
     - name: Run structure tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookStructure -v
+        pytest tests/test_notebook_execution.py::TestNotebookExecution -v
     
     - name: Run content tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookContent -v
+        pytest tests/test_notebook_execution.py::TestNotebookContentCoverage -v
   
   test-production-notebook:
     name: Test Production Notebook
@@ -166,51 +167,39 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil
+        pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil numpy
     
     - name: Test notebook structure
       run: |
         pytest tests/test_production_notebook.py::TestNotebookStructure -v
     
-    - name: Test configuration cells
+    - name: Test configuration and setup
       run: |
-        pytest tests/test_production_notebook.py::TestConfigurationCells -v
+        pytest tests/test_production_notebook.py::TestConfigurationAndSetup -v
     
-    - name: Test data processing
+    - name: Test data training evaluation flow
       run: |
-        pytest tests/test_production_notebook.py::TestDataProcessing -v
+        pytest tests/test_production_notebook.py::TestDataTrainingEvaluationFlow -v
     
-    - name: Test model training
+    - name: Test reliability and reproducibility
       run: |
-        pytest tests/test_production_notebook.py::TestModelTraining -v
+        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
     
-    - name: Test evaluation
+    - name: Test visualization and export
       run: |
-        pytest tests/test_production_notebook.py::TestEvaluation -v
+        pytest tests/test_production_notebook.py::TestVisualizationAndExport -v
     
-    - name: Test visualization
+    - name: Test production execution
       run: |
-        pytest tests/test_production_notebook.py::TestVisualization -v
+        pytest tests/test_production_notebook.py::TestProductionExecution -v
     
-    - name: Test results export
+    - name: Test legacy parity
       run: |
-        pytest tests/test_production_notebook.py::TestResultsExport -v
+        pytest tests/test_production_notebook.py::TestProductionNotebookLegacyParity -v
     
-    - name: Test memory management
+    - name: Test flow integrity
       run: |
-        pytest tests/test_production_notebook.py::TestMemoryManagement -v
-    
-    - name: Test error handling
-      run: |
-        pytest tests/test_production_notebook.py::TestErrorHandling -v
-    
-    - name: Test reproducibility
-      run: |
-        pytest tests/test_production_notebook.py::TestReproducibility -v
-    
-    - name: Test documentation
-      run: |
-        pytest tests/test_production_notebook.py::TestDocumentation -v
+        pytest tests/test_production_notebook.py::TestProductionNotebookFlowIntegrity -v
   
   summary:
     name: Test Summary
@@ -226,16 +215,8 @@ jobs:
         
         if [[ "${{ needs.test-notebooks.result }}" == "success" ]]; then
           echo "✅ All tutorial notebooks executed successfully!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Tested Notebooks" >> $GITHUB_STEP_SUMMARY
-          echo "- colab_quickstart.ipynb" >> $GITHUB_STEP_SUMMARY
-          echo "- 01_getting_started.ipynb" >> $GITHUB_STEP_SUMMARY
-          echo "- 02_quantum_vs_classical.ipynb" >> $GITHUB_STEP_SUMMARY
-          echo "- 03_advanced_visualization.ipynb" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ Some notebooks failed execution" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Check individual job logs for details." >> $GITHUB_STEP_SUMMARY
         fi
         
         echo "" >> $GITHUB_STEP_SUMMARY
@@ -250,29 +231,6 @@ jobs:
         
         if [[ "${{ needs.test-production-notebook.result }}" == "success" ]]; then
           echo "✅ Production notebook tests passed!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Production Notebook Validation" >> $GITHUB_STEP_SUMMARY
-          echo "- Structure and metadata ✅" >> $GITHUB_STEP_SUMMARY
-          echo "- Configuration cells ✅" >> $GITHUB_STEP_SUMMARY
-          echo "- Data processing ✅" >> $GITHUB_STEP_SUMMARY
-          echo "- Model training ✅" >> $GITHUB_STEP_SUMMARY
-          echo "- Evaluation and statistics ✅" >> $GITHUB_STEP_SUMMARY
-          echo "- Visualization ✅" >> $GITHUB_STEP_SUMMARY
-          echo "- Results export ✅" >> $GITHUB_STEP_SUMMARY
-          echo "- Memory management ✅" >> $GITHUB_STEP_SUMMARY
-          echo "- Error handling ✅" >> $GITHUB_STEP_SUMMARY
-          echo "- Reproducibility ✅" >> $GITHUB_STEP_SUMMARY
-          echo "- Documentation ✅" >> $GITHUB_STEP_SUMMARY
         else
           echo "❌ Production notebook tests failed" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Check test logs for details." >> $GITHUB_STEP_SUMMARY
         fi
-        
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
-        echo "Executed notebooks are available as workflow artifacts for 7 days." >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Compatibility Fixes Applied" >> $GITHUB_STEP_SUMMARY
-        echo "- NumPy <2.0 for stability" >> $GITHUB_STEP_SUMMARY
-        echo "- Autoray <0.7.0 for PennyLane compatibility" >> $GITHUB_STEP_SUMMARY
