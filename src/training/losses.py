@@ -55,42 +55,37 @@ class FAPELoss(nn.Module):
         n_frames = min(L, 32)
         frame_idx = torch.linspace(0, L - 1, n_frames, device=pred_coords.device).long()
 
-        total_loss = torch.tensor(0.0, device=pred_coords.device)
-        count = 0
+        # Select frames: (B, F, 3, 3) and (B, F, 3)
+        R_pred = pred_rotations[:, frame_idx]
+        t_pred = pred_translations[:, frame_idx]
+        R_true = true_rotations[:, frame_idx]
+        t_true = true_translations[:, frame_idx]
 
-        for fi in frame_idx:
-            # Local frame: R^T @ (x - t)
-            R_pred = pred_rotations[:, fi]  # (B, 3, 3)
-            t_pred = pred_translations[:, fi]  # (B, 3)
-            R_true = true_rotations[:, fi]
-            t_true = true_translations[:, fi]
+        # Transform all atoms into frame fi
+        # pred_coords: (B, L, A, 3) -> (B, 1, L, A, 3)
+        # t_pred: (B, F, 3) -> (B, F, 1, 1, 3)
+        # pred_rel: (B, F, L, A, 3)
+        pred_rel = pred_coords.unsqueeze(1) - t_pred.unsqueeze(2).unsqueeze(3)
+        true_rel = true_coords.unsqueeze(1) - t_true.unsqueeze(2).unsqueeze(3)
 
-            # Transform all atoms into frame fi
-            pred_local = torch.einsum(
-                "bij,blaj->blai",
-                R_pred.transpose(-1, -2),
-                pred_coords - t_pred.unsqueeze(1).unsqueeze(2),
-            )
-            true_local = torch.einsum(
-                "bij,blaj->blai",
-                R_true.transpose(-1, -2),
-                true_coords - t_true.unsqueeze(1).unsqueeze(2),
-            )
+        # R_pred: (B, F, 3, 3). We want R_pred.transpose(-1, -2) which is (B, F, 3, 3)
+        # In einsum: "bfji" handles the transpose of the last two dimensions
+        pred_local = torch.einsum("bfji,bflaj->bflai", R_pred, pred_rel)
+        true_local = torch.einsum("bfji,bflaj->bflai", R_true, true_rel)
 
-            # Per-atom distance, clamped
-            dist = torch.sqrt(
-                torch.sum((pred_local - true_local) ** 2, dim=-1) + self.eps
-            )
-            dist = torch.clamp(dist, max=self.d_clamp)
+        # Per-atom distance, clamped: (B, F, L, A)
+        dist = torch.sqrt(torch.sum((pred_local - true_local) ** 2, dim=-1) + self.eps)
+        dist = torch.clamp(dist, max=self.d_clamp)
 
-            if mask is not None:
-                dist = dist * mask.unsqueeze(-1).float()
-                total_loss = total_loss + dist.sum() / (mask.sum() * A + self.eps)
-            else:
-                total_loss = total_loss + dist.mean()
-            count += 1
-
-        return total_loss / max(count, 1)
+        if mask is not None:
+            # mask: (B, L). We need (B, 1, L, 1)
+            dist = dist * mask.unsqueeze(1).unsqueeze(-1).float()
+            # Sum over B, L, A per frame, then average over F
+            sum_per_frame = dist.sum(dim=(0, 2, 3))  # (F,)
+            loss_per_frame = sum_per_frame / (mask.sum() * A + self.eps)
+            return loss_per_frame.mean()
+        else:
+            return dist.mean()
 
 
 class DistanceMatrixLoss(nn.Module):
