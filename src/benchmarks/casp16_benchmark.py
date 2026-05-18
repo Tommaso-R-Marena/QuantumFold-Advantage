@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import signal
 import json
+import signal
 import time
 from pathlib import Path
 from typing import Dict, List
