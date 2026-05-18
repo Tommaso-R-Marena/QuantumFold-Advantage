@@ -193,7 +193,9 @@ class InvariantPointAttention(nn.Module):
         v_pts_perm = v_pts_global.permute(0, 2, 1, 3, 4)  # (B, H, L, Pv, 3)
         # result_pts: (B, H, L, Pv*3)
         result_pts = torch.matmul(attn, v_pts_perm.reshape(B, self.n_heads, L, -1))
-        result_pts = result_pts.reshape(B, self.n_heads, L, self.n_value_points, 3).permute(0, 2, 1, 3, 4)
+        result_pts = result_pts.reshape(B, self.n_heads, L, self.n_value_points, 3).permute(
+            0, 2, 1, 3, 4
+        )
 
         # Transform back to local frame
         R_inv = rotations.transpose(-1, -2).unsqueeze(2).unsqueeze(3)
