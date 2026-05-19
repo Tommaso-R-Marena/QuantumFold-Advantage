@@ -143,11 +143,11 @@ jobs:
     
     - name: Run structure tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookStructure -v
+        pytest tests/test_notebook_execution.py::TestNotebookExecution -v
     
     - name: Run content tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookContent -v
+        pytest tests/test_notebook_execution.py::TestNotebookContentCoverage -v
   
   test-production-notebook:
     name: Test Production Notebook
@@ -174,43 +174,43 @@ jobs:
     
     - name: Test configuration cells
       run: |
-        pytest tests/test_production_notebook.py::TestConfigurationCells -v
+        pytest tests/test_production_notebook.py::TestConfigurationAndSetup -v
     
     - name: Test data processing
       run: |
-        pytest tests/test_production_notebook.py::TestDataProcessing -v
+        pytest tests/test_production_notebook.py::TestDataTrainingEvaluationFlow -v
     
     - name: Test model training
       run: |
-        pytest tests/test_production_notebook.py::TestModelTraining -v
+        pytest tests/test_production_notebook.py::TestDataTrainingEvaluationFlow -v
     
     - name: Test evaluation
       run: |
-        pytest tests/test_production_notebook.py::TestEvaluation -v
+        pytest tests/test_production_notebook.py::TestDataTrainingEvaluationFlow -v
     
     - name: Test visualization
       run: |
-        pytest tests/test_production_notebook.py::TestVisualization -v
+        pytest tests/test_production_notebook.py::TestVisualizationAndExport -v
     
     - name: Test results export
       run: |
-        pytest tests/test_production_notebook.py::TestResultsExport -v
+        pytest tests/test_production_notebook.py::TestVisualizationAndExport -v
     
     - name: Test memory management
       run: |
-        pytest tests/test_production_notebook.py::TestMemoryManagement -v
+        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
     
     - name: Test error handling
       run: |
-        pytest tests/test_production_notebook.py::TestErrorHandling -v
+        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
     
     - name: Test reproducibility
       run: |
-        pytest tests/test_production_notebook.py::TestReproducibility -v
+        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
     
     - name: Test documentation
       run: |
-        pytest tests/test_production_notebook.py::TestDocumentation -v
+        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
   
   summary:
     name: Test Summary
