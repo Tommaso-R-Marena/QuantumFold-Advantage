@@ -109,7 +109,9 @@ def main():
     train_ld, val_ld, test_ld = create_dataloaders(
         seqs, coords, max_len=args.max_len, batch_size=args.batch_size, seed=args.seed
     )
-    logger.info(f"Train: {len(train_ld.dataset)}, Val: {len(val_ld.dataset)}, Test: {len(test_ld.dataset)}")
+    logger.info(
+        f"Train: {len(train_ld.dataset)}, Val: {len(val_ld.dataset)}, Test: {len(test_ld.dataset)}"
+    )
 
     model_kwargs = dict(
         d_model=args.d_model,
@@ -129,8 +131,11 @@ def main():
     logger.info("=== Training CLASSICAL model ===")
     classical = create_classical_model(**model_kwargs).to(device)
     trainer_c = QuantumFoldTrainer(
-        classical, lr=args.lr, quantum_lr=args.quantum_lr,
-        patience=args.patience, checkpoint_dir=str(out / "checkpoints"),
+        classical,
+        lr=args.lr,
+        quantum_lr=args.quantum_lr,
+        patience=args.patience,
+        checkpoint_dir=str(out / "checkpoints"),
     )
     histories["classical"] = trainer_c.train(train_ld, val_ld, epochs=args.epochs)
     test_results["classical"] = evaluate_model_on_test(classical, test_ld, device)
@@ -140,8 +145,11 @@ def main():
         logger.info("=== Training QUANTUM model ===")
         quantum = create_quantum_model(**model_kwargs).to(device)
         trainer_q = QuantumFoldTrainer(
-            quantum, lr=args.lr, quantum_lr=args.quantum_lr,
-            patience=args.patience, checkpoint_dir=str(out / "checkpoints"),
+            quantum,
+            lr=args.lr,
+            quantum_lr=args.quantum_lr,
+            patience=args.patience,
+            checkpoint_dir=str(out / "checkpoints"),
         )
         histories["quantum"] = trainer_q.train(train_ld, val_ld, epochs=args.epochs)
         test_results["quantum"] = evaluate_model_on_test(quantum, test_ld, device)
@@ -149,9 +157,7 @@ def main():
     # --- Statistical comparison ---
     if "quantum" in test_results and "classical" in test_results:
         logger.info("Running statistical comparison...")
-        comparison = compare_quantum_classical(
-            test_results["quantum"], test_results["classical"]
-        )
+        comparison = compare_quantum_classical(test_results["quantum"], test_results["classical"])
         report = format_comparison_report(comparison)
         print(report)
         (out / "comparison_report.txt").write_text(report)
@@ -164,8 +170,9 @@ def main():
                 metric,
                 str(out / f"comparison_{metric}.png"),
             )
-        plot_training_curves(histories["quantum"], histories["classical"],
-                            str(out / "training_curves.png"))
+        plot_training_curves(
+            histories["quantum"], histories["classical"], str(out / "training_curves.png")
+        )
 
         n_test = len(test_results["quantum"]["tm_score"])
         names = [f"P{i}" for i in range(n_test)]

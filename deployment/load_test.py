@@ -9,7 +9,9 @@ class QuantumFoldUser(HttpUser):
     @task
     def predict_structure(self):
         sequence = "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEK"
-        response = self.client.post("/predict", json={"sequence": sequence, "model_type": "quantum"})
+        response = self.client.post(
+            "/predict", json={"sequence": sequence, "model_type": "quantum"}
+        )
         job_id = response.json()["job_id"]
         while True:
             status = self.client.get(f"/status/{job_id}")

@@ -75,7 +75,8 @@ jobs:
     - name: Execute notebook
       run: |
         echo "Testing ${{ matrix.notebook }}..."
-        jupyter nbconvert --to notebook --execute \
+        python -m ipykernel install --user --name python3
+jupyter nbconvert --to notebook --execute \
           --ExecutePreprocessor.timeout=600 \
           --ExecutePreprocessor.kernel_name=python3 \
           --output-dir=/tmp/executed \
@@ -174,7 +175,7 @@ jobs:
     
     - name: Test configuration cells
       run: |
-        pytest tests/test_production_notebook.py::TestConfigurationCells -v
+        pytest tests/test_production_notebook.py::TestConfigurationAndSetup -v
     
     - name: Test data processing
       run: |

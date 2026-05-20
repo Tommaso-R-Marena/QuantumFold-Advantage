@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 from src.pipeline import run_full_pipeline
-from src.utils import setup_logging, set_seed
+from src.utils import set_seed, setup_logging
 
 # Default configuration
 DEFAULT_SEED = 42
@@ -70,11 +70,11 @@ def parse_args():
 def main():
     """Main execution function."""
     args = parse_args()
-    
+
     # Setup logging
     setup_logging(level=args.log_level)
     logger = logging.getLogger(__name__)
-    
+
     logger.info("=" * 60)
     logger.info("QuantumFold-Advantage: Hybrid Protein Folding Pipeline")
     logger.info("=" * 60)
@@ -86,14 +86,14 @@ def main():
     logger.info(f"  Quantum Mode: {args.quantum}")
     logger.info(f"  Output Directory: {args.output_dir}")
     logger.info("=" * 60)
-    
+
     # Set random seed
     set_seed(args.seed)
-    
+
     # Create output directory
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Run full pipeline
     try:
         results = run_full_pipeline(
@@ -104,7 +104,7 @@ def main():
             use_quantum=args.quantum,
             output_dir=str(output_dir),
         )
-        
+
         logger.info("=" * 60)
         logger.info("Pipeline completed successfully!")
         logger.info(f"Results saved to: {output_dir}")
@@ -112,15 +112,15 @@ def main():
         logger.info(f"  - Predictions: {output_dir / 'predictions.pdb'}")
         logger.info(f"  - Visualization: {output_dir / 'structure_viz.html'}")
         logger.info("=" * 60)
-        
+
         # Print summary statistics
         if "test_rmsd" in results:
             logger.info(f"Test RMSD: {results['test_rmsd']:.4f} Å")
         if "test_tm_score" in results:
             logger.info(f"Test TM-Score: {results['test_tm_score']:.4f}")
-        
+
         return 0
-        
+
     except Exception as e:
         logger.error(f"Pipeline failed with error: {e}", exc_info=True)
         return 1

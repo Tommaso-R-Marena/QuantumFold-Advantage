@@ -1,8 +1,10 @@
 """Generate a single-page visual results summary."""
+
 import matplotlib
+
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
 import numpy as np
 
 out = "/home/user/workspace/QuantumFold-Advantage/results_real"
@@ -25,9 +27,14 @@ metrics_to_plot = [
 for i, (key, label, lower_better) in enumerate(metrics_to_plot):
     ax = fig.add_subplot(gs[0, i])
     qv, cv = q[key], c[key]
-    bp = ax.boxplot([qv, cv], positions=[0, 1], widths=0.5, patch_artist=True,
-                    boxprops=dict(linewidth=1.2),
-                    medianprops=dict(color="black", linewidth=2))
+    bp = ax.boxplot(
+        [qv, cv],
+        positions=[0, 1],
+        widths=0.5,
+        patch_artist=True,
+        boxprops=dict(linewidth=1.2),
+        medianprops=dict(color="black", linewidth=2),
+    )
     bp["boxes"][0].set_facecolor(QC)
     bp["boxes"][0].set_alpha(0.6)
     bp["boxes"][1].set_facecolor(CC)
@@ -54,14 +61,16 @@ ax.set_ylabel("Δ TM-score (Q − C)", fontsize=11)
 ax.set_title("Per-Protein TM-score Improvement", fontsize=12, fontweight="bold")
 
 ax3 = fig.add_subplot(gs[1, 2])
-gdt_metrics = {"GDT-TS": ("gdt_ts", q["gdt_ts"].mean(), c["gdt_ts"].mean()),
-               "GDT-HA": ("gdt_ha", q["gdt_ha"].mean(), c["gdt_ha"].mean())}
+gdt_metrics = {
+    "GDT-TS": ("gdt_ts", q["gdt_ts"].mean(), c["gdt_ts"].mean()),
+    "GDT-HA": ("gdt_ha", q["gdt_ha"].mean(), c["gdt_ha"].mean()),
+}
 x_pos = np.arange(len(gdt_metrics))
 width = 0.35
 qvals = [v[1] for v in gdt_metrics.values()]
 cvals = [v[2] for v in gdt_metrics.values()]
-ax3.bar(x_pos - width/2, qvals, width, color=QC, alpha=0.7, label="Quantum")
-ax3.bar(x_pos + width/2, cvals, width, color=CC, alpha=0.7, label="Classical")
+ax3.bar(x_pos - width / 2, qvals, width, color=QC, alpha=0.7, label="Quantum")
+ax3.bar(x_pos + width / 2, cvals, width, color=CC, alpha=0.7, label="Classical")
 ax3.set_xticks(x_pos)
 ax3.set_xticklabels(list(gdt_metrics.keys()), fontsize=10)
 ax3.set_ylabel("Score", fontsize=11)
@@ -73,7 +82,14 @@ ax_table = fig.add_subplot(gs[2, :])
 ax_table.axis("off")
 
 # Build summary table
-header = ["Metric", "Quantum (mean±std)", "Classical (mean±std)", "Δ (Q−C)", "Cohen's d", "Direction"]
+header = [
+    "Metric",
+    "Quantum (mean±std)",
+    "Classical (mean±std)",
+    "Δ (Q−C)",
+    "Cohen's d",
+    "Direction",
+]
 rows = []
 for key in ["rmsd", "tm_score", "gdt_ts", "gdt_ha", "lddt"]:
     qv, cv = q[key], c[key]
@@ -85,15 +101,19 @@ for key in ["rmsd", "tm_score", "gdt_ts", "gdt_ha", "lddt"]:
     if lower_better:
         direction = "Q better ✓" if diff_val < 0 else "C better"
     else:
-        direction = "Q better ✓" if diff_val > 0 else ("Tied" if abs(diff_val) < 1e-6 else "C better")
-    rows.append([
-        key.upper().replace("_", "-"),
-        f"{np.mean(qv):.4f} ± {np.std(qv):.4f}",
-        f"{np.mean(cv):.4f} ± {np.std(cv):.4f}",
-        f"{diff_val:+.4f}",
-        f"{cd:+.3f}",
-        direction,
-    ])
+        direction = (
+            "Q better ✓" if diff_val > 0 else ("Tied" if abs(diff_val) < 1e-6 else "C better")
+        )
+    rows.append(
+        [
+            key.upper().replace("_", "-"),
+            f"{np.mean(qv):.4f} ± {np.std(qv):.4f}",
+            f"{np.mean(cv):.4f} ± {np.std(cv):.4f}",
+            f"{diff_val:+.4f}",
+            f"{cd:+.3f}",
+            direction,
+        ]
+    )
 
 table = ax_table.table(
     cellText=rows,
@@ -113,7 +133,7 @@ for j in range(len(header)):
 for i, row in enumerate(rows):
     if "Q better" in row[-1]:
         for j in range(len(header)):
-            table[i+1, j].set_facecolor("#E8D5F5")
+            table[i + 1, j].set_facecolor("#E8D5F5")
 
 ax_table.set_title("Statistical Summary", fontsize=12, fontweight="bold", pad=15)
 

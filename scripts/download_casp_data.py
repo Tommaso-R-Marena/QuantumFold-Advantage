@@ -15,29 +15,29 @@ from src.casp_benchmark import CASPDataset
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Download CASP datasets')
-    parser.add_argument('--casp-version', type=int, nargs='+',
-                       default=[14], choices=[14, 15, 16],
-                       help='CASP versions to download')
-    parser.add_argument('--data-dir', type=str, default='data/casp',
-                       help='Directory to store data')
-    
+    parser = argparse.ArgumentParser(description="Download CASP datasets")
+    parser.add_argument(
+        "--casp-version",
+        type=int,
+        nargs="+",
+        default=[14],
+        choices=[14, 15, 16],
+        help="CASP versions to download",
+    )
+    parser.add_argument("--data-dir", type=str, default="data/casp", help="Directory to store data")
+
     args = parser.parse_args()
-    
+
     print("CASP Dataset Downloader")
-    print("="*80)
-    
+    print("=" * 80)
+
     for version in args.casp_version:
         print(f"\nDownloading CASP{version}...")
-        dataset = CASPDataset(
-            casp_version=version,
-            data_dir=args.data_dir,
-            download=True
-        )
+        dataset = CASPDataset(casp_version=version, data_dir=args.data_dir, download=True)
         print(f"CASP{version}: {len(dataset)} structures loaded")
-    
+
     print("\nDownload complete!")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
