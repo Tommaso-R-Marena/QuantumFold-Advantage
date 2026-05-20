@@ -147,30 +147,39 @@ class InvariantPointAttention(nn.Module):
 
         # Apply rotations to points -> global frame
         # rotations: (B, L, 3, 3), pts: (B, L, H, P, 3)
+        # We use matmul which is generally faster than einsum
         R = rotations.unsqueeze(2).unsqueeze(3)  # (B, L, 1, 1, 3, 3)
         T = translations.unsqueeze(2).unsqueeze(3)  # (B, L, 1, 1, 3)
 
-        q_pts_global = torch.einsum("blhpc,blhpcd->blhpd", q_pts, R.expand(-1, -1, self.n_heads, self.n_query_points, -1, -1)) + T
-        k_pts_global = torch.einsum("blhpc,blhpcd->blhpd", k_pts, R.expand(-1, -1, self.n_heads, self.n_query_points, -1, -1)) + T
-        v_pts_global = torch.einsum("blhpc,blhpcd->blhpd", v_pts, R.expand(-1, -1, self.n_heads, self.n_value_points, -1, -1)) + T
+        q_pts_global = torch.matmul(q_pts.unsqueeze(-2), R).squeeze(-2) + T
+        k_pts_global = torch.matmul(k_pts.unsqueeze(-2), R).squeeze(-2) + T
+        v_pts_global = torch.matmul(v_pts.unsqueeze(-2), R).squeeze(-2) + T
 
         # Scalar attention scores
-        scalar_attn = torch.einsum("bihd,bjhd->bhij", q_s, k_s) / math.sqrt(self.head_dim)
+        # (B, L, H, D/H) -> (B, H, L, D/H)
+        q_s_perm = q_s.permute(0, 2, 1, 3)
+        k_s_perm = k_s.permute(0, 2, 1, 3)
+        scalar_attn = torch.matmul(q_s_perm, k_s_perm.transpose(-1, -2)) / math.sqrt(self.head_dim)
 
         # Point attention scores
-        # Squared distances between query and key points
-        q_expand = q_pts_global.unsqueeze(3)  # (B, L_q, H, 1, P, 3)
-        k_expand = k_pts_global.unsqueeze(2)  # (B, 1, L_k, H, P, 3)
-        # Rearrange for broadcasting
-        q_for_dist = q_pts_global.permute(0, 2, 1, 3, 4)  # (B, H, L, P, 3)
-        k_for_dist = k_pts_global.permute(0, 2, 1, 3, 4)  # (B, H, L, P, 3)
+        # Optimized distance calculation using |a-b|^2 = |a|^2 + |b|^2 - 2a.b
+        # q_for_dist: (B, H, L, P, 3)
+        q_for_dist = q_pts_global.permute(0, 2, 1, 3, 4)
+        k_for_dist = k_pts_global.permute(0, 2, 1, 3, 4)
 
-        pt_dists = torch.sum(
-            (q_for_dist.unsqueeze(3) - k_for_dist.unsqueeze(2)) ** 2, dim=(-1, -2)
-        )  # (B, H, L, L)
+        q_norm_sq = torch.sum(q_for_dist**2, dim=(-1, -2)).unsqueeze(-1)  # (B, H, L, 1)
+        k_norm_sq = torch.sum(k_for_dist**2, dim=(-1, -2)).unsqueeze(-2)  # (B, H, 1, L)
 
-        w_h = torch.nn.functional.softplus(self.head_weights).view(1, self.n_heads, 1, 1)
-        point_attn = -0.5 * w_h * pt_dists
+        # Cross term: sum_p (q_p . k_p)
+        # Flatten P and 3 dimensions for efficient matmul
+        q_flat = q_for_dist.reshape(B, self.n_heads, L, -1)  # (B, H, L, P*3)
+        k_flat = k_for_dist.reshape(B, self.n_heads, L, -1)  # (B, H, L, P*3)
+        cross_term = torch.matmul(q_flat, k_flat.transpose(-1, -2))  # (B, H, L, L)
+
+        pt_dists = (q_norm_sq + k_norm_sq - 2 * cross_term).clamp(min=0.0)
+
+        gamma = torch.nn.functional.softplus(self.head_weights).view(1, self.n_heads, 1, 1)
+        point_attn = -0.5 * gamma * pt_dists
 
         # Combined attention
         attn_logits = scalar_attn + point_attn
@@ -182,21 +191,21 @@ class InvariantPointAttention(nn.Module):
         attn = torch.softmax(attn_logits, dim=-1)
 
         # Aggregate scalar values
-        result_scalar = torch.einsum("bhij,bjhd->bihd", attn, v_s)
-        result_scalar = result_scalar.reshape(B, L, self.n_heads * self.head_dim)
+        v_s_perm = v_s.permute(0, 2, 1, 3)  # (B, H, L, D/H)
+        result_scalar = torch.matmul(attn, v_s_perm)  # (B, H, L, D/H)
+        result_scalar = result_scalar.transpose(1, 2).reshape(B, L, self.n_heads * self.head_dim)
 
         # Aggregate point values
-        v_pts_perm = v_pts_global.permute(0, 2, 1, 3, 4)  # (B, H, L, Pv, 3)
-        result_pts = torch.einsum("bhij,bhjpc->bhipc", attn, v_pts_perm)
+        # v_pts_perm: (B, H, L, Pv, 3) -> flatten (Pv, 3)
+        v_pts_perm = v_pts_global.permute(0, 2, 1, 3, 4)
+        v_pts_flat = v_pts_perm.reshape(B, self.n_heads, L, -1)
+        result_pts_flat = torch.matmul(attn, v_pts_flat)  # (B, H, L, Pv*3)
+        result_pts = result_pts_flat.reshape(B, self.n_heads, L, self.n_value_points, 3)
         result_pts = result_pts.permute(0, 2, 1, 3, 4)  # (B, L, H, Pv, 3)
 
         # Transform back to local frame
         R_inv = rotations.transpose(-1, -2).unsqueeze(2).unsqueeze(3)
-        result_pts_local = torch.einsum(
-            "blhpc,blhpcd->blhpd",
-            result_pts - T,
-            R_inv.expand(-1, -1, self.n_heads, self.n_value_points, -1, -1),
-        )
+        result_pts_local = torch.matmul((result_pts - T).unsqueeze(-2), R_inv).squeeze(-2)
 
         # Point norms
         result_pts_norm = torch.norm(result_pts_local, dim=-1)  # (B, L, H, Pv)
