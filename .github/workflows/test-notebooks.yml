@@ -291,12 +291,12 @@ jobs:
                   nb = nbformat.read(f, as_version=4)
               
               # Create limited version (first 5 cells only)
-              limited_nb = nbformat.v4.new_notebook()
+              limited_nb = nbformat.new_notebook()
               limited_nb.cells = nb.cells[:min(5, len(nb.cells))]
               
               # Add a final cell to verify execution
               limited_nb.cells.append(
-                  nbformat.v4.new_code_cell('print("✓ Dry-run completed successfully")')
+                  nbformat.new_code_cell('print("✓ Dry-run completed successfully")')
               )
               
               out_path = f"test_outputs/{os.path.basename(nb_path)}"
@@ -368,7 +368,7 @@ jobs:
       
       - name: Upload execution results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v6
         with:
           name: executed-notebooks
           path: |
