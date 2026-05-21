@@ -115,7 +115,7 @@ jobs:
     
     - name: Upload executed notebook
       if: always()
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v4
       with:
         name: executed-${{ matrix.notebook }}
         path: /tmp/executed/${{ matrix.notebook }}
