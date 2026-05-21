@@ -156,6 +156,48 @@ jobs:
           for nb_path in glob.glob('examples/*.ipynb'):
               with open(nb_path, 'r', encoding='utf-8') as f:
                   nb = nbformat.read(f, as_version=4)
+
+              for i, cell in enumerate(nb.cells):
+                  if cell.cell_type == 'code':
+                      source = ''.join(cell.source)
+                      if not source.strip():
+                          continue
+
+                      # Filter out lines with shell commands or magic
+                      lines = [line for line in source.split('
+') if not line.strip().startswith(('!', '%'))]
+                      clean_source = '
+'.join(lines)
+
+                      if not clean_source.strip():
+                          continue
+
+                      try:
+                          ast.parse(clean_source)
+                      except SyntaxError as e:
+                          errors.append(f"{nb_path} cell {i}: {str(e)}")
+                          print(f"✗ {nb_path} cell {i}: Syntax error")
+
+          if errors:
+              print(f"
+{len(errors)} syntax error(s) found:")
+              for error in errors:
+                  print(f"  {error}")
+              sys.exit(1)
+          else:
+              print("
+✓ All code cells have valid Python syntax")
+          EOF
+          import nbformat
+          import glob
+          import ast
+          import sys
+
+          errors = []
+
+          for nb_path in glob.glob('examples/*.ipynb'):
+              with open(nb_path, 'r', encoding='utf-8') as f:
+                  nb = nbformat.read(f, as_version=4)
               
               for i, cell in enumerate(nb.cells):
                   if cell.cell_type == 'code':
@@ -368,7 +410,7 @@ jobs:
       
       - name: Upload execution results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: executed-notebooks
           path: |
@@ -382,8 +424,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Install dependencies
+        run: pip install nbformat
       - name: Check Colab compatibility
         run: |
+          pip install nbformat
+
           python - <<'EOF'
           import nbformat
           import glob
