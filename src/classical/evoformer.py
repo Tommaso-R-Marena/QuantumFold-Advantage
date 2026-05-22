@@ -62,12 +62,26 @@ class PairUpdate(nn.Module):
         left = self.left_proj(h)   # (B, L, d_hidden)
         right = self.right_proj(h)  # (B, L, d_hidden)
 
-        # Outer product: (B, L, d_hidden) x (B, L, d_hidden) -> (B, L, L, d_hidden^2)
-        outer = torch.einsum("bid,bjc->bijdc", left, right)
-        B, L, _, d1, d2 = outer.shape
-        outer = outer.reshape(B, L, L, d1 * d2)
+        # Optimization ⚡: Instead of computing the massive (B, L, L, d_hidden^2) outer product
+        # and then projecting it, we reorder the computation to stay in smaller dimensions.
+        # Original: (L_i * L_j) -> (L_i * L_j * D^2) -> (L_i * L_j * P)
+        # Optimized: (P * D^2) -> (P * D * L_j) -> (L_i * L_j * P)
+        # This significantly reduces memory overhead from O(L^2 * D^2) to O(L^2 * P) or O(L * D * P).
 
-        return pair + self.out_proj(outer)
+        B, L, D = left.shape
+        P = self.out_proj.out_features
+        # Weight: (P, D*D) -> (P, D, D)
+        W = self.out_proj.weight.view(P, D, D)
+
+        # Step 1: Contract Right projection with Output projection weights
+        # (P, D_left, D_right) @ (B, L_j, D_right) -> (B, L_j, P, D_left)
+        intermediate = torch.einsum("pdc,bjc->bjpd", W, right)
+
+        # Step 2: Contract Left projection with the result
+        # (B, L_i, D_left) @ (B, L_j, P, D_left) -> (B, L_i, L_j, P)
+        out = torch.einsum("bid,bjpd->bijp", left, intermediate)
+
+        return pair + out + self.out_proj.bias
 
 
 class EvoformerBlock(nn.Module):
