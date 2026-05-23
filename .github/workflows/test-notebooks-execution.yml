@@ -31,10 +31,10 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v4
     
     - name: Set up Python 3.10
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
         cache: 'pip'
@@ -115,7 +115,7 @@ jobs:
     
     - name: Upload executed notebook
       if: always()
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v4
       with:
         name: executed-${{ matrix.notebook }}
         path: /tmp/executed/${{ matrix.notebook }}
@@ -128,10 +128,10 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v4
     
     - name: Set up Python 3.10
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
     
@@ -139,7 +139,7 @@ jobs:
       run: |
         pip install --upgrade pip
         # Add nbconvert for ExecutePreprocessor import in test file
-        pip install pytest nbformat nbconvert torch
+        pip install pytest nbformat nbconvert torch numpy
     
     - name: Run structure tests
       run: |
@@ -147,7 +147,7 @@ jobs:
     
     - name: Run content tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookContent -v
+        pytest tests/test_notebook_execution.py::TestNotebookContentCoverage -v
   
   test-production-notebook:
     name: Test Production Notebook
@@ -156,10 +156,10 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v4
     
     - name: Set up Python 3.10
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
     
@@ -174,41 +174,17 @@ jobs:
     
     - name: Test configuration cells
       run: |
-        pytest tests/test_production_notebook.py::TestConfigurationCells -v
+        pytest tests/test_production_notebook.py::TestConfigurationAndSetup -v
     
-    - name: Test data processing
+    - name: Test data training evaluation flow
       run: |
         pytest tests/test_production_notebook.py::TestDataTrainingEvaluationFlow -v
     
-    - name: Test model training
-      run: |
-        pytest tests/test_production_notebook.py::TestDataTrainingEvaluationFlow -v
-    
-    - name: Test evaluation
-      run: |
-        pytest tests/test_production_notebook.py::TestDataTrainingEvaluationFlow -v
-    
-    - name: Test visualization
+    - name: Test visualization and export
       run: |
         pytest tests/test_production_notebook.py::TestVisualizationAndExport -v
     
-    - name: Test results export
-      run: |
-        pytest tests/test_production_notebook.py::TestVisualizationAndExport -v
-    
-    - name: Test memory management
-      run: |
-        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
-    
-    - name: Test error handling
-      run: |
-        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
-    
-    - name: Test reproducibility
-      run: |
-        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
-    
-    - name: Test documentation
+    - name: Test reliability and reproducibility
       run: |
         pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
   
