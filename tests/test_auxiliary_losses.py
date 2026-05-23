@@ -1,4 +1,5 @@
 """Tests for auxiliary geometric losses in structure module."""
+
 import pytest
 import torch
 
@@ -15,14 +16,14 @@ def test_auxiliary_losses_present_and_valid():
     with torch.no_grad():
         output = model(x)
 
-    aux = output['aux_losses']
+    aux = output["aux_losses"]
 
     expected_keys = [
-        'clash_penalty',
-        'bond_length_loss',
-        'bond_angle_violation',
-        'chirality_constraint',
-        'distance_geometry_loss'
+        "clash_penalty",
+        "bond_length_loss",
+        "bond_angle_violation",
+        "chirality_constraint",
+        "distance_geometry_loss",
     ]
 
     for key in expected_keys:
@@ -50,7 +51,7 @@ def test_bond_length_loss_at_target():
     with torch.no_grad():
         structure_out = model.structure_module(s, z, coords)
 
-    bond_loss = structure_out['bond_length_loss'].item()
+    bond_loss = structure_out["bond_length_loss"].item()
     assert bond_loss < 0.01, f"Bond length loss {bond_loss} should be < 0.01 for ideal bonds"
     print(f"✓ Bond length loss for ideal geometry: {bond_loss:.8f}")
 
@@ -67,17 +68,18 @@ def test_clash_penalty_increases_with_overlap():
 
     with torch.no_grad():
         out_sep = model.structure_module(s, z, coords_separated)
-        clash_sep = out_sep['clash_penalty'].item()
+        clash_sep = out_sep["clash_penalty"].item()
 
     coords_overlap = torch.zeros(1, 10, 3)
     coords_overlap[0, :, 0] = torch.arange(10) * 0.5
 
     with torch.no_grad():
         out_over = model.structure_module(s, z, coords_overlap)
-        clash_over = out_over['clash_penalty'].item()
+        clash_over = out_over["clash_penalty"].item()
 
-    assert clash_over > clash_sep * 5, \
-        f"Clash penalty should increase: separated={clash_sep:.4f}, overlap={clash_over:.4f}"
+    assert (
+        clash_over > clash_sep * 5
+    ), f"Clash penalty should increase: separated={clash_sep:.4f}, overlap={clash_over:.4f}"
     print(f"✓ Clash penalty: separated={clash_sep:.6f}, overlapping={clash_over:.6f}")
 
 
