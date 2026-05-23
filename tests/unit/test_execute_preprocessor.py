@@ -1,8 +1,9 @@
+import nbformat
 from nbconvert.preprocessors import ExecutePreprocessor
 
 
 def _run(source, allow_errors=False):
-    nb = {"cells": [{"cell_type": "code", "source": source}], "metadata": {}}
+    nb = nbformat.v4.new_notebook(cells=[nbformat.v4.new_code_cell(source)])
     ep = ExecutePreprocessor(allow_errors=allow_errors)
     return ep.preprocess(nb, {"metadata": {}})[0]
 

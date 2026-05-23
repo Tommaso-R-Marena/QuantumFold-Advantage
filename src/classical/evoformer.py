@@ -59,15 +59,27 @@ class PairUpdate(nn.Module):
             Updated pair: (B, L, L, d_pair)
         """
         h = self.norm(s)
-        left = self.left_proj(h)   # (B, L, d_hidden)
+        left = self.left_proj(h)  # (B, L, d_hidden)
         right = self.right_proj(h)  # (B, L, d_hidden)
 
-        # Outer product: (B, L, d_hidden) x (B, L, d_hidden) -> (B, L, L, d_hidden^2)
-        outer = torch.einsum("bid,bjc->bijdc", left, right)
-        B, L, _, d1, d2 = outer.shape
-        outer = outer.reshape(B, L, L, d1 * d2)
+        # Optimized: Avoid creating large (B, L, L, d_hidden^2) intermediate tensor.
+        # Apply projection weights directly within einsum for better memory efficiency.
+        # self.out_proj.weight: (d_pair, d_hidden * d_hidden)
+        d_pair = self.out_proj.out_features
+        d_hidden = self.left_proj.out_features
+        # Use reshape instead of view for robustness to non-contiguous tensors
+        weight = self.out_proj.weight.reshape(d_pair, d_hidden, d_hidden)
 
-        return pair + self.out_proj(outer)
+        # Optimized reordering: (B, L, d_hidden) x (d_pair, d_hidden, d_hidden) -> (B, L, d_pair, d_hidden)
+        # then (B, L, d_pair, d_hidden) x (B, L, d_hidden) -> (B, L, L, d_pair)
+        # This is much faster than a single 3-tensor einsum or forming the large outer product.
+        tmp = torch.einsum("bid,pdc->bipc", left, weight)
+        update = torch.einsum("bipc,bjc->bijp", tmp, right)
+
+        if self.out_proj.bias is not None:
+            update = update + self.out_proj.bias
+
+        return pair + update
 
 
 class EvoformerBlock(nn.Module):
@@ -138,9 +150,7 @@ class EvoformerStack(nn.Module):
             [EvoformerBlock(d_model, d_pair, n_heads, dropout) for _ in range(n_blocks)]
         )
 
-    def forward(
-        self, s: Tensor, pair: Tensor, mask: Optional[Tensor] = None
-    ) -> tuple:
+    def forward(self, s: Tensor, pair: Tensor, mask: Optional[Tensor] = None) -> tuple:
         for block in self.blocks:
             s, pair = block(s, pair, mask=mask)
         return s, pair

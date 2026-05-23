@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 import nbformat
+import pytest
 from nbconvert.preprocessors import ExecutePreprocessor
 
 NOTEBOOKS_DIR = Path(__file__).parent.parent / "examples"
@@ -91,7 +90,7 @@ def notebook_stats(nb) -> dict:
     return stats
 
 
-class TestNotebookExecution:
+class TestNotebookStructure:
     @pytest.mark.parametrize("name", EXECUTION_TARGETS)
     def test_notebook_file_exists(self, name):
         assert (NOTEBOOKS_DIR / name).exists(), f"Missing notebook: {name}"
