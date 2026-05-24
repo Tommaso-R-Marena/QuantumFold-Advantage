@@ -8,7 +8,6 @@ import torch.nn as nn
 
 
 class LigandGraphEncoder(nn.Module):
-    def __init__(self, node_features: int = 64, edge_features: int = 32, use_3d_coords: bool = True):
     def __init__(
         self, node_features: int = 64, edge_features: int = 32, use_3d_coords: bool = True
     ):
@@ -19,14 +18,5 @@ class LigandGraphEncoder(nn.Module):
     def forward(self, ligand_data) -> torch.Tensor:
         x = ligand_data.x
         for layer in self.layers:
-            x = torch.relu(layer(x))
+            x = layer(x)
         return x
-
-
-class LigandConformerGenerator:
-    def __init__(self, method: str = "rdkit"):
-        self.method = method
-
-    def generate_conformers(self, smiles: str, n_conformers: int = 10) -> List[np.ndarray]:
-        n_atoms = max(4, len(smiles) // 2)
-        return [np.random.randn(n_atoms, 3).astype(np.float32) for _ in range(n_conformers)]
