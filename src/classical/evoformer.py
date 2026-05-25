@@ -45,8 +45,6 @@ class PairUpdate(nn.Module):
 
     def __init__(self, d_model: int = 128, d_pair: int = 64, d_hidden: int = 32):
         super().__init__()
-        self.d_hidden = d_hidden
-        self.d_pair = d_pair
         self.norm = nn.LayerNorm(d_model)
         self.left_proj = nn.Linear(d_model, d_hidden)
         self.right_proj = nn.Linear(d_model, d_hidden)
@@ -64,16 +62,28 @@ class PairUpdate(nn.Module):
         left = self.left_proj(h)  # (B, L, d_hidden)
         right = self.right_proj(h)  # (B, L, d_hidden)
 
-        # Optimized two-step contraction to avoid (B, L, L, d_hidden^2) tensor
-        # Reinterpret out_proj weights as (d_pair, d_hidden, d_hidden)
-        w = self.out_proj.weight.reshape(self.d_pair, self.d_hidden, self.d_hidden)
+        # Optimized two-step contraction to avoid O(L^2 * d_hidden^2) intermediate tensor.
+        # Original: outer = torch.einsum("bid,bjc->bijdc", left, right) (B, L, L, d, d)
+        # Optimized:
+        # 1. (B, L, d) @ (d_pair, d, d) -> (B, L, d_pair, d)
+        # 2. (B, L, d_pair, d) @ (B, L, d) -> (B, L, L, d_pair)
 
-        # Step 1: (B, L, d_hidden) x (d_pair, d_hidden, d_hidden) -> (B, L, d_pair, d_hidden)
-        intermediate = torch.einsum("bid,pdc->bipc", left, w)
-        # Step 2: (B, L, d_pair, d_hidden) x (B, L, d_hidden) -> (B, L, L, d_pair)
-        update = torch.einsum("bipc,bjc->bijp", intermediate, right)
+        # out_proj weight is (d_pair, d_hidden * d_hidden)
+        d_h = left.shape[-1]
+        w = self.out_proj.weight.reshape(-1, d_h, d_h)
 
-        return pair + update + self.out_proj.bias
+        # Step 1: Contract left with weight
+        # (B, i, d) * (p, d, c) -> (B, i, p, c)
+        tmp = torch.einsum("bid,pdc->bipc", left, w)
+
+        # Step 2: Contract with right
+        # (B, i, p, c) * (B, j, c) -> (B, i, j, p)
+        update = torch.einsum("bipc,bjc->bijp", tmp, right)
+
+        if self.out_proj.bias is not None:
+            update = update + self.out_proj.bias
+
+        return pair + update
 
 
 class EvoformerBlock(nn.Module):
@@ -144,7 +154,9 @@ class EvoformerStack(nn.Module):
             [EvoformerBlock(d_model, d_pair, n_heads, dropout) for _ in range(n_blocks)]
         )
 
-    def forward(self, s: Tensor, pair: Tensor, mask: Optional[Tensor] = None) -> tuple:
+    def forward(
+        self, s: Tensor, pair: Tensor, mask: Optional[Tensor] = None
+    ) -> tuple:
         for block in self.blocks:
             s, pair = block(s, pair, mask=mask)
         return s, pair

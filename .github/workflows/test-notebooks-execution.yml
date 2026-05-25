@@ -31,10 +31,10 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     
     - name: Set up Python 3.10
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v6
       with:
         python-version: '3.10'
         cache: 'pip'
@@ -66,7 +66,6 @@ jobs:
         
         # Install notebook execution tools
         pip install nbconvert nbformat jupyter ipykernel
-        python -m ipykernel install --user --name python3
     
     - name: Verify NumPy version
       run: |
@@ -116,7 +115,7 @@ jobs:
     
     - name: Upload executed notebook
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: executed-${{ matrix.notebook }}
         path: /tmp/executed/${{ matrix.notebook }}
@@ -129,10 +128,10 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     
     - name: Set up Python 3.10
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v6
       with:
         python-version: '3.10'
     
@@ -140,7 +139,7 @@ jobs:
       run: |
         pip install --upgrade pip
         # Add nbconvert for ExecutePreprocessor import in test file
-        pip install pytest nbformat nbconvert torch numpy pandas matplotlib seaborn psutil scipy
+        pip install pytest nbformat nbconvert torch
     
     - name: Run structure tests
       run: |
@@ -148,7 +147,7 @@ jobs:
     
     - name: Run content tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookContentCoverage -v
+        pytest tests/test_notebook_execution.py::TestNotebookContent -v
   
   test-production-notebook:
     name: Test Production Notebook
@@ -157,17 +156,17 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     
     - name: Set up Python 3.10
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v6
       with:
         python-version: '3.10'
     
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install pytest nbformat nbconvert torch numpy pandas matplotlib seaborn psutil scipy
+        pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil
     
     - name: Test notebook structure
       run: |
@@ -175,43 +174,43 @@ jobs:
     
     - name: Test configuration cells
       run: |
-        pytest tests/test_production_notebook.py::TestConfigurationAndSetup -v
+        pytest tests/test_production_notebook.py::TestConfigurationCells -v
     
     - name: Test data processing
       run: |
-        pytest tests/test_production_notebook.py::TestDataTrainingEvaluationFlow -v
+        pytest tests/test_production_notebook.py::TestDataProcessing -v
     
     - name: Test model training
       run: |
-        pytest tests/test_production_notebook.py::TestDataTrainingEvaluationFlow -v
+        pytest tests/test_production_notebook.py::TestModelTraining -v
     
     - name: Test evaluation
       run: |
-        pytest tests/test_production_notebook.py::TestDataTrainingEvaluationFlow -v
+        pytest tests/test_production_notebook.py::TestEvaluation -v
     
     - name: Test visualization
       run: |
-        pytest tests/test_production_notebook.py::TestVisualizationAndExport -v
+        pytest tests/test_production_notebook.py::TestVisualization -v
     
     - name: Test results export
       run: |
-        pytest tests/test_production_notebook.py::TestVisualizationAndExport -v
+        pytest tests/test_production_notebook.py::TestResultsExport -v
     
     - name: Test memory management
       run: |
-        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
+        pytest tests/test_production_notebook.py::TestMemoryManagement -v
     
     - name: Test error handling
       run: |
-        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
+        pytest tests/test_production_notebook.py::TestErrorHandling -v
     
     - name: Test reproducibility
       run: |
-        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
+        pytest tests/test_production_notebook.py::TestReproducibility -v
     
     - name: Test documentation
       run: |
-        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
+        pytest tests/test_production_notebook.py::TestDocumentation -v
   
   summary:
     name: Test Summary
