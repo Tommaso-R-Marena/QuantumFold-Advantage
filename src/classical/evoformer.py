@@ -59,15 +59,24 @@ class PairUpdate(nn.Module):
             Updated pair: (B, L, L, d_pair)
         """
         h = self.norm(s)
-        left = self.left_proj(h)   # (B, L, d_hidden)
+        left = self.left_proj(h)  # (B, L, d_hidden)
         right = self.right_proj(h)  # (B, L, d_hidden)
 
-        # Outer product: (B, L, d_hidden) x (B, L, d_hidden) -> (B, L, L, d_hidden^2)
-        outer = torch.einsum("bid,bjc->bijdc", left, right)
-        B, L, _, d1, d2 = outer.shape
-        outer = outer.reshape(B, L, L, d1 * d2)
+        # Optimized two-step contraction to avoid O(L^2 * d_hidden^2) intermediate tensor.
+        # out_proj weight is (d_pair, d_hidden * d_hidden)
+        d_h = left.shape[-1]
+        w = self.out_proj.weight.reshape(-1, d_h, d_h)
 
-        return pair + self.out_proj(outer)
+        # Step 1: Contract left with weight: (B, i, d) * (p, d, c) -> (B, i, p, c)
+        tmp = torch.einsum("bid,pdc->bipc", left, w)
+
+        # Step 2: Contract with right: (B, i, p, c) * (B, j, c) -> (B, i, j, p)
+        update = torch.einsum("bipc,bjc->bijp", tmp, right)
+
+        if self.out_proj.bias is not None:
+            update = update + self.out_proj.bias
+
+        return pair + update
 
 
 class EvoformerBlock(nn.Module):
