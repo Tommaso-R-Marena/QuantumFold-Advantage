@@ -63,21 +63,14 @@ class PairUpdate(nn.Module):
         right = self.right_proj(h)  # (B, L, d_hidden)
 
         # Optimized two-step contraction to avoid O(L^2 * d_hidden^2) intermediate tensor.
-        # Original: outer = torch.einsum("bid,bjc->bijdc", left, right) (B, L, L, d, d)
-        # Optimized:
-        # 1. (B, L, d) @ (d_pair, d, d) -> (B, L, d_pair, d)
-        # 2. (B, L, d_pair, d) @ (B, L, d) -> (B, L, L, d_pair)
-
         # out_proj weight is (d_pair, d_hidden * d_hidden)
         d_h = left.shape[-1]
         w = self.out_proj.weight.reshape(-1, d_h, d_h)
 
-        # Step 1: Contract left with weight
-        # (B, i, d) * (p, d, c) -> (B, i, p, c)
+        # Step 1: Contract left with weight: (B, i, d) * (p, d, c) -> (B, i, p, c)
         tmp = torch.einsum("bid,pdc->bipc", left, w)
 
-        # Step 2: Contract with right
-        # (B, i, p, c) * (B, j, c) -> (B, i, j, p)
+        # Step 2: Contract with right: (B, i, p, c) * (B, j, c) -> (B, i, j, p)
         update = torch.einsum("bipc,bjc->bijp", tmp, right)
 
         if self.out_proj.bias is not None:
