@@ -22,12 +22,12 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -135,7 +135,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       
@@ -163,19 +163,26 @@ jobs:
                       if not source.strip():
                           continue
                       
-                      # Skip cells with shell commands
-                      if source.strip().startswith('!'):
-                          continue
+                      # Filter lines with shell commands or IPython magic
+                      lines = source.splitlines()
+                      filtered_lines = []
+                      for line in lines:
+                          stripped = line.strip()
+                          if stripped.startswith('!') or stripped.startswith('%'):
+                              # Preserve indentation
+                              indent = len(line) - len(line.lstrip())
+                              filtered_lines.append(' ' * indent + 'pass')
+                          else:
+                              filtered_lines.append(line)
                       
-                      # Skip cells with IPython magic
-                      if source.strip().startswith('%'):
-                          continue
+                      source_to_check = '\n'.join(filtered_lines)
                       
                       try:
-                          ast.parse(source)
+                          ast.parse(source_to_check)
                       except SyntaxError as e:
                           errors.append(f"{nb_path} cell {i}: {str(e)}")
-                          print(f"✗ {nb_path} cell {i}: Syntax error")
+                          print(f"✗ {nb_path} cell {i}: Syntax error in {nb_path} cell {i}")
+                          print(f"--- SOURCE ---\n{source_to_check}\n--------------")
           
           if errors:
               print(f"\n{len(errors)} syntax error(s) found:")
@@ -194,7 +201,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       
@@ -251,12 +258,12 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-notebook-test-${{ hashFiles('**/requirements.txt') }}
@@ -327,7 +334,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       
@@ -368,7 +375,7 @@ jobs:
       
       - name: Upload execution results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: executed-notebooks
           path: |
@@ -382,6 +389,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install nbformat
+
       - name: Check Colab compatibility
         run: |
           python - <<'EOF'
