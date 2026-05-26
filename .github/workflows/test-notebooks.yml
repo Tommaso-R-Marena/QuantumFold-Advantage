@@ -163,19 +163,26 @@ jobs:
                       if not source.strip():
                           continue
                       
-                      # Skip cells with shell commands
-                      if source.strip().startswith('!'):
-                          continue
+                      # Filter lines with shell commands or IPython magic
+                      lines = source.splitlines()
+                      filtered_lines = []
+                      for line in lines:
+                          stripped = line.strip()
+                          if stripped.startswith('!') or stripped.startswith('%'):
+                              # Preserve indentation
+                              indent = len(line) - len(line.lstrip())
+                              filtered_lines.append(' ' * indent + 'pass')
+                          else:
+                              filtered_lines.append(line)
                       
-                      # Skip cells with IPython magic
-                      if source.strip().startswith('%'):
-                          continue
+                      source_to_check = '\n'.join(filtered_lines)
                       
                       try:
-                          ast.parse(source)
+                          ast.parse(source_to_check)
                       except SyntaxError as e:
                           errors.append(f"{nb_path} cell {i}: {str(e)}")
-                          print(f"✗ {nb_path} cell {i}: Syntax error")
+                          print(f"✗ {nb_path} cell {i}: Syntax error in {nb_path} cell {i}")
+                          print(f"--- SOURCE ---\n{source_to_check}\n--------------")
           
           if errors:
               print(f"\n{len(errors)} syntax error(s) found:")
@@ -382,6 +389,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install nbformat
+
       - name: Check Colab compatibility
         run: |
           python - <<'EOF'
