@@ -354,6 +354,12 @@ jobs:
         run: |
           # Create minimal test version
           python - <<'EOF'
+          import sys
+          import subprocess
+          try:
+              import nbformat
+          except ImportError:
+              subprocess.check_call([sys.executable, "-m", "pip", "install", "nbformat"])
           import nbformat
           
           try:
@@ -403,6 +409,12 @@ jobs:
       - name: Check Colab compatibility
         run: |
           python - <<'EOF'
+          import sys
+          import subprocess
+          try:
+              import nbformat
+          except ImportError:
+              subprocess.check_call([sys.executable, "-m", "pip", "install", "nbformat"])
           import nbformat
           import glob
           import json
