@@ -174,7 +174,7 @@ jobs:
     
     - name: Test configuration cells
       run: |
-        pytest tests/test_production_notebook.py::TestConfigurationCells -v
+        pytest tests/test_production_notebook.py -v
     
     - name: Test data processing
       run: |
