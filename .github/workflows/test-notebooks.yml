@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       
@@ -43,6 +43,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          from nbformat import v4 as nbf
           import glob
           import sys
           
@@ -67,6 +68,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          from nbformat import v4 as nbf
           import glob
           
           warnings = []
@@ -93,6 +95,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          from nbformat import v4 as nbf
           import glob
           import re
           
@@ -135,7 +138,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       
@@ -147,6 +150,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          from nbformat import v4 as nbf
           import glob
           import ast
           import sys
@@ -163,16 +167,18 @@ jobs:
                       if not source.strip():
                           continue
                       
-                      # Skip cells with shell commands
-                      if source.strip().startswith('!'):
-                          continue
-                      
-                      # Skip cells with IPython magic
-                      if source.strip().startswith('%'):
-                          continue
+                      # Replace shell commands and magics with pass to preserve structure
+                      lines = []
+                      for line in source.splitlines():
+                          if line.strip().startswith('!') or line.strip().startswith('%'):
+                              indent = len(line) - len(line.lstrip())
+                              lines.append(' ' * indent + 'pass')
+                          else:
+                              lines.append(line)
+                      source_to_parse = '\n'.join(lines)
                       
                       try:
-                          ast.parse(source)
+                          ast.parse(source_to_parse)
                       except SyntaxError as e:
                           errors.append(f"{nb_path} cell {i}: {str(e)}")
                           print(f"✗ {nb_path} cell {i}: Syntax error")
@@ -194,7 +200,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       
@@ -206,6 +212,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          from nbformat import v4 as nbf
           import glob
           import re
           from collections import defaultdict
@@ -251,7 +258,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       
@@ -273,6 +280,7 @@ jobs:
           mkdir -p test_outputs
           python - <<'EOF'
           import nbformat
+          from nbformat import v4 as nbf
           import glob
           import os
           
@@ -291,17 +299,21 @@ jobs:
                   nb = nbformat.read(f, as_version=4)
               
               # Create limited version (first 5 cells only)
-              limited_nb = nbformat.v4.new_notebook()
+              limited_nb = nbf.new_notebook()
               limited_nb.cells = nb.cells[:min(5, len(nb.cells))]
               
               # Add a final cell to verify execution
               limited_nb.cells.append(
-                  nbformat.v4.new_code_cell('print("✓ Dry-run completed successfully")')
+                  nbf.new_code_cell('print("✓ Dry-run completed successfully")')
               )
               
+              # Ensure metadata is present
+              if not hasattr(limited_nb, 'metadata') or not limited_nb.metadata:
+                  limited_nb.metadata = nb.metadata
+
               out_path = f"test_outputs/{os.path.basename(nb_path)}"
               with open(out_path, 'w', encoding='utf-8') as f:
-                  nbformat.write(limited_nb, f)
+                  json.dump(limited_nb, f, indent=1)
               
               print(f"Created limited test notebook: {out_path}")
           EOF
@@ -327,7 +339,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       
@@ -342,6 +354,7 @@ jobs:
           # Create minimal test version
           python - <<'EOF'
           import nbformat
+          from nbformat import v4 as nbf
           
           with open('examples/colab_quickstart.ipynb', 'r') as f:
               nb = nbformat.read(f, as_version=4)
@@ -357,8 +370,9 @@ jobs:
                   if 'epochs' in source:
                       cell.source = source.replace('epochs=', 'epochs=1 # CI:')
           
+          import json
           with open('test_quickstart.ipynb', 'w') as f:
-              nbformat.write(nb, f)
+              json.dump(nb, f, indent=1)
           EOF
           
           timeout 600 jupyter nbconvert --to notebook --execute \
@@ -368,7 +382,7 @@ jobs:
       
       - name: Upload execution results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: executed-notebooks
           path: |
@@ -386,6 +400,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          from nbformat import v4 as nbf
           import glob
           import json
           
