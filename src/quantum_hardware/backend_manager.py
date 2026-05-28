@@ -14,7 +14,9 @@ class JobHandle:
 
 
 class QuantumBackendManager:
-    def __init__(self, provider: str = "ibm", credentials_path: Path = Path("~/.quantum_credentials.json")):
+    def __init__(
+        self, provider: str = "ibm", credentials_path: Path = Path("~/.quantum_credentials.json")
+    ):
         self.provider = provider
         self.credentials = self.load_credentials(credentials_path.expanduser())
 
