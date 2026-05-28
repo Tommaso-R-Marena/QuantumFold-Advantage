@@ -139,7 +139,7 @@ jobs:
       run: |
         pip install --upgrade pip
         # Add nbconvert for ExecutePreprocessor import in test file
-        pip install pytest nbformat nbconvert torch
+        pip install pytest nbformat nbconvert torch numpy
     
     - name: Run structure tests
       run: |
@@ -166,51 +166,42 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil
+        pip install pytest nbformat nbconvert torch numpy pandas matplotlib seaborn psutil
     
-    - name: Test notebook structure
+    - name: Test production notebook
       run: |
-        pytest tests/test_production_notebook.py::TestNotebookStructure -v
+        pytest tests/test_production_notebook.py -v
     
-    - name: Test configuration cells
+    - name: Test production notebook
       run: |
         pytest tests/test_production_notebook.py -v
     
     - name: Test data processing
       run: |
-        pytest tests/test_production_notebook.py::TestDataProcessing -v
     
     - name: Test model training
       run: |
-        pytest tests/test_production_notebook.py::TestModelTraining -v
     
     - name: Test evaluation
       run: |
-        pytest tests/test_production_notebook.py::TestEvaluation -v
     
     - name: Test visualization
       run: |
-        pytest tests/test_production_notebook.py::TestVisualization -v
     
     - name: Test results export
       run: |
-        pytest tests/test_production_notebook.py::TestResultsExport -v
     
     - name: Test memory management
       run: |
-        pytest tests/test_production_notebook.py::TestMemoryManagement -v
     
     - name: Test error handling
       run: |
-        pytest tests/test_production_notebook.py::TestErrorHandling -v
     
     - name: Test reproducibility
       run: |
-        pytest tests/test_production_notebook.py::TestReproducibility -v
     
     - name: Test documentation
       run: |
-        pytest tests/test_production_notebook.py::TestDocumentation -v
   
   summary:
     name: Test Summary
