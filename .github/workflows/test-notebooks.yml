@@ -19,15 +19,15 @@ jobs:
         python-version: ['3.8', '3.9', '3.10']
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -105,6 +105,7 @@ jobs:
               for i, cell in enumerate(nb.cells):
                   if cell.cell_type == 'code':
                       source = ''.join(cell.source)
+            source = source.replace("%", "# %").replace("!", "# !")
                       
                       # Check for hardcoded paths
                       if re.search(r'/home/|C:\\\\|D:\\\\', source):
@@ -132,10 +133,10 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
       
@@ -160,6 +161,7 @@ jobs:
               for i, cell in enumerate(nb.cells):
                   if cell.cell_type == 'code':
                       source = ''.join(cell.source)
+            source = source.replace("%", "# %").replace("!", "# !")
                       if not source.strip():
                           continue
                       
@@ -191,10 +193,10 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
       
@@ -219,6 +221,7 @@ jobs:
               for cell in nb.cells:
                   if cell.cell_type == 'code':
                       source = ''.join(cell.source)
+            source = source.replace("%", "# %").replace("!", "# !")
                       
                       # Find import statements
                       for match in re.finditer(r'^import (\S+)', source, re.M):
@@ -248,15 +251,15 @@ jobs:
     timeout-minutes: 30
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
       
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-notebook-test-${{ hashFiles('**/requirements.txt') }}
@@ -324,10 +327,10 @@ jobs:
     if: github.event_name != 'schedule'  # Skip on scheduled runs
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
       
@@ -350,6 +353,7 @@ jobs:
           for cell in nb.cells:
               if cell.cell_type == 'code':
                   source = ''.join(cell.source)
+            source = source.replace("%", "# %").replace("!", "# !")
                   # Skip ESM-2 download
                   if 'ESM2Embedder' in source and 'esm2_t33' in source:
                       cell.source = 'print("Skipping ESM-2 for CI test")'
@@ -368,7 +372,7 @@ jobs:
       
       - name: Upload execution results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: executed-notebooks
           path: |
@@ -380,7 +384,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       
       - name: Check Colab compatibility
         run: |
