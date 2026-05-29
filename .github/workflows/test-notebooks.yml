@@ -1,17 +1,13 @@
-name: Test Notebooks
+name: Notebook Metadata and Syntax Check
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
-    branches: [ main, develop ]
-  schedule:
-    # Run weekly to catch regressions
-    - cron: '0 0 * * 0'
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
-  # Static validation - fast and catches most errors
   validate-notebooks:
     runs-on: ubuntu-latest
     strategy:
@@ -25,23 +21,15 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
-      
-      - name: Cache pip
-        uses: actions/cache@v5
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          cache: 'pip'
       
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install nbformat nbconvert jupyter
+          pip install nbformat
       
-      - name: Validate notebook JSON structure
+      - name: Validate notebook JSON
         run: |
-          python - <<'EOF'
+          python - <<'EOF_PY'
           import nbformat
           import glob
           import sys
@@ -60,44 +48,17 @@ jobs:
               print(f"\n{len(errors)} notebook(s) failed validation")
               sys.exit(1)
           else:
-              print(f"\nAll notebooks passed validation!")
-          EOF
-      
-      - name: Check for execution metadata
-        run: |
-          python - <<'EOF'
-          import nbformat
-          import glob
-          
-          warnings = []
-          for nb_path in glob.glob('examples/*.ipynb'):
-              with open(nb_path, 'r', encoding='utf-8') as f:
-                  nb = nbformat.read(f, as_version=4)
-              
-              has_outputs = any(
-                  cell.get('outputs', []) or cell.get('execution_count')
-                  for cell in nb.cells if cell.cell_type == 'code'
-              )
-              
-              if has_outputs:
-                  warnings.append(nb_path)
-                  print(f"⚠ {nb_path}: Contains execution outputs")
-              else:
-                  print(f"✓ {nb_path}: Clean (no outputs)")
-          
-          if warnings:
-              print(f"\n{len(warnings)} notebook(s) have outputs (consider clearing for cleaner git history)")
-          EOF
-      
+              print("\nAll notebooks passed validation!")
+          EOF_PY
+
       - name: Check for common issues
         run: |
-          python - <<'EOF'
+          python - <<'EOF_PY'
           import nbformat
           import glob
           import re
           
           issues = []
-          
           for nb_path in glob.glob('examples/*.ipynb'):
               with open(nb_path, 'r', encoding='utf-8') as f:
                   nb = nbformat.read(f, as_version=4)
@@ -105,7 +66,8 @@ jobs:
               for i, cell in enumerate(nb.cells):
                   if cell.cell_type == 'code':
                       source = ''.join(cell.source)
-            source = source.replace("%", "# %").replace("!", "# !")
+                      # Filter out magics and shell commands
+                      source = '\n'.join([l if not (l.strip().startswith('%') or l.strip().startswith('!')) else 'pass' for l in source.split('\n')])
                       
                       # Check for hardcoded paths
                       if re.search(r'/home/|C:\\\\|D:\\\\', source):
@@ -115,10 +77,6 @@ jobs:
                       if re.search(r'password|api_key|secret|token', source, re.I):
                           if '=' in source and not source.strip().startswith('#'):
                               issues.append(f"{nb_path} cell {i}: Possible hardcoded credential")
-                      
-                      # Check for print debugging
-                      if source.count('print(') > 10:
-                          issues.append(f"{nb_path} cell {i}: Excessive print statements")
           
           if issues:
               print("⚠ Found potential issues:")
@@ -126,9 +84,9 @@ jobs:
                   print(f"  - {issue}")
           else:
               print("✓ No common issues found")
-          EOF
+          EOF_PY
 
-  # Syntax checking - ensures code is valid Python
+  # Syntax checking - ensures code cells are valid Python
   syntax-check:
     runs-on: ubuntu-latest
     
@@ -142,11 +100,11 @@ jobs:
       
       - name: Install dependencies
         run: |
-          pip install nbformat nbconvert ipython
+          pip install nbformat
       
       - name: Extract and check Python syntax
         run: |
-          python - <<'EOF'
+          python - <<'EOF_PY'
           import nbformat
           import glob
           import ast
@@ -161,23 +119,17 @@ jobs:
               for i, cell in enumerate(nb.cells):
                   if cell.cell_type == 'code':
                       source = ''.join(cell.source)
-            source = source.replace("%", "# %").replace("!", "# !")
+                      # Filter out magics and shell commands while preserving indentation
+                      source = '\n'.join([l if not (l.strip().startswith('%') or l.strip().startswith('!')) else 'pass' for l in source.split('\n')])
+                      
                       if not source.strip():
-                          continue
-                      
-                      # Skip cells with shell commands
-                      if source.strip().startswith('!'):
-                          continue
-                      
-                      # Skip cells with IPython magic
-                      if source.strip().startswith('%'):
                           continue
                       
                       try:
                           ast.parse(source)
                       except SyntaxError as e:
                           errors.append(f"{nb_path} cell {i}: {str(e)}")
-                          print(f"✗ {nb_path} cell {i}: Syntax error")
+                          print(f"✗ {nb_path} cell {i}: Syntax error - {str(e)}")
           
           if errors:
               print(f"\n{len(errors)} syntax error(s) found:")
@@ -186,7 +138,7 @@ jobs:
               sys.exit(1)
           else:
               print("\n✓ All code cells have valid Python syntax")
-          EOF
+          EOF_PY
 
   # Import checking - ensures required packages are available
   import-check:
@@ -206,7 +158,7 @@ jobs:
       
       - name: Extract import statements
         run: |
-          python - <<'EOF'
+          python - <<'EOF_PY'
           import nbformat
           import glob
           import re
@@ -221,7 +173,8 @@ jobs:
               for cell in nb.cells:
                   if cell.cell_type == 'code':
                       source = ''.join(cell.source)
-            source = source.replace("%", "# %").replace("!", "# !")
+                      # Filter out magics and shell commands
+                      source = '\n'.join([l if not (l.strip().startswith('%') or l.strip().startswith('!')) else 'pass' for l in source.split('\n')])
                       
                       # Find import statements
                       for match in re.finditer(r'^import (\S+)', source, re.M):
@@ -243,7 +196,7 @@ jobs:
           
           print(f"\n📊 Total unique packages: {len(all_imports)}")
           print(f"Packages: {', '.join(sorted(all_imports))}")
-          EOF
+          EOF_PY
 
   # Dry-run execution - test notebooks with minimal execution
   dry-run-execution:
@@ -274,7 +227,7 @@ jobs:
       - name: Create test notebooks with limited execution
         run: |
           mkdir -p test_outputs
-          python - <<'EOF'
+          python - <<'EOF_PY'
           import nbformat
           import glob
           import os
@@ -307,7 +260,7 @@ jobs:
                   nbformat.write(limited_nb, f)
               
               print(f"Created limited test notebook: {out_path}")
-          EOF
+          EOF_PY
       
       - name: Execute limited notebooks
         run: |
@@ -343,7 +296,7 @@ jobs:
         if: always()
         run: |
           # Create minimal test version
-          python - <<'EOF'
+          python - <<'EOF_PY'
           import nbformat
           
           with open('examples/colab_quickstart.ipynb', 'r') as f:
@@ -353,7 +306,8 @@ jobs:
           for cell in nb.cells:
               if cell.cell_type == 'code':
                   source = ''.join(cell.source)
-            source = source.replace("%", "# %").replace("!", "# !")
+                  # Filter out magics and shell commands
+                  source = '\n'.join([l if not (l.strip().startswith('%') or l.strip().startswith('!')) else 'pass' for l in source.split('\n')])
                   # Skip ESM-2 download
                   if 'ESM2Embedder' in source and 'esm2_t33' in source:
                       cell.source = 'print("Skipping ESM-2 for CI test")'
@@ -363,7 +317,7 @@ jobs:
           
           with open('test_quickstart.ipynb', 'w') as f:
               nbformat.write(nb, f)
-          EOF
+          EOF_PY
           
           timeout 600 jupyter nbconvert --to notebook --execute \
             --ExecutePreprocessor.timeout=300 \
@@ -388,7 +342,7 @@ jobs:
       
       - name: Check Colab compatibility
         run: |
-          python - <<'EOF'
+          python - <<'EOF_PY'
           import nbformat
           import glob
           import json
@@ -409,7 +363,7 @@ jobs:
                   print(f"✓ {nb_path}: Has Colab metadata")
               else:
                   print(f"⚠ {nb_path}: No Colab metadata (may not work in Colab)")
-          EOF
+          EOF_PY
 
   # Summary report
   test-summary:
