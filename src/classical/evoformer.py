@@ -59,15 +59,31 @@ class PairUpdate(nn.Module):
             Updated pair: (B, L, L, d_pair)
         """
         h = self.norm(s)
-        left = self.left_proj(h)   # (B, L, d_hidden)
+        left = self.left_proj(h)  # (B, L, d_hidden)
         right = self.right_proj(h)  # (B, L, d_hidden)
 
-        # Outer product: (B, L, d_hidden) x (B, L, d_hidden) -> (B, L, L, d_hidden^2)
-        outer = torch.einsum("bid,bjc->bijdc", left, right)
-        B, L, _, d1, d2 = outer.shape
-        outer = outer.reshape(B, L, L, d1 * d2)
+        # Optimization: Instead of computing a massive (B, L, L, d_hidden^2) intermediate
+        # tensor via outer product, we reorder the 3-tensor contraction as two
+        # sequential operations. This reduces memory/compute from O(L^2 * D^2) to O(L^2 * D).
 
-        return pair + self.out_proj(outer)
+        # Reshape output projection weights: (d_pair, d_hidden_L, d_hidden_R)
+        d_hidden_left = self.left_proj.out_features
+        d_hidden_right = self.right_proj.out_features
+        w = self.out_proj.weight.reshape(self.out_proj.out_features, d_hidden_left, d_hidden_right)
+
+        # Step 1: Contract left representations with weights
+        # (B, L, d_hidden_L) x (d_pair, d_hidden_L, d_hidden_R) -> (B, L, d_pair, d_hidden_R)
+        temp = torch.einsum("bid,pdc->bipc", left, w)
+
+        # Step 2: Contract with right representations
+        # (B, L, d_pair, d_hidden_R) x (B, L, d_hidden_R) -> (B, L, L, d_pair)
+        update = torch.einsum("bipc,bjc->bijp", temp, right)
+
+        # Manually add bias if present
+        if self.out_proj.bias is not None:
+            update = update + self.out_proj.bias.view(1, 1, 1, -1)
+
+        return pair + update
 
 
 class EvoformerBlock(nn.Module):
@@ -138,9 +154,7 @@ class EvoformerStack(nn.Module):
             [EvoformerBlock(d_model, d_pair, n_heads, dropout) for _ in range(n_blocks)]
         )
 
-    def forward(
-        self, s: Tensor, pair: Tensor, mask: Optional[Tensor] = None
-    ) -> tuple:
+    def forward(self, s: Tensor, pair: Tensor, mask: Optional[Tensor] = None) -> tuple:
         for block in self.blocks:
             s, pair = block(s, pair, mask=mask)
         return s, pair
