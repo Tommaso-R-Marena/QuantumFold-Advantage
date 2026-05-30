@@ -5,3 +5,7 @@
 ## 2025-05-14 - Surgical Fixes for Code Integrity
 **Learning:** Broad cleanup of "known issues" in unrelated files can lead to regressions or be flagged in code review.
 **Action:** Focus on the primary optimization task and only apply surgical fixes to other files if they block testing or verification of the main change.
+
+## 2025-05-14 - PairUpdate Contraction Optimization
+**Learning:** Computing a full outer product of size (B, L, L, D^2) followed by a linear projection is extremely inefficient and memory-intensive. Reordering the operation into a two-step contraction using the reshaped weights of the linear layer reduces complexity from O(L^2 * D^2) to O(L^2 * D).
+**Action:** Use two-step einsum contractions for modules that expand small representations into large pairwise interactions to save memory and compute.
