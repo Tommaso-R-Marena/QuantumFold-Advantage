@@ -163,9 +163,20 @@ jobs:
                       if not source.strip():
                           continue
                       
-                      if source.strip().startswith("!") or source.strip().startswith("%"):
-                          source = "pass"
-                      source = source.replace("Cohen\s d", "Cohens d")
+                      # Robustly handle magics while preserving indentation
+                      lines = source.splitlines()
+                      processed_lines = []
+                      for line in lines:
+                          stripped = line.strip()
+                          if stripped.startswith('!') or stripped.startswith('%'):
+                              # Replace magic with pass but keep indentation
+                              indent = len(line) - len(line.lstrip())
+                              processed_lines.append(' ' * indent + 'pass')
+                          else:
+                              processed_lines.append(line)
+                      source = '\n'.join(processed_lines)
+
+                      source = source.replace("Cohen's d", "Cohens d")
                       try:
                           ast.parse(source)
                       except SyntaxError as e:
