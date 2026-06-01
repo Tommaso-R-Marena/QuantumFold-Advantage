@@ -20,3 +20,12 @@ def _convert(value: Any) -> Any:
 
 def read(fp, as_version: int = 4):
     return _convert(json.load(fp))
+
+def write(nb, fp):
+    json.dump(nb, fp, indent=1)
+
+def new_notebook():
+    return NotebookNode(cells=[], metadata={}, nbformat=4, nbformat_minor=5)
+
+def new_code_cell(source=""):
+    return NotebookNode(cell_type="code", source=source, metadata={}, outputs=[], execution_count=None)
