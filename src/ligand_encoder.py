@@ -8,6 +8,7 @@ import torch.nn as nn
 
 
 class LigandGraphEncoder(nn.Module):
+    def __init__(self, node_features: int = 64, edge_features: int = 32, use_3d_coords: bool = True):
     def __init__(
         self, node_features: int = 64, edge_features: int = 32, use_3d_coords: bool = True
     ):
