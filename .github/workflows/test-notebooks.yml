@@ -165,7 +165,11 @@ jobs:
                   if cell.cell_type == 'code':
                       # Filter lines to maintain indentation but strip magics/shell for ast.parse
                       lines = []
-                      for line in cell.source.splitlines():
+                      source_text = cell.source
+                      if isinstance(source_text, list):
+                          source_text = "".join(source_text)
+
+                      for line in source_text.splitlines():
                           stripped = line.strip()
                           if stripped.startswith('!') or stripped.startswith('%'):
                               # Replace with pass to keep block integrity if inside if/try
