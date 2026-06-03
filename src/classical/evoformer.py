@@ -59,15 +59,28 @@ class PairUpdate(nn.Module):
             Updated pair: (B, L, L, d_pair)
         """
         h = self.norm(s)
-        left = self.left_proj(h)   # (B, L, d_hidden)
+        left = self.left_proj(h)  # (B, L, d_hidden)
         right = self.right_proj(h)  # (B, L, d_hidden)
 
-        # Outer product: (B, L, d_hidden) x (B, L, d_hidden) -> (B, L, L, d_hidden^2)
-        outer = torch.einsum("bid,bjc->bijdc", left, right)
-        B, L, _, d1, d2 = outer.shape
-        outer = outer.reshape(B, L, L, d1 * d2)
+        # BOLT OPTIMIZATION: Reorder contraction to avoid O(L^2 D^2) intermediate tensor.
+        # Original: (B, L, d_h1) x (B, L, d_h2) -> (B, L, L, d_h1*d_h2) -> (B, L, L, d_pair)
+        # Optimized: (B, L, d_h1) @ (d_pair, d_h1, d_h2) @ (B, L, d_h2) -> (B, L, L, d_pair)
+        # This reduces complexity from O(L^2 D^2) to O(L^2 D).
+        d_h1 = left.shape[-1]
+        d_h2 = right.shape[-1]
+        d_p = self.out_proj.out_features
+        # Reshape weight to (d_pair, d_h1, d_h2)
+        w = self.out_proj.weight.reshape(d_p, d_h1, d_h2)
 
-        return pair + self.out_proj(outer)
+        # Step 1: (B, L, d_h1) @ (d_pair, d_h1, d_h2) -> (B, L, d_pair, d_h2)
+        tmp = torch.einsum("bid,pdc->bipc", left, w)
+        # Step 2: (B, L, d_pair, d_h2) @ (B, L, d_h2) -> (B, L, L, d_pair)
+        out = torch.einsum("bipc,bjc->bijp", tmp, right)
+
+        if self.out_proj.bias is not None:
+            out = out + self.out_proj.bias
+
+        return pair + out
 
 
 class EvoformerBlock(nn.Module):
@@ -138,9 +151,7 @@ class EvoformerStack(nn.Module):
             [EvoformerBlock(d_model, d_pair, n_heads, dropout) for _ in range(n_blocks)]
         )
 
-    def forward(
-        self, s: Tensor, pair: Tensor, mask: Optional[Tensor] = None
-    ) -> tuple:
+    def forward(self, s: Tensor, pair: Tensor, mask: Optional[Tensor] = None) -> tuple:
         for block in self.blocks:
             s, pair = block(s, pair, mask=mask)
         return s, pair
