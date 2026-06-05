@@ -20,3 +20,10 @@ def _convert(value: Any) -> Any:
 
 def read(fp, as_version: int = 4):
     return _convert(json.load(fp))
+
+def write(nb, fp):
+    if hasattr(fp, "write"):
+        json.dump(nb, fp, indent=1)
+    else:
+        with open(fp, "w") as f_out:
+            json.dump(nb, f_out, indent=1)
