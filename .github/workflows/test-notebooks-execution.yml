@@ -178,7 +178,7 @@ jobs:
     
     - name: Test data processing
       run: |
-        pytest tests/test_production_notebook.py::TestDataProcessing -v
+        pytest tests/test_production_notebook.py::TestDataTrainingEvaluationFlow -v
     
     - name: Test model training
       run: |
