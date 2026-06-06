@@ -79,12 +79,17 @@ class TestQuantumLayer:
         assert torch.all(torch.diag(g) > 0)
 
     def test_clifford_data_regression_enabled(self):
-        layer = QuantumLayer(n_qubits=3, depth=2,)
+        layer = QuantumLayer(
+            n_qubits=3,
+            depth=2,
+        )
         layer.add_noise = True
         layer.fit_clifford_data_regression(n_calibration=8)
         assert layer.error_mitigation_enabled
 
-    @given(n_qubits=st.integers(min_value=2, max_value=4), depth=st.integers(min_value=1, max_value=3))
+    @given(
+        n_qubits=st.integers(min_value=2, max_value=4), depth=st.integers(min_value=1, max_value=3)
+    )
     @settings(max_examples=8)
     def test_property_forward_no_nan(self, n_qubits, depth):
         layer = QuantumLayer(n_qubits=n_qubits, depth=depth)
