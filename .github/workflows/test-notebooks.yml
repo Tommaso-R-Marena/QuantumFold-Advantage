@@ -44,7 +44,7 @@ jobs:
       - name: Validate notebook JSON structure
         run: |
           python - <<'EOF'
-          import nbformat
+          import nbformat, json
           import glob
           import sys
           
@@ -68,7 +68,7 @@ jobs:
       - name: Check for execution metadata
         run: |
           python - <<'EOF'
-          import nbformat
+          import nbformat, json
           import glob
           
           warnings = []
@@ -94,7 +94,7 @@ jobs:
       - name: Check for common issues
         run: |
           python - <<'EOF'
-          import nbformat
+          import nbformat, json
           import glob
           import re
           
@@ -150,7 +150,7 @@ jobs:
       - name: Extract and check Python syntax
         run: |
           python - <<'EOF'
-          import nbformat
+          import nbformat, json
           import glob
           import ast
           import sys
@@ -212,7 +212,7 @@ jobs:
       - name: Extract import statements
         run: |
           python - <<'EOF'
-          import nbformat
+          import nbformat, json
           import glob
           import re
           from collections import defaultdict
@@ -276,12 +276,13 @@ jobs:
         run: |
           pip install -e .[dev]
           pip install nbconvert jupyter ipykernel pytest-timeout
+          python -m ipykernel install --user --name python3
       
       - name: Create test notebooks with limited execution
         run: |
           mkdir -p test_outputs
           python - <<'EOF'
-          import nbformat
+          import nbformat, json
           import glob
           import os
           
@@ -346,13 +347,14 @@ jobs:
         run: |
           pip install -e .[dev]
           pip install nbconvert jupyter ipykernel pytest
+          python -m ipykernel install --user --name python3
       
       - name: Execute colab_quickstart.ipynb
         if: always()
         run: |
           # Create minimal test version
           python - <<'EOF'
-          import nbformat
+          import nbformat, json
           
           with open('examples/colab_quickstart.ipynb', 'r') as f:
               nb = nbformat.read(f, as_version=4)
@@ -398,7 +400,7 @@ jobs:
       - name: Check Colab compatibility
         run: |
           python - <<'EOF'
-          import nbformat
+          import nbformat, json
           import glob
           import json
           
