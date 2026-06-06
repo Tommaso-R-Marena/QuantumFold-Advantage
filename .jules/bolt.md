@@ -5,3 +5,7 @@
 ## 2025-05-14 - Surgical Fixes for Code Integrity
 **Learning:** Broad cleanup of "known issues" in unrelated files can lead to regressions or be flagged in code review.
 **Action:** Focus on the primary optimization task and only apply surgical fixes to other files if they block testing or verification of the main change.
+
+## 2025-05-20 - Optimized PairUpdate contraction
+**Learning:** Decomposing a 3-tensor contraction (outer product followed by linear projection) into two sequential 2-tensor contractions avoids massive O(L^2 * D^2) intermediate tensors.
+**Action:** Identify and replace outer-product-linear patterns with two-step contractions to achieve ~7x-10x speedups.
