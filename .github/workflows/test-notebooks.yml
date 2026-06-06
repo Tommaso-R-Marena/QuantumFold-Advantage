@@ -20,6 +20,8 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
+      - name: Install nbformat
+        run: pip install nbformat
       
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
@@ -133,6 +135,8 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
+      - name: Install nbformat
+        run: pip install nbformat
       
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
@@ -163,14 +167,15 @@ jobs:
                       if not source.strip():
                           continue
                       
-                      # Skip cells with shell commands
-                      if source.strip().startswith('!'):
-                          continue
-                      
-                      # Skip cells with IPython magic
-                      if source.strip().startswith('%'):
-                          continue
-                      
+                      # Replace magics and shell commands with pass to maintain indentation
+                      clean_source = []
+                      for line in source.splitlines():
+                          if line.strip().startswith(("!", "%")):
+                              clean_source.append(" " * (len(line) - len(line.lstrip())) + "pass")
+                          else:
+                              clean_source.append(line)
+                      source = "\n".join(clean_source)
+
                       try:
                           ast.parse(source)
                       except SyntaxError as e:
@@ -192,6 +197,8 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
+      - name: Install nbformat
+        run: pip install nbformat
       
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
@@ -249,6 +256,8 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
+      - name: Install nbformat
+        run: pip install nbformat
       
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
@@ -301,7 +310,7 @@ jobs:
               
               out_path = f"test_outputs/{os.path.basename(nb_path)}"
               with open(out_path, 'w', encoding='utf-8') as f:
-                  nbformat.write(limited_nb, f)
+                  json.dump(limited_nb, f, indent=1)
               
               print(f"Created limited test notebook: {out_path}")
           EOF
@@ -325,6 +334,8 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
+      - name: Install nbformat
+        run: pip install nbformat
       
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
@@ -358,7 +369,7 @@ jobs:
                       cell.source = source.replace('epochs=', 'epochs=1 # CI:')
           
           with open('test_quickstart.ipynb', 'w') as f:
-              nbformat.write(nb, f)
+              json.dump(nb, f, indent=1)
           EOF
           
           timeout 600 jupyter nbconvert --to notebook --execute \
@@ -381,6 +392,8 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
+      - name: Install nbformat
+        run: pip install nbformat
       
       - name: Check Colab compatibility
         run: |

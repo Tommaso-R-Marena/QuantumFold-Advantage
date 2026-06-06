@@ -165,7 +165,7 @@ jobs:
       
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: test-results-comprehensive-${{ matrix.python-version }}-${{ matrix.os }}
           path: |
@@ -225,7 +225,7 @@ jobs:
       
       - name: Upload integration test results
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: test-results-integration
           path: |
@@ -275,7 +275,7 @@ jobs:
       
       - name: Upload benchmark results
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: test-results-benchmarks
           path: |
