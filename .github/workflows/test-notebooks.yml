@@ -27,7 +27,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -42,7 +42,7 @@ jobs:
       - name: Validate notebook JSON structure
         run: |
           python - <<'EOF'
-          import nbformat
+          import nbformat; import nbformat.v4
           import glob
           import sys
           
@@ -66,7 +66,7 @@ jobs:
       - name: Check for execution metadata
         run: |
           python - <<'EOF'
-          import nbformat
+          import nbformat; import nbformat.v4
           import glob
           
           warnings = []
@@ -92,7 +92,7 @@ jobs:
       - name: Check for common issues
         run: |
           python - <<'EOF'
-          import nbformat
+          import nbformat; import nbformat.v4
           import glob
           import re
           
@@ -146,7 +146,7 @@ jobs:
       - name: Extract and check Python syntax
         run: |
           python - <<'EOF'
-          import nbformat
+          import nbformat; import nbformat.v4
           import glob
           import ast
           import sys
@@ -205,7 +205,7 @@ jobs:
       - name: Extract import statements
         run: |
           python - <<'EOF'
-          import nbformat
+          import nbformat; import nbformat.v4
           import glob
           import re
           from collections import defaultdict
@@ -256,7 +256,7 @@ jobs:
           python-version: '3.10'
       
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-notebook-test-${{ hashFiles('**/requirements.txt') }}
@@ -272,7 +272,7 @@ jobs:
         run: |
           mkdir -p test_outputs
           python - <<'EOF'
-          import nbformat
+          import nbformat; import nbformat.v4
           import glob
           import os
           
@@ -341,7 +341,7 @@ jobs:
         run: |
           # Create minimal test version
           python - <<'EOF'
-          import nbformat
+          import nbformat; import nbformat.v4
           
           with open('examples/colab_quickstart.ipynb', 'r') as f:
               nb = nbformat.read(f, as_version=4)
@@ -368,7 +368,7 @@ jobs:
       
       - name: Upload execution results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: executed-notebooks
           path: |
@@ -385,7 +385,7 @@ jobs:
       - name: Check Colab compatibility
         run: |
           python - <<'EOF'
-          import nbformat
+          import nbformat; import nbformat.v4
           import glob
           import json
           
