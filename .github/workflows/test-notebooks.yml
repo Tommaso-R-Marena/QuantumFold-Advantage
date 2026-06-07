@@ -275,6 +275,7 @@ jobs:
           import nbformat; import nbformat.v4
           import glob
           import os
+          import json
           
           # Notebooks to test with dry-run
           test_notebooks = [
@@ -342,6 +343,7 @@ jobs:
           # Create minimal test version
           python - <<'EOF'
           import nbformat; import nbformat.v4
+          import json
           
           with open('examples/colab_quickstart.ipynb', 'r') as f:
               nb = nbformat.read(f, as_version=4)

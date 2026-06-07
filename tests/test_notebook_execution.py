@@ -91,7 +91,7 @@ def notebook_stats(nb) -> dict:
     return stats
 
 
-class TestNotebookExecution:
+class TestNotebookStructure:
     @pytest.mark.parametrize("name", EXECUTION_TARGETS)
     def test_notebook_file_exists(self, name):
         assert (NOTEBOOKS_DIR / name).exists(), f"Missing notebook: {name}"
