@@ -19,4 +19,14 @@ def _convert(value: Any) -> Any:
     return value
 
 def read(fp, as_version: int = 4):
-    return _convert(json.load(fp))
+    if hasattr(fp, 'read'):
+        return _convert(json.load(fp))
+    with open(fp, 'r') as f:
+        return _convert(json.load(f))
+
+def write(nb, fp):
+    if hasattr(fp, 'write'):
+        json.dump(nb, fp, indent=1)
+    else:
+        with open(fp, 'w') as f:
+            json.dump(nb, f, indent=1)

@@ -44,6 +44,7 @@ jobs:
           python - <<'EOF'
           import nbformat
           import nbformat.v4 as nbf
+          import json
           import glob
           import sys
           
@@ -69,6 +70,7 @@ jobs:
           python - <<'EOF'
           import nbformat
           import nbformat.v4 as nbf
+          import json
           import glob
           
           warnings = []
@@ -96,6 +98,7 @@ jobs:
           python - <<'EOF'
           import nbformat
           import nbformat.v4 as nbf
+          import json
           import glob
           import re
           
@@ -151,6 +154,7 @@ jobs:
           python - <<'EOF'
           import nbformat
           import nbformat.v4 as nbf
+          import json
           import glob
           import ast
           import sys
@@ -167,16 +171,19 @@ jobs:
                       if not source.strip():
                           continue
                       
-                      # Skip cells with shell commands
-                      if source.strip().startswith('!'):
-                          continue
-                      
-                      # Skip cells with IPython magic
-                      if source.strip().startswith('%'):
-                          continue
+                      # Filter out shell commands and magics for syntax check
+                      lines = source.splitlines()
+                      filtered_lines = []
+                      for line in lines:
+                          if line.strip().startswith('!') or line.strip().startswith('%'):
+                              indent = line[:len(line) - len(line.lstrip())]
+                              filtered_lines.append(indent + 'pass')
+                          else:
+                              filtered_lines.append(line)
+                      filtered_source = '\n'.join(filtered_lines)
                       
                       try:
-                          ast.parse(source)
+                          ast.parse(filtered_source)
                       except SyntaxError as e:
                           errors.append(f"{nb_path} cell {i}: {str(e)}")
                           print(f"✗ {nb_path} cell {i}: Syntax error")
@@ -211,6 +218,7 @@ jobs:
           python - <<'EOF'
           import nbformat
           import nbformat.v4 as nbf
+          import json
           import glob
           import re
           from collections import defaultdict
@@ -279,6 +287,7 @@ jobs:
           python - <<'EOF'
           import nbformat
           import nbformat.v4 as nbf
+          import json
           import glob
           import os
           
@@ -349,6 +358,7 @@ jobs:
           python - <<'EOF'
           import nbformat
           import nbformat.v4 as nbf
+          import json
           
           with open('examples/colab_quickstart.ipynb', 'r') as f:
               nb = nbformat.read(f, as_version=4)
@@ -394,6 +404,7 @@ jobs:
           python - <<'EOF'
           import nbformat
           import nbformat.v4 as nbf
+          import json
           import glob
           import json
           
