@@ -166,7 +166,7 @@ jobs:
                       # Skip cells with shell commands
                       if source.strip().startswith('!'):
                           continue
-                      
+
                       # Skip cells with IPython magic
                       if source.strip().startswith('%'):
                           continue
