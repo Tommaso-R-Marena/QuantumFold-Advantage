@@ -5,3 +5,6 @@
 ## 2025-05-14 - Surgical Fixes for Code Integrity
 **Learning:** Broad cleanup of "known issues" in unrelated files can lead to regressions or be flagged in code review.
 **Action:** Focus on the primary optimization task and only apply surgical fixes to other files if they block testing or verification of the main change.
+## 2025-05-15 - [PairUpdate Optimization]
+**Learning:** Materializing a full outer product of shape (B, L, L, d_hidden, d_hidden) before a linear projection is extremely memory-intensive and slow (O(L^2 * D^2)).
+**Action:** Use a two-step contraction (B, L, d_hidden) @ (d_pair, d_hidden, d_hidden) -> (B, L, d_pair, d_hidden) followed by (B, L, d_pair, d_hidden) @ (B, L, d_hidden) -> (B, L, L, d_pair) to achieve the same result with O(L^2 * D) complexity and much lower peak memory usage.

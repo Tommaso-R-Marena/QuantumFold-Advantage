@@ -22,12 +22,12 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
       
       - name: Cache pip
-        uses: actions/cache@v4
+        uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -43,8 +43,6 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          import nbformat.v4 as nbf
-          import json
           import glob
           import sys
           
@@ -69,8 +67,6 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          import nbformat.v4 as nbf
-          import json
           import glob
           
           warnings = []
@@ -97,8 +93,6 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          import nbformat.v4 as nbf
-          import json
           import glob
           import re
           
@@ -141,7 +135,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
       
@@ -153,8 +147,6 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          import nbformat.v4 as nbf
-          import json
           import glob
           import ast
           import sys
@@ -171,19 +163,16 @@ jobs:
                       if not source.strip():
                           continue
                       
-                      # Filter out shell commands and magics for syntax check
-                      lines = source.splitlines()
-                      filtered_lines = []
-                      for line in lines:
-                          if line.strip().startswith('!') or line.strip().startswith('%'):
-                              indent = line[:len(line) - len(line.lstrip())]
-                              filtered_lines.append(indent + 'pass')
-                          else:
-                              filtered_lines.append(line)
-                      filtered_source = '\n'.join(filtered_lines)
+                      # Skip cells with shell commands
+                      if source.strip().startswith('!'):
+                          continue
+
+                      # Skip cells with IPython magic
+                      if source.strip().startswith('%'):
+                          continue
                       
                       try:
-                          ast.parse(filtered_source)
+                          ast.parse(source)
                       except SyntaxError as e:
                           errors.append(f"{nb_path} cell {i}: {str(e)}")
                           print(f"✗ {nb_path} cell {i}: Syntax error")
@@ -205,7 +194,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
       
@@ -217,8 +206,6 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          import nbformat.v4 as nbf
-          import json
           import glob
           import re
           from collections import defaultdict
@@ -264,12 +251,12 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
       
       - name: Cache pip
-        uses: actions/cache@v4
+        uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-notebook-test-${{ hashFiles('**/requirements.txt') }}
@@ -286,8 +273,6 @@ jobs:
           mkdir -p test_outputs
           python - <<'EOF'
           import nbformat
-          import nbformat.v4 as nbf
-          import json
           import glob
           import os
           
@@ -306,12 +291,12 @@ jobs:
                   nb = nbformat.read(f, as_version=4)
               
               # Create limited version (first 5 cells only)
-              limited_nb = nbf.new_notebook()
+              limited_nb = nbformat.v4.new_notebook()
               limited_nb.cells = nb.cells[:min(5, len(nb.cells))]
               
               # Add a final cell to verify execution
               limited_nb.cells.append(
-                  nbf.new_code_cell('print("✓ Dry-run completed successfully")')
+                  nbformat.v4.new_code_cell('print("✓ Dry-run completed successfully")')
               )
               
               out_path = f"test_outputs/{os.path.basename(nb_path)}"
@@ -342,7 +327,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: '3.10'
       
@@ -357,8 +342,6 @@ jobs:
           # Create minimal test version
           python - <<'EOF'
           import nbformat
-          import nbformat.v4 as nbf
-          import json
           
           with open('examples/colab_quickstart.ipynb', 'r') as f:
               nb = nbformat.read(f, as_version=4)
@@ -385,7 +368,7 @@ jobs:
       
       - name: Upload execution results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: executed-notebooks
           path: |
@@ -403,8 +386,6 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          import nbformat.v4 as nbf
-          import json
           import glob
           import json
           
