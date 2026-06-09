@@ -27,7 +27,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -159,20 +159,26 @@ jobs:
               
               for i, cell in enumerate(nb.cells):
                   if cell.cell_type == 'code':
-                      source = ''.join(cell.source)
+                      source = cell.source
+                      if isinstance(source, list):
+                          source = ''.join(source)
+
                       if not source.strip():
                           continue
                       
-                      # Skip cells with shell commands
-                      if source.strip().startswith('!'):
-                          continue
+                      # Filter source for ast.parse compatibility
+                      filtered_lines = []
+                      for line in source.splitlines():
+                          stripped = line.strip()
+                          if stripped.startswith('!') or stripped.startswith('%'):
+                              filtered_lines.append('pass')
+                          else:
+                              filtered_lines.append(line)
                       
-                      # Skip cells with IPython magic
-                      if source.strip().startswith('%'):
-                          continue
+                      source_filtered = '\n'.join(filtered_lines)
                       
                       try:
-                          ast.parse(source)
+                          ast.parse(source_filtered)
                       except SyntaxError as e:
                           errors.append(f"{nb_path} cell {i}: {str(e)}")
                           print(f"✗ {nb_path} cell {i}: Syntax error")
@@ -256,10 +262,10 @@ jobs:
           python-version: '3.10'
       
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-notebook-test-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-pip-dryrun-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-notebook-test-
       
@@ -273,6 +279,7 @@ jobs:
           mkdir -p test_outputs
           python - <<'EOF'
           import nbformat
+          import nbformat.v4 as nbf4
           import glob
           import os
           
@@ -291,12 +298,12 @@ jobs:
                   nb = nbformat.read(f, as_version=4)
               
               # Create limited version (first 5 cells only)
-              limited_nb = nbformat.v4.new_notebook()
+              limited_nb = nbf4.new_notebook()
               limited_nb.cells = nb.cells[:min(5, len(nb.cells))]
               
               # Add a final cell to verify execution
               limited_nb.cells.append(
-                  nbformat.v4.new_code_cell('print("✓ Dry-run completed successfully")')
+                  nbf4.new_code_cell('print("✓ Dry-run completed successfully")')
               )
               
               out_path = f"test_outputs/{os.path.basename(nb_path)}"
@@ -368,7 +375,7 @@ jobs:
       
       - name: Upload execution results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: executed-notebooks
           path: |
