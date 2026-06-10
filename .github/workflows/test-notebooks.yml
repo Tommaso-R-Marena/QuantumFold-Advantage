@@ -273,6 +273,7 @@ jobs:
           mkdir -p test_outputs
           python - <<'EOF'
           import nbformat
+          import nbformat.v4
           import glob
           import os
           
@@ -368,7 +369,7 @@ jobs:
       
       - name: Upload execution results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: executed-notebooks
           path: |
