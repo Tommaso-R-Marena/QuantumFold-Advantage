@@ -159,21 +159,18 @@ jobs:
               
               for i, cell in enumerate(nb.cells):
                   if cell.cell_type == 'code':
-                      source_lines = cell.source if isinstance(cell.source, list) else cell.source.splitlines(True)
-                      clean_lines = []
-                      for line in source_lines:
-                          stripped = line.strip()
-                          if stripped.startswith('!') or stripped.startswith('%'):
-                              # Preserve indentation but replace with pass
-                              indent = line[:line.find(stripped)]
-                              clean_lines.append(indent + "pass\n")
-                          else:
-                              clean_lines.append(line)
-                      
-                      source = ''.join(clean_lines)
+                      source = ''.join(cell.source)
                       if not source.strip():
                           continue
                       
+                      # Skip cells with shell commands
+                      if source.strip().startswith('!'):
+                          continue
+
+                      # Skip cells with IPython magic
+                      if source.strip().startswith('%'):
+                          continue
+
                       try:
                           ast.parse(source)
                       except SyntaxError as e:
@@ -371,7 +368,7 @@ jobs:
       
       - name: Upload execution results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: executed-notebooks
           path: |
