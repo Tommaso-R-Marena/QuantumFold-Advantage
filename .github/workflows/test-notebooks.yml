@@ -166,11 +166,11 @@ jobs:
                       # Skip cells with shell commands
                       if source.strip().startswith('!'):
                           continue
-                      
+
                       # Skip cells with IPython magic
                       if source.strip().startswith('%'):
                           continue
-                      
+
                       try:
                           ast.parse(source)
                       except SyntaxError as e:
@@ -368,7 +368,7 @@ jobs:
       
       - name: Upload execution results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: executed-notebooks
           path: |
