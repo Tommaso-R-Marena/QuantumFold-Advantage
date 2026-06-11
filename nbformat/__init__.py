@@ -7,3 +7,5 @@ def write(nb, fp):
     else:
         with open(fp, 'w', encoding='utf-8') as f:
             json.dump(nb, f, indent=1)
+
+import nbformat.v4 as v4

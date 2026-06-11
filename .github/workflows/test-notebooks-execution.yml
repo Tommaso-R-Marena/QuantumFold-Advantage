@@ -147,7 +147,7 @@ jobs:
     
     - name: Run content tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookContent -v
+        pytest tests/test_notebook_execution.py::TestNotebookContentCoverage -v
   
   test-production-notebook:
     name: Test Production Notebook
