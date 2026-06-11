@@ -45,6 +45,7 @@ class PairUpdate(nn.Module):
 
     def __init__(self, d_model: int = 128, d_pair: int = 64, d_hidden: int = 32):
         super().__init__()
+        self.d_hidden = d_hidden
         self.norm = nn.LayerNorm(d_model)
         self.left_proj = nn.Linear(d_model, d_hidden)
         self.right_proj = nn.Linear(d_model, d_hidden)
@@ -59,15 +60,26 @@ class PairUpdate(nn.Module):
             Updated pair: (B, L, L, d_pair)
         """
         h = self.norm(s)
-        left = self.left_proj(h)   # (B, L, d_hidden)
+        left = self.left_proj(h)  # (B, L, d_hidden)
         right = self.right_proj(h)  # (B, L, d_hidden)
 
-        # Outer product: (B, L, d_hidden) x (B, L, d_hidden) -> (B, L, L, d_hidden^2)
-        outer = torch.einsum("bid,bjc->bijdc", left, right)
-        B, L, _, d1, d2 = outer.shape
-        outer = outer.reshape(B, L, L, d1 * d2)
+        # Optimized two-step contraction:
+        # Instead of O(L^2 * d_hidden^2) intermediate, we do two O(L^2 * d_hidden) steps.
+        # This is equivalent to self.out_proj(outer(left, right)).
+        # weight shape: (d_pair, d_hidden * d_hidden) -> (d_hidden, d_hidden, d_pair)
+        W = self.out_proj.weight.view(
+            self.out_proj.out_features, self.d_hidden, self.d_hidden
+        ).permute(1, 2, 0)
 
-        return pair + self.out_proj(outer)
+        # Step 1: (B, L, d_hidden) @ (d_hidden, d_hidden, d_pair) -> (B, L, d_hidden, d_pair)
+        inter = torch.einsum("bid,dcp->bicp", left, W)
+        # Step 2: (B, L, d_hidden, d_pair) @ (B, L, d_hidden) -> (B, L, L, d_pair)
+        update = torch.einsum("bicp,bjc->bijp", inter, right)
+
+        if self.out_proj.bias is not None:
+            update = update + self.out_proj.bias
+
+        return pair + update
 
 
 class EvoformerBlock(nn.Module):
