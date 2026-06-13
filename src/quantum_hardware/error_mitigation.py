@@ -1,5 +1,6 @@
-import numpy as np
 from typing import Dict, List
+
+import numpy as np
 
 
 class ErrorMitigator:

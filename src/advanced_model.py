@@ -59,7 +59,11 @@ def quaternion_to_rotation_matrix(quat: Tensor) -> Tensor:
     m22 = 1 - 2 * (xx + yy)
 
     return torch.stack(
-        [torch.stack([m00, m01, m02], dim=-1), torch.stack([m10, m11, m12], dim=-1), torch.stack([m20, m21, m22], dim=-1)],
+        [
+            torch.stack([m00, m01, m02], dim=-1),
+            torch.stack([m10, m11, m12], dim=-1),
+            torch.stack([m20, m21, m22], dim=-1),
+        ],
         dim=-2,
     )
 
@@ -100,7 +104,9 @@ def quaternion_geodesic_interpolation(q0: Tensor, q1: Tensor, t: float) -> Tenso
     return _normalize_quaternion(torch.where(near, lerp, slerp))
 
 
-def batched_kabsch(source: Tensor, target: Tensor, mask: Optional[Tensor] = None) -> Tuple[Tensor, Tensor]:
+def batched_kabsch(
+    source: Tensor, target: Tensor, mask: Optional[Tensor] = None
+) -> Tuple[Tensor, Tensor]:
     """Compute optimal rotation and translation via Kabsch algorithm.
 
     Finds R, t such that R @ source + t minimizes RMSD to target.
@@ -195,7 +201,9 @@ class InvariantPointAttention(nn.Module):
         global_b = (d > 15.0).float() * 0.05
         return (local + medium + global_b).unsqueeze(-1)
 
-    def forward(self, s: Tensor, z: Tensor, rigids: Tuple[Tensor, Tensor], mask: Optional[Tensor] = None) -> Tensor:
+    def forward(
+        self, s: Tensor, z: Tensor, rigids: Tuple[Tensor, Tensor], mask: Optional[Tensor] = None
+    ) -> Tensor:
         translations, _ = rigids
         b, n, _ = s.shape
         q = self.linear_q(s).view(b, n, self.n_heads, self.c_hidden)
@@ -238,10 +246,15 @@ class StructureModule(nn.Module):
         self.n_layers = n_layers
         self.recycling_steps = recycling_steps
 
-        self.ipa_layers = nn.ModuleList([InvariantPointAttention(c_s=c_s, c_z=c_z) for _ in range(n_layers)])
-        self.transitions = nn.ModuleList([
-            nn.Sequential(nn.Linear(c_s, c_s * 4), nn.ReLU(), nn.Linear(c_s * 4, c_s)) for _ in range(n_layers)
-        ])
+        self.ipa_layers = nn.ModuleList(
+            [InvariantPointAttention(c_s=c_s, c_z=c_z) for _ in range(n_layers)]
+        )
+        self.transitions = nn.ModuleList(
+            [
+                nn.Sequential(nn.Linear(c_s, c_s * 4), nn.ReLU(), nn.Linear(c_s * 4, c_s))
+                for _ in range(n_layers)
+            ]
+        )
         self.backbone_update = nn.ModuleList([nn.Linear(c_s, 6) for _ in range(n_layers)])
         for layer in self.backbone_update:
             nn.init.zeros_(layer.weight)
@@ -250,10 +263,16 @@ class StructureModule(nn.Module):
 
     def _compute_rigids(self, coords: Tensor) -> Tuple[Tensor, Tensor]:
         b, n, _ = coords.shape
-        rot = torch.eye(3, device=coords.device, dtype=coords.dtype).view(1, 1, 3, 3).repeat(b, n, 1, 1)
+        rot = (
+            torch.eye(3, device=coords.device, dtype=coords.dtype)
+            .view(1, 1, 3, 3)
+            .repeat(b, n, 1, 1)
+        )
         return coords, rot
 
-    def _apply_frame_updates(self, coords: Tensor, updates: Tensor, interp_t: float = 1.0) -> Tensor:
+    def _apply_frame_updates(
+        self, coords: Tensor, updates: Tensor, interp_t: float = 1.0
+    ) -> Tensor:
         """Apply translation and quaternion-based frame update.
 
         Args:
@@ -269,7 +288,13 @@ class StructureModule(nn.Module):
         trans = updates[..., :3]
         rv = updates[..., 3:]
         q_target = torch.cat([torch.ones_like(rv[..., :1]), rv], dim=-1)
-        _ = quaternion_geodesic_interpolation(torch.tensor([1.0, 0.0, 0.0, 0.0], device=coords.device, dtype=coords.dtype).view(1, 1, 4), q_target, interp_t)
+        _ = quaternion_geodesic_interpolation(
+            torch.tensor([1.0, 0.0, 0.0, 0.0], device=coords.device, dtype=coords.dtype).view(
+                1, 1, 4
+            ),
+            q_target,
+            interp_t,
+        )
         return coords + trans
 
     def _auxiliary_losses(self, coords: Tensor) -> Dict[str, Tensor]:
@@ -319,11 +344,13 @@ class StructureModule(nn.Module):
             "distance_geometry_loss": distance_geometry_loss,
         }
 
-    def forward(self, s: Tensor, z: Tensor, initial_coords: Tensor, mask: Optional[Tensor] = None) -> Dict[str, Tensor]:
+    def forward(
+        self, s: Tensor, z: Tensor, initial_coords: Tensor, mask: Optional[Tensor] = None
+    ) -> Dict[str, Tensor]:
         coords = initial_coords
         trajectory = [coords]
 
-        if coords.dtype == torch.float32 and coords.device.type == 'cuda':
+        if coords.dtype == torch.float32 and coords.device.type == "cuda":
             amp_ctx = torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16)
         else:
             amp_ctx = nullcontext()
@@ -343,13 +370,22 @@ class StructureModule(nn.Module):
                     trajectory.append(coords)
 
         aux = self._auxiliary_losses(coords)
-        return {"final_coords": coords, "trajectory": torch.stack(trajectory, dim=1), "final_repr": s, **aux}
+        return {
+            "final_coords": coords,
+            "trajectory": torch.stack(trajectory, dim=1),
+            "final_repr": s,
+            **aux,
+        }
 
     def validate_equivariance(self, s: Tensor, z: Tensor, coords: Tensor) -> Tensor:
         out = self.forward(s, z, coords)
         angle = 0.3
         r = torch.tensor(
-            [[math.cos(angle), -math.sin(angle), 0.0], [math.sin(angle), math.cos(angle), 0.0], [0.0, 0.0, 1.0]],
+            [
+                [math.cos(angle), -math.sin(angle), 0.0],
+                [math.sin(angle), math.cos(angle), 0.0],
+                [0.0, 0.0, 1.0],
+            ],
             device=coords.device,
             dtype=coords.dtype,
         ).unsqueeze(0)
@@ -381,7 +417,14 @@ class ConfidenceHead(nn.Module):
 
 
 class AdvancedProteinFoldingModel(nn.Module):
-    def __init__(self, input_dim: int = 1280, c_s: int = 384, c_z: int = 128, n_structure_layers: int = 8, use_quantum: bool = True):
+    def __init__(
+        self,
+        input_dim: int = 1280,
+        c_s: int = 384,
+        c_z: int = 128,
+        n_structure_layers: int = 8,
+        use_quantum: bool = True,
+    ):
         super().__init__()
         self.input_dim = input_dim
         self.c_s = c_s
@@ -393,7 +436,13 @@ class AdvancedProteinFoldingModel(nn.Module):
         if use_quantum:
             from .quantum_layers import HybridQuantumClassicalBlock
 
-            self.quantum_block = HybridQuantumClassicalBlock(in_channels=c_s, out_channels=c_s, n_qubits=8, quantum_depth=4, use_gated_fusion=True)
+            self.quantum_block = HybridQuantumClassicalBlock(
+                in_channels=c_s,
+                out_channels=c_s,
+                n_qubits=8,
+                quantum_depth=4,
+                use_gated_fusion=True,
+            )
 
         self.structure_module = StructureModule(c_s=c_s, c_z=c_z, n_layers=n_structure_layers)
         self.confidence_head = ConfidenceHead(c_s=c_s)
@@ -403,7 +452,9 @@ class AdvancedProteinFoldingModel(nn.Module):
         s_i = s.unsqueeze(2).expand(-1, -1, n, -1)
         s_j = s.unsqueeze(1).expand(-1, n, -1, -1)
         pos = torch.arange(n, device=s.device).float()
-        rel_pos = (pos.unsqueeze(0) - pos.unsqueeze(1)).unsqueeze(0).unsqueeze(-1).expand(b, -1, -1, -1)
+        rel_pos = (
+            (pos.unsqueeze(0) - pos.unsqueeze(1)).unsqueeze(0).unsqueeze(-1).expand(b, -1, -1, -1)
+        )
         return self.pair_embed(torch.cat([s_i, s_j, rel_pos], dim=-1))
 
     def _init_coordinates(self, b: int, n: int, device: torch.device) -> Tensor:
@@ -421,7 +472,13 @@ class AdvancedProteinFoldingModel(nn.Module):
         structure_out = self.structure_module(s, z, init_coords, mask)
         confidence_logits = self.confidence_head(structure_out["final_repr"])
         plddt = self.confidence_head.compute_plddt(confidence_logits)
-        aux_keys = ["clash_penalty", "bond_length_loss", "bond_angle_violation", "chirality_constraint", "distance_geometry_loss"]
+        aux_keys = [
+            "clash_penalty",
+            "bond_length_loss",
+            "bond_angle_violation",
+            "chirality_constraint",
+            "distance_geometry_loss",
+        ]
         return {
             "coordinates": structure_out["final_coords"],
             "trajectory": structure_out["trajectory"],
