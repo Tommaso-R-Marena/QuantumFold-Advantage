@@ -35,10 +35,10 @@ from src.models.quantumfold_advantage import (
 )
 from src.training.losses import CombinedLoss, DistanceMatrixLoss, FAPELoss
 
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
-
 
 @pytest.fixture
 def small_model_kwargs():
@@ -68,7 +68,6 @@ def dummy_batch():
 # ---------------------------------------------------------------------------
 # Classical component tests
 # ---------------------------------------------------------------------------
-
 
 class TestMultiHeadSelfAttention:
     def test_output_shape(self):
@@ -116,9 +115,8 @@ class TestEvoformer:
 
 class TestStructureModule:
     def test_output_shapes(self):
-        sm = StructureModule(
-            d_model=32, n_heads=2, n_iterations=1, n_query_points=2, n_value_points=2
-        )
+        sm = StructureModule(d_model=32, n_heads=2, n_iterations=1,
+                             n_query_points=2, n_value_points=2)
         s = torch.randn(2, 8, 32)
         coords, rotations, translations = sm(s)
         assert coords.shape == (2, 8, 3, 3)
@@ -130,18 +128,19 @@ class TestStructureModule:
 # Hybrid model tests
 # ---------------------------------------------------------------------------
 
-
 class TestQuantumFoldAdvantage:
     def test_quantum_model_forward(self, small_model_kwargs, dummy_batch):
         model = create_quantum_model(**small_model_kwargs)
-        out = model(dummy_batch["aa_idx"], dummy_batch["physchem"], mask=dummy_batch["mask"])
+        out = model(dummy_batch["aa_idx"], dummy_batch["physchem"],
+                     mask=dummy_batch["mask"])
         B, L = dummy_batch["aa_idx"].shape
         assert out["coords_backbone"].shape == (B, L, 3, 3)
         assert out["coords_ca"].shape == (B, L, 3)
 
     def test_classical_model_forward(self, small_model_kwargs, dummy_batch):
         model = create_classical_model(**small_model_kwargs)
-        out = model(dummy_batch["aa_idx"], dummy_batch["physchem"], mask=dummy_batch["mask"])
+        out = model(dummy_batch["aa_idx"], dummy_batch["physchem"],
+                     mask=dummy_batch["mask"])
         B, L = dummy_batch["aa_idx"].shape
         assert out["coords_backbone"].shape == (B, L, 3, 3)
 
@@ -153,10 +152,12 @@ class TestQuantumFoldAdvantage:
 
     def test_gradient_flow(self, small_model_kwargs, dummy_batch):
         model = create_quantum_model(**small_model_kwargs)
-        out = model(dummy_batch["aa_idx"], dummy_batch["physchem"], mask=dummy_batch["mask"])
+        out = model(dummy_batch["aa_idx"], dummy_batch["physchem"],
+                     mask=dummy_batch["mask"])
         loss = out["coords_ca"].sum()
         loss.backward()
-        has_grad = any(p.grad is not None and p.grad.abs().sum() > 0 for p in model.parameters())
+        has_grad = any(p.grad is not None and p.grad.abs().sum() > 0
+                       for p in model.parameters())
         assert has_grad
 
     def test_parameter_counts(self, small_model_kwargs):
@@ -173,7 +174,6 @@ class TestQuantumFoldAdvantage:
 # ---------------------------------------------------------------------------
 # Loss tests
 # ---------------------------------------------------------------------------
-
 
 class TestLosses:
     def test_fape_runs(self):
@@ -211,7 +211,6 @@ class TestLosses:
 # ---------------------------------------------------------------------------
 # Metrics tests
 # ---------------------------------------------------------------------------
-
 
 class TestMetrics:
     def test_kabsch_perfect(self):
@@ -256,7 +255,6 @@ class TestMetrics:
 # Statistical tests
 # ---------------------------------------------------------------------------
 
-
 class TestStatistics:
     def test_bootstrap_ci(self):
         data = np.random.randn(50)
@@ -292,7 +290,6 @@ class TestStatistics:
 # ---------------------------------------------------------------------------
 # Data pipeline tests
 # ---------------------------------------------------------------------------
-
 
 class TestData:
     def test_encode_sequence(self):
