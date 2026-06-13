@@ -43,6 +43,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          from nbformat import v4
           import glob
           import sys
           
@@ -67,6 +68,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          from nbformat import v4
           import glob
           
           warnings = []
@@ -93,6 +95,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          from nbformat import v4
           import glob
           import re
           
@@ -147,6 +150,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          from nbformat import v4
           import glob
           import ast
           import sys
@@ -206,6 +210,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          from nbformat import v4
           import glob
           import re
           from collections import defaultdict
@@ -273,6 +278,7 @@ jobs:
           mkdir -p test_outputs
           python - <<'EOF'
           import nbformat
+          from nbformat import v4
           import glob
           import os
           
@@ -291,17 +297,17 @@ jobs:
                   nb = nbformat.read(f, as_version=4)
               
               # Create limited version (first 5 cells only)
-              limited_nb = nbformat.v4.new_notebook()
+              limited_nb = v4.new_notebook()
               limited_nb.cells = nb.cells[:min(5, len(nb.cells))]
               
               # Add a final cell to verify execution
               limited_nb.cells.append(
-                  nbformat.v4.new_code_cell('print("✓ Dry-run completed successfully")')
+                  v4.new_code_cell('print("✓ Dry-run completed successfully")')
               )
               
               out_path = f"test_outputs/{os.path.basename(nb_path)}"
               with open(out_path, 'w', encoding='utf-8') as f:
-                  nbformat.write(limited_nb, f)
+                  import json; json.dump(limited_nb, f)
               
               print(f"Created limited test notebook: {out_path}")
           EOF
@@ -342,6 +348,7 @@ jobs:
           # Create minimal test version
           python - <<'EOF'
           import nbformat
+          from nbformat import v4
           
           with open('examples/colab_quickstart.ipynb', 'r') as f:
               nb = nbformat.read(f, as_version=4)
@@ -358,7 +365,7 @@ jobs:
                       cell.source = source.replace('epochs=', 'epochs=1 # CI:')
           
           with open('test_quickstart.ipynb', 'w') as f:
-              nbformat.write(nb, f)
+              import json; json.dump(nb, f)
           EOF
           
           timeout 600 jupyter nbconvert --to notebook --execute \
@@ -368,7 +375,7 @@ jobs:
       
       - name: Upload execution results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: executed-notebooks
           path: |
@@ -386,6 +393,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          from nbformat import v4
           import glob
           import json
           
