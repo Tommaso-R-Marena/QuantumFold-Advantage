@@ -528,7 +528,9 @@ def compute_casp_metrics(pred_coords, native_coords, sequence) -> Dict[str, floa
     bench = ResearchBenchmark()
     gdt_ts = bench.compute_gdt(pred_coords, native_coords, thresholds=[1.0, 2.0, 4.0, 8.0])
     gdt_ha = bench.compute_gdt(pred_coords, native_coords, thresholds=[0.5, 1.0, 2.0, 4.0])
-    contact_precision, _, _ = bench.compute_contact_metrics(pred_coords, native_coords, threshold=8.0)
+    contact_precision, _, _ = bench.compute_contact_metrics(
+        pred_coords, native_coords, threshold=8.0
+    )
     contact_precision, _, _ = bench.compute_contact_metrics(
         pred_coords, native_coords, threshold=8.0
     )
@@ -543,7 +545,9 @@ def compute_casp_metrics(pred_coords, native_coords, sequence) -> Dict[str, floa
     }
 
 
-def _kabsch_torch(pred_coords: torch.Tensor, native_coords: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+def _kabsch_torch(
+    pred_coords: torch.Tensor, native_coords: torch.Tensor
+) -> Tuple[torch.Tensor, torch.Tensor]:
     pred_centered = pred_coords - pred_coords.mean(dim=0, keepdim=True)
     native_centered = native_coords - native_coords.mean(dim=0, keepdim=True)
     h = pred_centered.t() @ native_centered
@@ -589,7 +593,9 @@ def compute_gdt_ts(
     return float(sum(gdt_scores) / len(gdt_scores))
 
 
-def compute_lddt(pred_coords: torch.Tensor, native_coords: torch.Tensor, cutoff: float = 15.0) -> float:
+def compute_lddt(
+    pred_coords: torch.Tensor, native_coords: torch.Tensor, cutoff: float = 15.0
+) -> float:
     """Compute local distance difference test (lDDT)."""
     n = min(pred_coords.shape[0], native_coords.shape[0])
     if n < 2:

@@ -59,15 +59,27 @@ class PairUpdate(nn.Module):
             Updated pair: (B, L, L, d_pair)
         """
         h = self.norm(s)
-        left = self.left_proj(h)   # (B, L, d_hidden)
+        left = self.left_proj(h)  # (B, L, d_hidden)
         right = self.right_proj(h)  # (B, L, d_hidden)
 
-        # Outer product: (B, L, d_hidden) x (B, L, d_hidden) -> (B, L, L, d_hidden^2)
-        outer = torch.einsum("bid,bjc->bijdc", left, right)
-        B, L, _, d1, d2 = outer.shape
-        outer = outer.reshape(B, L, L, d1 * d2)
+        # Optimization: Instead of computing the full O(L^2 * d_hidden^2) outer product
+        # before the linear projection, we decompose the operation into two O(L^2 * d_hidden)
+        # contractions. This significantly reduces memory usage and improves speed.
+        # W has shape (d_pair, d_hidden, d_hidden)
+        W = self.out_proj.weight.view(
+            self.out_proj.out_features,
+            self.left_proj.out_features,
+            self.right_proj.out_features,
+        )
 
-        return pair + self.out_proj(outer)
+        # Step 1: (d_pair, d_hidden_L, d_hidden_R) x (B, L_j, d_hidden_R) -> (B, L_j, d_pair, d_hidden_L)
+        # Reduces complexity from O(L^2 * D^2) to O(L^2 * D)
+        tmp = torch.einsum("pdc,bjc->bjpd", W, right)
+
+        # Step 2: (B, L_i, d_hidden_L) x (B, L_j, d_pair, d_hidden_L) -> (B, L_i, L_j, d_pair)
+        res = torch.einsum("bid,bjpd->bijp", left, tmp)
+
+        return pair + res + self.out_proj.bias
 
 
 class EvoformerBlock(nn.Module):
@@ -138,9 +150,7 @@ class EvoformerStack(nn.Module):
             [EvoformerBlock(d_model, d_pair, n_heads, dropout) for _ in range(n_blocks)]
         )
 
-    def forward(
-        self, s: Tensor, pair: Tensor, mask: Optional[Tensor] = None
-    ) -> tuple:
+    def forward(self, s: Tensor, pair: Tensor, mask: Optional[Tensor] = None) -> tuple:
         for block in self.blocks:
             s, pair = block(s, pair, mask=mask)
         return s, pair
