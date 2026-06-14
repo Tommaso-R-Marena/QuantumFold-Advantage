@@ -27,7 +27,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -42,7 +42,7 @@ jobs:
       - name: Validate notebook JSON structure
         run: |
           python - <<'EOF'
-          import nbformat
+          import json
           import glob
           import sys
           
@@ -50,7 +50,7 @@ jobs:
           for nb_path in glob.glob('examples/*.ipynb'):
               try:
                   with open(nb_path, 'r', encoding='utf-8') as f:
-                      nb = nbformat.read(f, as_version=4)
+                      nb = json.load(f)
                   print(f"✓ {nb_path}: Valid JSON structure")
               except Exception as e:
                   errors.append(f"✗ {nb_path}: {str(e)}")
@@ -66,17 +66,17 @@ jobs:
       - name: Check for execution metadata
         run: |
           python - <<'EOF'
-          import nbformat
+          import json
           import glob
           
           warnings = []
           for nb_path in glob.glob('examples/*.ipynb'):
               with open(nb_path, 'r', encoding='utf-8') as f:
-                  nb = nbformat.read(f, as_version=4)
+                  nb = json.load(f)
               
               has_outputs = any(
                   cell.get('outputs', []) or cell.get('execution_count')
-                  for cell in nb.cells if cell.cell_type == 'code'
+                  for cell in nb['cells'] if cell['cell_type'] == 'code'
               )
               
               if has_outputs:
@@ -92,7 +92,7 @@ jobs:
       - name: Check for common issues
         run: |
           python - <<'EOF'
-          import nbformat
+          import json
           import glob
           import re
           
@@ -100,11 +100,11 @@ jobs:
           
           for nb_path in glob.glob('examples/*.ipynb'):
               with open(nb_path, 'r', encoding='utf-8') as f:
-                  nb = nbformat.read(f, as_version=4)
+                  nb = json.load(f)
               
-              for i, cell in enumerate(nb.cells):
-                  if cell.cell_type == 'code':
-                      source = ''.join(cell.source)
+              for i, cell in enumerate(nb['cells']):
+                  if cell['cell_type'] == 'code':
+                      source = ''.join(cell['source'])
                       
                       # Check for hardcoded paths
                       if re.search(r'/home/|C:\\\\|D:\\\\', source):
@@ -146,7 +146,7 @@ jobs:
       - name: Extract and check Python syntax
         run: |
           python - <<'EOF'
-          import nbformat
+          import json
           import glob
           import ast
           import sys
@@ -155,11 +155,11 @@ jobs:
           
           for nb_path in glob.glob('examples/*.ipynb'):
               with open(nb_path, 'r', encoding='utf-8') as f:
-                  nb = nbformat.read(f, as_version=4)
+                  nb = json.load(f)
               
-              for i, cell in enumerate(nb.cells):
-                  if cell.cell_type == 'code':
-                      source = ''.join(cell.source)
+              for i, cell in enumerate(nb['cells']):
+                  if cell['cell_type'] == 'code':
+                      source = ''.join(cell['source'])
                       if not source.strip():
                           continue
                       
@@ -205,7 +205,7 @@ jobs:
       - name: Extract import statements
         run: |
           python - <<'EOF'
-          import nbformat
+          import json
           import glob
           import re
           from collections import defaultdict
@@ -214,11 +214,11 @@ jobs:
           
           for nb_path in glob.glob('examples/*.ipynb'):
               with open(nb_path, 'r', encoding='utf-8') as f:
-                  nb = nbformat.read(f, as_version=4)
+                  nb = json.load(f)
               
-              for cell in nb.cells:
-                  if cell.cell_type == 'code':
-                      source = ''.join(cell.source)
+              for cell in nb['cells']:
+                  if cell['cell_type'] == 'code':
+                      source = ''.join(cell['source'])
                       
                       # Find import statements
                       for match in re.finditer(r'^import (\S+)', source, re.M):
@@ -256,7 +256,7 @@ jobs:
           python-version: '3.10'
       
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-notebook-test-${{ hashFiles('**/requirements.txt') }}
@@ -272,7 +272,7 @@ jobs:
         run: |
           mkdir -p test_outputs
           python - <<'EOF'
-          import nbformat
+          import json
           import glob
           import os
           
@@ -288,20 +288,19 @@ jobs:
                   continue
               
               with open(nb_path, 'r', encoding='utf-8') as f:
-                  nb = nbformat.read(f, as_version=4)
+                  nb = json.load(f)
               
               # Create limited version (first 5 cells only)
-              limited_nb = nbformat.v4.new_notebook()
-              limited_nb.cells = nb.cells[:min(5, len(nb.cells))]
+              limited_cells = nb["cells"][:min(5, len(nb["cells"]))]
               
               # Add a final cell to verify execution
-              limited_nb.cells.append(
-                  nbformat.v4.new_code_cell('print("✓ Dry-run completed successfully")')
+              limited_cells.append(
+                  {"cell_type": "code", "execution_count": None, "metadata": {}, "outputs": [], "source": ["print(\"✓ Dry-run completed successfully\")"]}
               )
               
               out_path = f"test_outputs/{os.path.basename(nb_path)}"
               with open(out_path, 'w', encoding='utf-8') as f:
-                  nbformat.write(limited_nb, f)
+                  json.dump({"cells": limited_cells, "metadata": nb.get("metadata", {}), "nbformat": 4, "nbformat_minor": 4}, f, indent=1)
               
               print(f"Created limited test notebook: {out_path}")
           EOF
@@ -341,24 +340,24 @@ jobs:
         run: |
           # Create minimal test version
           python - <<'EOF'
-          import nbformat
+          import json
           
           with open('examples/colab_quickstart.ipynb', 'r') as f:
-              nb = nbformat.read(f, as_version=4)
+              nb = json.load(f)
           
           # Modify to skip heavy operations
-          for cell in nb.cells:
-              if cell.cell_type == 'code':
-                  source = ''.join(cell.source)
+          for cell in nb['cells']:
+              if cell['cell_type'] == 'code':
+                  source = ''.join(cell['source'])
                   # Skip ESM-2 download
                   if 'ESM2Embedder' in source and 'esm2_t33' in source:
-                      cell.source = 'print("Skipping ESM-2 for CI test")'
+                      cell['source'] = 'print("Skipping ESM-2 for CI test")'
                   # Limit training
                   if 'epochs' in source:
-                      cell.source = source.replace('epochs=', 'epochs=1 # CI:')
+                      cell['source'] = source.replace('epochs=', 'epochs=1 # CI:')
           
           with open('test_quickstart.ipynb', 'w') as f:
-              nbformat.write(nb, f)
+              json.dump(nb, f, indent=1)
           EOF
           
           timeout 600 jupyter nbconvert --to notebook --execute \
@@ -368,7 +367,7 @@ jobs:
       
       - name: Upload execution results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: executed-notebooks
           path: |
@@ -385,13 +384,13 @@ jobs:
       - name: Check Colab compatibility
         run: |
           python - <<'EOF'
-          import nbformat
+          import json
           import glob
           import json
           
           for nb_path in glob.glob('examples/*.ipynb'):
               with open(nb_path, 'r', encoding='utf-8') as f:
-                  nb = nbformat.read(f, as_version=4)
+                  nb = json.load(f)
               
               metadata = nb.get('metadata', {})
               
