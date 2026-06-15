@@ -139,7 +139,7 @@ jobs:
       run: |
         pip install --upgrade pip
         # Add nbconvert for ExecutePreprocessor import in test file
-        pip install pytest nbformat nbconvert torch
+        pip install pytest nbformat nbconvert torch numpy
     
     - name: Run structure tests
       run: |
@@ -147,7 +147,7 @@ jobs:
     
     - name: Run content tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookContentCoverage -v
+        pytest tests/test_notebook_execution.py::TestNotebookContentCoverageCoverageCoverage -v
   
   test-production-notebook:
     name: Test Production Notebook
@@ -166,11 +166,11 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil
+        pip install pytest nbformat nbconvert torch numpy pandas matplotlib seaborn psutil
     
     - name: Test notebook structure
       run: |
-        pytest tests/test_production_notebook.py::TestNotebookExecution -v
+        pytest tests/test_production_notebook.py::TestNotebookStructure -v
     
     - name: Test configuration cells
       run: |
