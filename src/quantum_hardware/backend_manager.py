@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
+
 
 @dataclass
 class JobHandle:
@@ -10,8 +12,11 @@ class JobHandle:
     device_name: str
     job_id: str
 
+
 class QuantumBackendManager:
-    def __init__(self, provider: str = "ibm", credentials_path: Path = Path("~/.quantum_credentials.json")):
+    def __init__(
+        self, provider: str = "ibm", credentials_path: Path = Path("~/.quantum_credentials.json")
+    ):
         self.provider = provider
         self.credentials = self.load_credentials(credentials_path.expanduser())
 

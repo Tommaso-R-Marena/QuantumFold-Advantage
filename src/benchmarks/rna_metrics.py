@@ -1,6 +1,9 @@
 from __future__ import annotations
+
 from typing import Dict, List
+
 import pandas as pd
+
 
 def compute_rna_metrics(pred_pdb, native_pdb) -> Dict:
     return {
@@ -13,6 +16,7 @@ def compute_rna_metrics(pred_pdb, native_pdb) -> Dict:
         "clash_score": 0.0,
     }
 
+
 class RNAPuzzlesBenchmark:
     def __init__(self):
         self.puzzles: List[int] = []
@@ -21,7 +25,9 @@ class RNAPuzzlesBenchmark:
         self.puzzles = list(puzzles)
 
     def evaluate_predictions(self) -> pd.DataFrame:
-        return pd.DataFrame([
-            {"puzzle": p, "method": "QuantumFold", "rmsd": 0.0, "baseline": "Rosetta"}
-            for p in self.puzzles
-        ])
+        return pd.DataFrame(
+            [
+                {"puzzle": p, "method": "QuantumFold", "rmsd": 0.0, "baseline": "Rosetta"}
+                for p in self.puzzles
+            ]
+        )
