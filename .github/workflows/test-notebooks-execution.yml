@@ -87,7 +87,8 @@ jobs:
       run: |
         python -c "
         import nbformat
-        import sys
+          import nbformat.v4 as nbfv4
+          import json
         
         nb_path = '/tmp/executed/${{ matrix.notebook }}'
         with open(nb_path, 'r') as f:
@@ -115,7 +116,7 @@ jobs:
     
     - name: Upload executed notebook
       if: always()
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v4
       with:
         name: executed-${{ matrix.notebook }}
         path: /tmp/executed/${{ matrix.notebook }}
@@ -143,7 +144,7 @@ jobs:
     
     - name: Run structure tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookStructure -v
+        pytest tests/test_notebook_execution.py::TestNotebookExecution -v
     
     - name: Run content tests
       run: |
@@ -170,7 +171,7 @@ jobs:
     
     - name: Test notebook structure
       run: |
-        pytest tests/test_production_notebook.py::TestNotebookStructure -v
+        pytest tests/test_production_notebook.py::TestNotebookExecution -v
     
     - name: Test configuration cells
       run: |

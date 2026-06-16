@@ -43,8 +43,8 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          import glob
-          import sys
+          import nbformat.v4 as nbfv4
+          import json
           
           errors = []
           for nb_path in glob.glob('examples/*.ipynb'):
@@ -67,7 +67,8 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          import glob
+          import nbformat.v4 as nbfv4
+          import json
           
           warnings = []
           for nb_path in glob.glob('examples/*.ipynb'):
@@ -93,8 +94,8 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          import glob
-          import re
+          import nbformat.v4 as nbfv4
+          import json
           
           issues = []
           
@@ -147,9 +148,8 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          import glob
-          import ast
-          import sys
+          import nbformat.v4 as nbfv4
+          import json
           
           errors = []
           
@@ -206,8 +206,8 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          import glob
-          import re
+          import nbformat.v4 as nbfv4
+          import json
           from collections import defaultdict
           
           imports_by_notebook = defaultdict(set)
@@ -266,15 +266,15 @@ jobs:
       - name: Install package and dependencies
         run: |
           pip install -e .[dev]
-          pip install nbconvert jupyter ipykernel pytest-timeout
+          pip install numpy nbconvert jupyter ipykernel pytest-timeout
       
       - name: Create test notebooks with limited execution
         run: |
           mkdir -p test_outputs
           python - <<'EOF'
           import nbformat
-          import glob
-          import os
+          import nbformat.v4 as nbfv4
+          import json
           
           # Notebooks to test with dry-run
           test_notebooks = [
@@ -291,17 +291,17 @@ jobs:
                   nb = nbformat.read(f, as_version=4)
               
               # Create limited version (first 5 cells only)
-              limited_nb = nbformat.v4.new_notebook()
+              limited_nb = nbfv4.new_notebook()
               limited_nb.cells = nb.cells[:min(5, len(nb.cells))]
               
               # Add a final cell to verify execution
               limited_nb.cells.append(
-                  nbformat.v4.new_code_cell('print("✓ Dry-run completed successfully")')
+                  nbfv4.new_code_cell('print("✓ Dry-run completed successfully")')
               )
               
               out_path = f"test_outputs/{os.path.basename(nb_path)}"
               with open(out_path, 'w', encoding='utf-8') as f:
-                  nbformat.write(limited_nb, f)
+                  json.dump(limited_nb, f, indent=2)
               
               print(f"Created limited test notebook: {out_path}")
           EOF
@@ -334,7 +334,7 @@ jobs:
       - name: Install package and dependencies
         run: |
           pip install -e .[dev]
-          pip install nbconvert jupyter ipykernel pytest
+          pip install numpy nbconvert jupyter ipykernel pytest
       
       - name: Execute colab_quickstart.ipynb
         if: always()
@@ -342,6 +342,8 @@ jobs:
           # Create minimal test version
           python - <<'EOF'
           import nbformat
+          import nbformat.v4 as nbfv4
+          import json
           
           with open('examples/colab_quickstart.ipynb', 'r') as f:
               nb = nbformat.read(f, as_version=4)
@@ -358,7 +360,7 @@ jobs:
                       cell.source = source.replace('epochs=', 'epochs=1 # CI:')
           
           with open('test_quickstart.ipynb', 'w') as f:
-              nbformat.write(nb, f)
+              json.dump(nb, f, indent=2)
           EOF
           
           timeout 600 jupyter nbconvert --to notebook --execute \
@@ -368,7 +370,7 @@ jobs:
       
       - name: Upload execution results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: executed-notebooks
           path: |
@@ -386,7 +388,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          import glob
+          import nbformat.v4 as nbfv4
           import json
           
           for nb_path in glob.glob('examples/*.ipynb'):

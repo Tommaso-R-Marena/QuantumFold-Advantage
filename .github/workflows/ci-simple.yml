@@ -34,7 +34,7 @@ jobs:
       - name: Install minimal dependencies
         run: |
           pip install --upgrade pip
-          pip install black isort pytest
+          pip install numpy black isort pytest
       
       - name: Quick format check
         run: |
