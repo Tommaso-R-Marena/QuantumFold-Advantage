@@ -40,7 +40,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e .
-          pip install numpy pytest hypothesis pytest-timeout
+          pip install pytest hypothesis pytest-timeout
       
       - name: Run property-based tests
         run: |
@@ -72,7 +72,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e .
-          pip install numpy pytest pytest-benchmark pytest-timeout memory_profiler
+          pip install pytest pytest-benchmark pytest-timeout memory_profiler
       
       - name: Run stress tests
         run: |
@@ -111,7 +111,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e .
-          pip install numpy pytest pytest-regressions
+          pip install pytest pytest-regressions
       
       - name: Run regression tests
         run: |
@@ -138,7 +138,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e .
-          pip install numpy mutmut pytest
+          pip install mutmut pytest
       
       - name: Run mutation testing
         run: |
@@ -148,7 +148,7 @@ jobs:
         continue-on-error: true
       
       - name: Upload mutation report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: mutation-report
@@ -175,7 +175,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e .
-          pip install numpy pytest pytest-cov coverage[toml]
+          pip install pytest pytest-cov coverage[toml]
       
       - name: Run tests with detailed coverage
         run: |
@@ -195,7 +195,7 @@ jobs:
           coverage report --format=markdown >> $GITHUB_STEP_SUMMARY || true
       
       - name: Upload coverage artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: always()
         with:
           name: coverage-report
