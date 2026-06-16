@@ -22,12 +22,12 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -45,12 +45,13 @@ jobs:
           import nbformat
           import glob
           import sys
+          import json
 
           errors = []
           for nb_path in glob.glob('examples/*.ipynb'):
               try:
                   with open(nb_path, 'r', encoding='utf-8') as f:
-                      nb = nbformat.read(f, as_version=4)
+                      nbformat.read(f, as_version=4)
                   print(f"✓ {nb_path}: Valid JSON structure")
               except Exception as e:
                   errors.append(f"✗ {nb_path}: {str(e)}")
@@ -104,10 +105,12 @@ jobs:
 
               for i, cell in enumerate(nb.cells):
                   if cell.cell_type == 'code':
-                      source = ''.join(cell.source)
+                      source = cell.source
+                      if isinstance(source, list):
+                          source = ''.join(source)
 
                       # Check for hardcoded paths
-                      if re.search(r'/home/|C:\\\\|D:\\\\', source):
+                      if re.search(r'/home/|C:\\|D:\\', source):
                           issues.append(f"{nb_path} cell {i}: Hardcoded absolute path")
 
                       # Check for credentials
@@ -135,7 +138,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       
@@ -159,7 +162,9 @@ jobs:
 
               for i, cell in enumerate(nb.cells):
                   if cell.cell_type == 'code':
-                      source = ''.join(cell.source)
+                      source = cell.source
+                      if isinstance(source, list):
+                          source = ''.join(source)
                       if not source.strip():
                           continue
 
@@ -194,7 +199,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       
@@ -218,7 +223,9 @@ jobs:
 
               for cell in nb.cells:
                   if cell.cell_type == 'code':
-                      source = ''.join(cell.source)
+                      source = cell.source
+                      if isinstance(source, list):
+                          source = ''.join(source)
 
                       # Find import statements
                       for match in re.finditer(r'^import (\S+)', source, re.M):
@@ -251,12 +258,12 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-notebook-test-${{ hashFiles('**/requirements.txt') }}
@@ -273,7 +280,8 @@ jobs:
           mkdir -p test_outputs
           python - <<'EOF'
           import nbformat
-          import glob
+          import nbformat.v4 as nbfv4
+          import json
           import os
 
           # Notebooks to test with dry-run
@@ -291,17 +299,17 @@ jobs:
                   nb = nbformat.read(f, as_version=4)
 
               # Create limited version (first 5 cells only)
-              limited_nb = nbformat.v4.new_notebook()
+              limited_nb = nbfv4.new_notebook()
               limited_nb.cells = nb.cells[:min(5, len(nb.cells))]
 
               # Add a final cell to verify execution
               limited_nb.cells.append(
-                  nbformat.v4.new_code_cell('print("✓ Dry-run completed successfully")')
+                  nbfv4.new_code_cell('print("✓ Dry-run completed successfully")')
               )
 
               out_path = f"test_outputs/{os.path.basename(nb_path)}"
               with open(out_path, 'w', encoding='utf-8') as f:
-                  nbformat.write(limited_nb, f)
+                  json.dump(limited_nb, f, indent=2)
 
               print(f"Created limited test notebook: {out_path}")
           EOF
@@ -309,12 +317,8 @@ jobs:
       - name: Execute limited notebooks
         run: |
           for notebook in test_outputs/*.ipynb; do
-            echo "Testing: $notebook"
-            timeout 300 jupyter nbconvert --to notebook --execute \
-              --ExecutePreprocessor.timeout=60 \
-              --ExecutePreprocessor.kernel_name=python3 \
-              --output "$(basename "$notebook" .ipynb)_executed.ipynb" \
-              "$notebook" || echo "⚠ $notebook execution incomplete (expected for dry-run)"
+            echo "Testing: "
+            timeout 300 jupyter nbconvert --to notebook --execute               --ExecutePreprocessor.timeout=60               --ExecutePreprocessor.kernel_name=python3               --output "_executed.ipynb"               "" || echo "⚠  execution incomplete (expected for dry-run)"
           done
 
   # Full execution test for lightweight notebooks
@@ -327,7 +331,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       
@@ -342,6 +346,7 @@ jobs:
           # Create minimal test version
           python - <<'EOF'
           import nbformat
+          import json
 
           with open('examples/colab_quickstart.ipynb', 'r') as f:
               nb = nbformat.read(f, as_version=4)
@@ -349,7 +354,9 @@ jobs:
           # Modify to skip heavy operations
           for cell in nb.cells:
               if cell.cell_type == 'code':
-                  source = ''.join(cell.source)
+                  source = cell.source
+                  if isinstance(source, list):
+                      source = ''.join(source)
                   # Skip ESM-2 download
                   if 'ESM2Embedder' in source and 'esm2_t33' in source:
                       cell.source = 'print("Skipping ESM-2 for CI test")'
@@ -358,17 +365,14 @@ jobs:
                       cell.source = source.replace('epochs=', 'epochs=1 # CI:')
 
           with open('test_quickstart.ipynb', 'w') as f:
-              nbformat.write(nb, f)
+              json.dump(nb, f, indent=2)
           EOF
           
-          timeout 600 jupyter nbconvert --to notebook --execute \
-            --ExecutePreprocessor.timeout=300 \
-            --output test_quickstart_executed.ipynb \
-            test_quickstart.ipynb || true
+          timeout 600 jupyter nbconvert --to notebook --execute             --ExecutePreprocessor.timeout=300             --output test_quickstart_executed.ipynb             test_quickstart.ipynb || true
       
       - name: Upload execution results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: executed-notebooks
           path: |
