@@ -140,6 +140,7 @@ jobs:
         pip install --upgrade pip
         # Add nbconvert for ExecutePreprocessor import in test file
         pip install pytest nbformat nbconvert torch
+        pip install numpy tqdm scipy requests biopython
     
     - name: Run structure tests
       run: |
@@ -167,6 +168,7 @@ jobs:
       run: |
         pip install --upgrade pip
         pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil
+        pip install numpy tqdm scipy requests biopython
     
     - name: Test notebook structure
       run: |
@@ -198,7 +200,7 @@ jobs:
     
     - name: Test memory management
       run: |
-        pytest tests/test_production_notebook.py::TestMemoryManagement -v
+        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
     
     - name: Test error handling
       run: |

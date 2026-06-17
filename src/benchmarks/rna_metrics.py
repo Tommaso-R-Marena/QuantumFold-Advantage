@@ -1,6 +1,5 @@
 import pandas as pd
 
-
 class RNAMetrics:
     def __init__(self):
         self.puzzles = []
