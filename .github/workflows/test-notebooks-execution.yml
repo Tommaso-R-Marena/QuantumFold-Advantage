@@ -40,7 +40,7 @@ jobs:
         cache: 'pip'
     
     - name: Cache pip packages
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-notebooks-${{ hashFiles('requirements.txt') }}
@@ -140,15 +140,14 @@ jobs:
         pip install --upgrade pip
         # Add nbconvert for ExecutePreprocessor import in test file
         pip install pytest nbformat nbconvert torch
-        pip install numpy tqdm scipy requests biopython
     
     - name: Run structure tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookExecution -v
+        pytest tests/test_notebook_execution.py::TestNotebookStructure -v
     
     - name: Run content tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookContentCoverage -v
+        pytest tests/test_notebook_execution.py::TestNotebookContent -v
   
   test-production-notebook:
     name: Test Production Notebook
@@ -168,7 +167,6 @@ jobs:
       run: |
         pip install --upgrade pip
         pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil
-        pip install numpy tqdm scipy requests biopython
     
     - name: Test notebook structure
       run: |
@@ -204,7 +202,7 @@ jobs:
     
     - name: Test error handling
       run: |
-        pytest tests/test_production_notebook.py::TestErrorHandling -v
+        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
     
     - name: Test reproducibility
       run: |
@@ -212,7 +210,7 @@ jobs:
     
     - name: Test documentation
       run: |
-        pytest tests/test_production_notebook.py::TestDocumentation -v
+        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
   
   summary:
     name: Test Summary

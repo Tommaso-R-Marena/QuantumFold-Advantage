@@ -31,7 +31,7 @@ jobs:
           cache: 'pip'
       
       - name: Cache tools
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pip
           key: lint-fix-${{ runner.os }}
