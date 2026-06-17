@@ -348,6 +348,7 @@ jobs:
           
           # Modify to skip heavy operations
           for cell in nb.cells:
+          import json
               if cell.cell_type == 'code':
                   source = ''.join(cell.source)
                   # Skip ESM-2 download

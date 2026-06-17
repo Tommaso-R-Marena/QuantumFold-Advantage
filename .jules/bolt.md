@@ -1,7 +1,9 @@
-## 2025-05-14 - Vectorizing FAPE Loss
-**Learning:** Python loops over frames in loss functions (like FAPE) are a major bottleneck in structural biology models. Using `torch.einsum` and broadcasting allows for full vectorization, yielding >10x speedups.
-**Action:** Always check for Python loops in PyTorch forward/loss methods and replace with vectorized operations where intermediate tensor sizes allow.
+# Bolt's Performance Journal ⚡
 
-## 2025-05-14 - Surgical Fixes for Code Integrity
-**Learning:** Broad cleanup of "known issues" in unrelated files can lead to regressions or be flagged in code review.
-**Action:** Focus on the primary optimization task and only apply surgical fixes to other files if they block testing or verification of the main change.
+## 2025-05-14 - [PairUpdate Optimization]
+**Learning:** Replaced O(L^2 * D^2) outer product followed by a linear projection with a two-step contraction using torch.einsum. This avoids creating a massive intermediate tensor and provides significant speed/memory gains.
+**Action:** Use associativity of matrix contraction to optimize outer-product updates in attention/evoformer blocks.
+
+## 2025-05-14 - [Surgical CI Fixes]
+**Learning:** CI failures on detached HEADs often stem from invalid Docker tags (leading hyphens) and corrupted notebook JSONs. Using 'sha-' prefix and surgical JSON patching is more reliable than broad regex.
+**Action:** Always verify Docker tagging logic for empty branch variables and validate notebook JSON integrity before submission.
