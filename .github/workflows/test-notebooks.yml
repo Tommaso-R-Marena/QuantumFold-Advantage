@@ -22,12 +22,12 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -43,6 +43,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          import nbformat.v4
           import glob
           import sys
           
@@ -67,6 +68,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          import nbformat.v4
           import glob
           
           warnings = []
@@ -93,6 +95,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          import nbformat.v4
           import glob
           import re
           
@@ -135,7 +138,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       
@@ -147,6 +150,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          import nbformat.v4
           import glob
           import ast
           import sys
@@ -194,7 +198,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       
@@ -206,6 +210,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          import nbformat.v4
           import glob
           import re
           from collections import defaultdict
@@ -251,12 +256,12 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       
       - name: Cache pip
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-notebook-test-${{ hashFiles('**/requirements.txt') }}
@@ -273,6 +278,7 @@ jobs:
           mkdir -p test_outputs
           python - <<'EOF'
           import nbformat
+          import nbformat.v4
           import glob
           import os
           
@@ -327,7 +333,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
       
@@ -342,6 +348,7 @@ jobs:
           # Create minimal test version
           python - <<'EOF'
           import nbformat
+          import nbformat.v4
           
           with open('examples/colab_quickstart.ipynb', 'r') as f:
               nb = nbformat.read(f, as_version=4)
@@ -368,7 +375,7 @@ jobs:
       
       - name: Upload execution results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: executed-notebooks
           path: |
@@ -386,6 +393,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          import nbformat.v4
           import glob
           import json
           
