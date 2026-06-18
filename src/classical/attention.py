@@ -148,9 +148,15 @@ class InvariantPointAttention(nn.Module):
         # Apply rotations and translations to points -> global frame.
         # rotations: (B, L, 3, 3), translations: (B, L, 3)
         # Optimized: Use direct broadcasting and avoid redundant expands.
-        q_pts_global = torch.einsum("blhpc,blcd->blhpd", q_pts, rotations) + translations.unsqueeze(2).unsqueeze(3)
-        k_pts_global = torch.einsum("blhpc,blcd->blhpd", k_pts, rotations) + translations.unsqueeze(2).unsqueeze(3)
-        v_pts_global = torch.einsum("blhpc,blcd->blhpd", v_pts, rotations) + translations.unsqueeze(2).unsqueeze(3)
+        q_pts_global = torch.einsum("blhpc,blcd->blhpd", q_pts, rotations) + translations.unsqueeze(
+            2
+        ).unsqueeze(3)
+        k_pts_global = torch.einsum("blhpc,blcd->blhpd", k_pts, rotations) + translations.unsqueeze(
+            2
+        ).unsqueeze(3)
+        v_pts_global = torch.einsum("blhpc,blcd->blhpd", v_pts, rotations) + translations.unsqueeze(
+            2
+        ).unsqueeze(3)
 
         # Scalar attention scores
         scalar_attn = torch.einsum("bihd,bjhd->bhij", q_s, k_s) / math.sqrt(self.head_dim)

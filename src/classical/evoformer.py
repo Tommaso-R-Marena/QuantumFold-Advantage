@@ -59,7 +59,7 @@ class PairUpdate(nn.Module):
             Updated pair: (B, L, L, d_pair)
         """
         h = self.norm(s)
-        left = self.left_proj(h)   # (B, L, d_hidden)
+        left = self.left_proj(h)  # (B, L, d_hidden)
         right = self.right_proj(h)  # (B, L, d_hidden)
 
         # Optimized two-step contraction to avoid O(L^2 D^2) intermediate tensor.
@@ -143,9 +143,7 @@ class EvoformerStack(nn.Module):
             [EvoformerBlock(d_model, d_pair, n_heads, dropout) for _ in range(n_blocks)]
         )
 
-    def forward(
-        self, s: Tensor, pair: Tensor, mask: Optional[Tensor] = None
-    ) -> tuple:
+    def forward(self, s: Tensor, pair: Tensor, mask: Optional[Tensor] = None) -> tuple:
         for block in self.blocks:
             s, pair = block(s, pair, mask=mask)
         return s, pair
