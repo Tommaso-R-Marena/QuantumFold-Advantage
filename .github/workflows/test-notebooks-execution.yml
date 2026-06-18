@@ -87,7 +87,8 @@ jobs:
       run: |
         python -c "
         import nbformat
-        import json
+          import nbformat.v4 as nbformat_v4
+          import json
         import sys
         
         nb_path = '/tmp/executed/${{ matrix.notebook }}'

@@ -43,6 +43,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          import nbformat.v4 as nbformat_v4
           import json
           import glob
           import sys
@@ -68,6 +69,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          import nbformat.v4 as nbformat_v4
           import json
           import glob
           
@@ -95,6 +97,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          import nbformat.v4 as nbformat_v4
           import json
           import glob
           import re
@@ -150,6 +153,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          import nbformat.v4 as nbformat_v4
           import json
           import glob
           import ast
@@ -210,6 +214,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          import nbformat.v4 as nbformat_v4
           import json
           import glob
           import re
@@ -278,11 +283,12 @@ jobs:
           mkdir -p test_outputs
           python - <<'EOF'
           import nbformat
+          import nbformat.v4 as nbformat_v4
           import json
           import glob
           import os
+          import nbformat
           import nbformat.v4 as nbformat_v4
-          
           # Notebooks to test with dry-run
           test_notebooks = [
               'examples/colab_quickstart.ipynb',
@@ -349,6 +355,7 @@ jobs:
           # Create minimal test version
           python - <<'EOF'
           import nbformat
+          import nbformat.v4 as nbformat_v4
           import json
           
           with open('examples/colab_quickstart.ipynb', 'r') as f:
@@ -394,6 +401,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          import nbformat.v4 as nbformat_v4
           import json
           import glob
           import json
