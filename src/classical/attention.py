@@ -145,14 +145,12 @@ class InvariantPointAttention(nn.Module):
         k_pts = self.k_points(h).view(B, L, self.n_heads, self.n_query_points, 3)
         v_pts = self.v_points(h).view(B, L, self.n_heads, self.n_value_points, 3)
 
-        # Apply rotations to points -> global frame
-        # rotations: (B, L, 3, 3), pts: (B, L, H, P, 3)
-        R = rotations.unsqueeze(2).unsqueeze(3)  # (B, L, 1, 1, 3, 3)
-        T = translations.unsqueeze(2).unsqueeze(3)  # (B, L, 1, 1, 3)
-
-        q_pts_global = torch.einsum("blhpc,blhpcd->blhpd", q_pts, R.expand(-1, -1, self.n_heads, self.n_query_points, -1, -1)) + T
-        k_pts_global = torch.einsum("blhpc,blhpcd->blhpd", k_pts, R.expand(-1, -1, self.n_heads, self.n_query_points, -1, -1)) + T
-        v_pts_global = torch.einsum("blhpc,blhpcd->blhpd", v_pts, R.expand(-1, -1, self.n_heads, self.n_value_points, -1, -1)) + T
+        # Apply rotations and translations to points -> global frame.
+        # rotations: (B, L, 3, 3), translations: (B, L, 3)
+        # Optimized: Use direct broadcasting and avoid redundant expands.
+        q_pts_global = torch.einsum("blhpc,blcd->blhpd", q_pts, rotations) + translations.unsqueeze(2).unsqueeze(3)
+        k_pts_global = torch.einsum("blhpc,blcd->blhpd", k_pts, rotations) + translations.unsqueeze(2).unsqueeze(3)
+        v_pts_global = torch.einsum("blhpc,blcd->blhpd", v_pts, rotations) + translations.unsqueeze(2).unsqueeze(3)
 
         # Scalar attention scores
         scalar_attn = torch.einsum("bihd,bjhd->bhij", q_s, k_s) / math.sqrt(self.head_dim)
@@ -191,11 +189,11 @@ class InvariantPointAttention(nn.Module):
         result_pts = result_pts.permute(0, 2, 1, 3, 4)  # (B, L, H, Pv, 3)
 
         # Transform back to local frame
-        R_inv = rotations.transpose(-1, -2).unsqueeze(2).unsqueeze(3)
+        # Optimized: Use direct broadcasting and avoid redundant expands.
         result_pts_local = torch.einsum(
-            "blhpc,blhpcd->blhpd",
-            result_pts - T,
-            R_inv.expand(-1, -1, self.n_heads, self.n_value_points, -1, -1),
+            "blhpc,blcd->blhpd",
+            result_pts - translations.unsqueeze(2).unsqueeze(3),
+            rotations.transpose(-1, -2),
         )
 
         # Point norms
