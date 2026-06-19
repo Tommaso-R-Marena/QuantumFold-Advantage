@@ -14,7 +14,6 @@ class JobHandle:
 
 
 class QuantumBackendManager:
-    def __init__(self, provider: str = "ibm", credentials_path: Path = Path("~/.quantum_credentials.json")):
     def __init__(
         self, provider: str = "ibm", credentials_path: Path = Path("~/.quantum_credentials.json")
     ):
@@ -28,57 +27,15 @@ class QuantumBackendManager:
 
     def list_available_devices(self) -> List[Dict]:
         return [
-            {"name": "ibm_brisbane", "num_qubits": 127, "connectivity": "heavy-hex", "error_rates": {"2q": 0.01}, "queue_depth": 5, "cost": 0.0},
-            {"name": "ionq_aria", "num_qubits": 25, "connectivity": "all-to-all", "error_rates": {"2q": 0.02}, "queue_depth": 2, "cost": 1.0},
+            {"name": "simulator", "qubits": 32, "status": "available"},
+            {"name": "quantum_device_1", "qubits": 5, "status": "available"},
         ]
 
-    def select_best_device(self, n_qubits_required: int, min_fidelity: float = 0.99) -> str:
-        candidates = [d for d in self.list_available_devices() if d["num_qubits"] >= n_qubits_required]
-        return sorted(candidates, key=lambda d: (d["queue_depth"], d["error_rates"]["2q"]))[0]["name"]
+    def select_best_device(self) -> str:
+        return "simulator"
 
-    def submit_job(self, circuit, shots: int = 1024, device_name: Optional[str] = None) -> JobHandle:
-        return JobHandle(provider=self.provider, device_name=device_name or self.select_best_device(4), job_id="mock-job-001")
+    def submit_job(self, circuit, device_name: str) -> JobHandle:
+        return JobHandle(self.provider, device_name, "job_123")
 
-    def retrieve_results(self, job_handle: JobHandle, apply_error_mitigation: bool = True) -> Dict:
-        return {"job_id": job_handle.job_id, "counts": {"0000": 512, "1111": 512}, "mitigated": apply_error_mitigation}
-            {
-                "name": "ibm_brisbane",
-                "num_qubits": 127,
-                "connectivity": "heavy-hex",
-                "error_rates": {"2q": 0.01},
-                "queue_depth": 5,
-                "cost": 0.0,
-            },
-            {
-                "name": "ionq_aria",
-                "num_qubits": 25,
-                "connectivity": "all-to-all",
-                "error_rates": {"2q": 0.02},
-                "queue_depth": 2,
-                "cost": 1.0,
-            },
-        ]
-
-    def select_best_device(self, n_qubits_required: int, min_fidelity: float = 0.99) -> str:
-        candidates = [
-            d for d in self.list_available_devices() if d["num_qubits"] >= n_qubits_required
-        ]
-        return sorted(candidates, key=lambda d: (d["queue_depth"], d["error_rates"]["2q"]))[0][
-            "name"
-        ]
-
-    def submit_job(
-        self, circuit, shots: int = 1024, device_name: Optional[str] = None
-    ) -> JobHandle:
-        return JobHandle(
-            provider=self.provider,
-            device_name=device_name or self.select_best_device(4),
-            job_id="mock-job-001",
-        )
-
-    def retrieve_results(self, job_handle: JobHandle, apply_error_mitigation: bool = True) -> Dict:
-        return {
-            "job_id": job_handle.job_id,
-            "counts": {"0000": 512, "1111": 512},
-            "mitigated": apply_error_mitigation,
-        }
+    def retrieve_results(self, handle: JobHandle) -> Dict:
+        return {"counts": {"000": 512, "111": 512}}
