@@ -62,12 +62,26 @@ class PairUpdate(nn.Module):
         left = self.left_proj(h)   # (B, L, d_hidden)
         right = self.right_proj(h)  # (B, L, d_hidden)
 
-        # Outer product: (B, L, d_hidden) x (B, L, d_hidden) -> (B, L, L, d_hidden^2)
-        outer = torch.einsum("bid,bjc->bijdc", left, right)
-        B, L, _, d1, d2 = outer.shape
-        outer = outer.reshape(B, L, L, d1 * d2)
+        # Optimized two-step contraction to avoid large O(L^2 D^2) intermediate tensor.
+        # Original: torch.einsum("bid,bjc->bijdc", left, right) -> (B, L, L, d_hidden, d_hidden)
+        # Followed by Linear(d_hidden**2, d_pair)
 
-        return pair + self.out_proj(outer)
+        d_p = self.out_proj.out_features
+        d_h = self.left_proj.out_features
+
+        # Reshape out_proj weight to (d_pair, d_hidden, d_hidden)
+        weight = self.out_proj.weight.view(d_p, d_h, d_h)
+
+        # Step 1: contract right with weight: (B, L, d_h) x (d_p, d_h, d_h) -> (B, L, d_p, d_h)
+        tmp = torch.einsum("bjc,pdc->bjpd", right, weight)
+
+        # Step 2: contract left with tmp: (B, L, d_h) x (B, L, d_p, d_h) -> (B, L, L, d_p)
+        update = torch.einsum("bid,bjpd->bijp", left, tmp)
+
+        if self.out_proj.bias is not None:
+            update = update + self.out_proj.bias
+
+        return pair + update
 
 
 class EvoformerBlock(nn.Module):
