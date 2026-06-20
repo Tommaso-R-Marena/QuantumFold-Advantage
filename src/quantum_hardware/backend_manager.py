@@ -49,9 +49,9 @@ class QuantumBackendManager:
         candidates = [
             d for d in self.list_available_devices() if d["num_qubits"] >= n_qubits_required
         ]
-        return sorted(
-            candidates, key=lambda d: (d["queue_depth"], d["error_rates"]["2q"])
-        )[0]["name"]
+        return sorted(candidates, key=lambda d: (d["queue_depth"], d["error_rates"]["2q"]))[0][
+            "name"
+        ]
 
     def submit_job(
         self, circuit, shots: int = 1024, device_name: Optional[str] = None

@@ -43,6 +43,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          import json
           import glob
           import sys
           
@@ -67,6 +68,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          import json
           import glob
           
           warnings = []
@@ -93,6 +95,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          import json
           import glob
           import re
           
@@ -147,6 +150,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          import json
           import glob
           import ast
           import sys
@@ -206,6 +210,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          import json
           import glob
           import re
           from collections import defaultdict
@@ -273,7 +278,9 @@ jobs:
           mkdir -p test_outputs
           python - <<'EOF'
           import nbformat
+          import json
           import nbformat.v4 as nbformat_v4
+          import json
           import glob
           import os
           
@@ -343,6 +350,7 @@ jobs:
           # Create minimal test version
           python - <<'EOF'
           import nbformat
+          import json
           
           with open('examples/colab_quickstart.ipynb', 'r') as f:
               nb = nbformat.read(f, as_version=4)
@@ -387,6 +395,7 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
+          import json
           import glob
           import json
           
