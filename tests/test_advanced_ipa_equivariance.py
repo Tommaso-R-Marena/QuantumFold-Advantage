@@ -16,7 +16,5 @@ def test_structure_module_equivariance_metric_small():
     with torch.no_grad():
         err = module.validate_equivariance(s, z, coords)
 
-    assert (
-        err.item() < 0.5
-    ), f"Equivariance error {err.item():.4f} Å is too large (expected < 0.5 Å)"
+    assert err.item() < 0.5, f"Equivariance error {err.item():.4f} Å is too large (expected < 0.5 Å)"
     print(f"✓ Equivariance error: {err.item():.6f} Å")

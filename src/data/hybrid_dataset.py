@@ -18,26 +18,13 @@ PAD_IDX = len(AMINO_ACIDS)  # 20
 
 # Physicochemical properties: hydrophobicity, charge, normalised MW
 AA_PROPS = {
-    "A": [1.8, 0.0, 0.42],
-    "C": [2.5, 0.0, 0.57],
-    "D": [-3.5, -1.0, 0.63],
-    "E": [-3.5, -1.0, 0.69],
-    "F": [2.8, 0.0, 0.78],
-    "G": [-0.4, 0.0, 0.35],
-    "H": [-3.2, 0.5, 0.73],
-    "I": [4.5, 0.0, 0.62],
-    "K": [-3.9, 1.0, 0.69],
-    "L": [3.8, 0.0, 0.62],
-    "M": [1.9, 0.0, 0.70],
-    "N": [-3.5, 0.0, 0.62],
-    "P": [-1.6, 0.0, 0.54],
-    "Q": [-3.5, 0.0, 0.69],
-    "R": [-4.5, 1.0, 0.82],
-    "S": [-0.8, 0.0, 0.50],
-    "T": [-0.7, 0.0, 0.56],
-    "V": [4.2, 0.0, 0.55],
-    "W": [-0.9, 0.0, 0.96],
-    "Y": [-1.3, 0.0, 0.85],
+    "A": [1.8, 0.0, 0.42], "C": [2.5, 0.0, 0.57], "D": [-3.5, -1.0, 0.63],
+    "E": [-3.5, -1.0, 0.69], "F": [2.8, 0.0, 0.78], "G": [-0.4, 0.0, 0.35],
+    "H": [-3.2, 0.5, 0.73], "I": [4.5, 0.0, 0.62], "K": [-3.9, 1.0, 0.69],
+    "L": [3.8, 0.0, 0.62], "M": [1.9, 0.0, 0.70], "N": [-3.5, 0.0, 0.62],
+    "P": [-1.6, 0.0, 0.54], "Q": [-3.5, 0.0, 0.69], "R": [-4.5, 1.0, 0.82],
+    "S": [-0.8, 0.0, 0.50], "T": [-0.7, 0.0, 0.56], "V": [4.2, 0.0, 0.55],
+    "W": [-0.9, 0.0, 0.96], "Y": [-1.3, 0.0, 0.85],
 }
 
 
@@ -72,8 +59,8 @@ class ProteinStructureDataset(Dataset):
         return len(self.sequences)
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        seq = self.sequences[idx][: self.max_len]
-        ca_coords = self.coords_list[idx][: self.max_len]
+        seq = self.sequences[idx][:self.max_len]
+        ca_coords = self.coords_list[idx][:self.max_len]
         L = len(seq)
 
         aa_idx, physchem = encode_sequence(seq)
@@ -82,7 +69,7 @@ class ProteinStructureDataset(Dataset):
         backbone = np.zeros((L, 3, 3), dtype=np.float32)
         backbone[:, 1, :] = ca_coords  # Cα
         backbone[:, 0, :] = ca_coords + np.array([-0.527, 1.359, 0.0])  # N
-        backbone[:, 2, :] = ca_coords + np.array([1.526, 0.0, 0.0])  # C
+        backbone[:, 2, :] = ca_coords + np.array([1.526, 0.0, 0.0])      # C
 
         # Pad
         aa_padded = np.full(self.max_len, PAD_IDX, dtype=np.int64)
@@ -106,7 +93,6 @@ class ProteinStructureDataset(Dataset):
 # ---------------------------------------------------------------------------
 # Synthetic data generator (for testing without real PDB files)
 # ---------------------------------------------------------------------------
-
 
 def generate_synthetic_proteins(
     n_proteins: int = 50,
