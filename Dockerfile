@@ -1,5 +1,5 @@
 # Multi-stage build for faster CI/CD
-FROM python:3.11-slim AS builder
+FROM python:3.14-slim AS builder
 
 # Set working directory
 WORKDIR /build
@@ -57,7 +57,7 @@ RUN pip wheel --no-cache-dir --wheel-dir /wheels .
 # ============================================
 # Final stage - minimal image
 # ============================================
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 # Set working directory
 WORKDIR /app
