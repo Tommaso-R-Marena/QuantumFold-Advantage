@@ -92,7 +92,9 @@ class AutoBenchmarkRunner:
         noise *= 1.0 - min(candidate.batch_size, 64) / 1024
         return max(noise, 0.05)
 
-    def benchmark(self, candidates: List[BenchmarkCandidate], n_samples: int = 8) -> Dict[str, object]:
+    def benchmark(
+        self, candidates: List[BenchmarkCandidate], n_samples: int = 8
+    ) -> Dict[str, object]:
         """Benchmark multiple candidates and return ranked results."""
         if n_samples < 1:
             raise ValueError("n_samples must be >= 1")
@@ -111,7 +113,9 @@ class AutoBenchmarkRunner:
                 coords_true = self.rng.normal(0.0, 8.0, size=(128, 3))
                 coords_pred = coords_true + self.rng.normal(0.0, pred_noise, size=(128, 3))
 
-                rmsd_values.append(self.evaluator.compute_rmsd(coords_pred, coords_true, align=True))
+                rmsd_values.append(
+                    self.evaluator.compute_rmsd(coords_pred, coords_true, align=True)
+                )
                 tm_values.append(self.evaluator.compute_tm_score(coords_pred, coords_true))
 
             elapsed = time.perf_counter() - start
