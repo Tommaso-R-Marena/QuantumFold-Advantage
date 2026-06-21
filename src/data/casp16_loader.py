@@ -64,7 +64,9 @@ class _TargetListParser(HTMLParser):
 class CASP16DataLoader:
     """Download and process CASP16 targets with metadata."""
 
-    def __init__(self, cache_dir: str = "./data/casp16", download: bool = True, verbose: bool = True):
+    def __init__(
+        self, cache_dir: str = "./data/casp16", download: bool = True, verbose: bool = True
+    ):
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.download = download
@@ -86,7 +88,9 @@ class CASP16DataLoader:
 
     def _fallback_targets(self) -> List[CASP16Target]:
         targets = [
-            CASP16Target("T1200", "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQ", None, "Regular", 35, None, False, []),
+            CASP16Target(
+                "T1200", "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQ", None, "Regular", 35, None, False, []
+            ),
             CASP16Target("T1201", "GAMGKKYVSLKSGEELDK", None, "FM", 18, None, False, []),
             CASP16Target("T1202", "ACDEFGHIKLMNPQRSTVWYACDEFG", None, "TBM", 26, None, False, []),
         ]
@@ -258,7 +262,9 @@ class CASP16Dataset:
         return self.targets[idx]
 
 
-def get_casp16_benchmark_set(cache_dir: Optional[Path] = None, category: str = "Regular", **_) -> CASP16Dataset:
+def get_casp16_benchmark_set(
+    cache_dir: Optional[Path] = None, category: str = "Regular", **_
+) -> CASP16Dataset:
     loader = CASP16DataLoader(cache_dir=str(cache_dir) if cache_dir else "./data/casp16")
     targets = loader.download_targets(categories=[category])
     return CASP16Dataset(targets)
