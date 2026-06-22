@@ -64,7 +64,7 @@ class PairUpdate(nn.Module):
 
         # Optimized two-step contraction for outer product + linear projection.
         # Avoids creating the massive (B, L, L, d_hidden^2) intermediate tensor,
-        # reducing memory usage and improving speed.
+        # reducing memory complexity from O(L^2 D^2) to O(L^2 D + L D^2).
         # Step 1: (B, L, d_hidden) @ (d_pair, d_hidden, d_hidden) -> (B, L, d_pair, d_hidden)
         w = self.out_proj.weight.view(self.out_proj.out_features, left.shape[-1], right.shape[-1])
         tmp = torch.einsum("bid,pdc->bipc", left, w)
@@ -142,7 +142,9 @@ class EvoformerStack(nn.Module):
             [EvoformerBlock(d_model, d_pair, n_heads, dropout) for _ in range(n_blocks)]
         )
 
-    def forward(self, s: Tensor, pair: Tensor, mask: Optional[Tensor] = None) -> tuple:
+    def forward(
+        self, s: Tensor, pair: Tensor, mask: Optional[Tensor] = None
+    ) -> tuple:
         for block in self.blocks:
             s, pair = block(s, pair, mask=mask)
         return s, pair
