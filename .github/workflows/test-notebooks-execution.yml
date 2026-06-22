@@ -40,7 +40,7 @@ jobs:
         cache: 'pip'
     
     - name: Cache pip packages
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-notebooks-${{ hashFiles('requirements.txt') }}
@@ -87,7 +87,13 @@ jobs:
       run: |
         python -c "
         import nbformat
-        import nbformat.v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+          import nbformat
+          import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
         import sys
         
         nb_path = '/tmp/executed/${{ matrix.notebook }}'
@@ -140,11 +146,11 @@ jobs:
       run: |
         pip install --upgrade pip
         # Add nbconvert for ExecutePreprocessor import in test file
-        pip install pytest nbformat nbconvert torch numpy
+        pip install pytest nbformat nbconvert torch
     
     - name: Run structure tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookStructure -v
+        pytest tests/test_notebook_execution.py::TestNotebookExecution -v
     
     - name: Run content tests
       run: |
@@ -167,45 +173,51 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --upgrade pip
-        pip install pytest nbformat nbconvert torch numpy pandas matplotlib seaborn psutil
+        pip install pytest nbformat nbconvert torch pandas matplotlib seaborn psutil
     
     - name: Test notebook structure
       run: |
-        pytest tests/test_production_notebook.py::TestNotebookStructure -v
+        pytest tests/test_production_notebook.py::TestNotebookExecution -v
     
     - name: Test configuration cells
       run: |
-        pytest tests/test_production_notebook.py::TestConfigurationAndSetup -v
+        pytest tests/test_production_notebook.py::TestConfigurationCells -v
     
     - name: Test data processing
       run: |
-        pytest tests/test_production_notebook.py::TestDataTrainingEvaluationFlow -v
+        pytest tests/test_production_notebook.py::TestDataProcessing -v
     
     - name: Test model training
       run: |
+        pytest tests/test_production_notebook.py::TestModelTraining -v
     
     - name: Test evaluation
       run: |
+        pytest tests/test_production_notebook.py::TestEvaluation -v
     
     - name: Test visualization
       run: |
-        pytest tests/test_production_notebook.py::TestVisualizationAndExport -v
+        pytest tests/test_production_notebook.py::TestVisualization -v
     
     - name: Test results export
       run: |
+        pytest tests/test_production_notebook.py::TestResultsExport -v
     
     - name: Test memory management
       run: |
-        pytest tests/test_production_notebook.py::TestReliabilityAndReproducibility -v
+        pytest tests/test_production_notebook.py::TestMemoryManagement -v
     
     - name: Test error handling
       run: |
+        pytest tests/test_production_notebook.py::TestErrorHandling -v
     
     - name: Test reproducibility
       run: |
+        pytest tests/test_production_notebook.py::TestReproducibility -v
     
     - name: Test documentation
       run: |
+        pytest tests/test_production_notebook.py::TestDocumentation -v
   
   summary:
     name: Test Summary

@@ -19,4 +19,9 @@ def _convert(value: Any) -> Any:
     return value
 
 def read(fp, as_version: int = 4):
-    return _convert(json.load(fp))
+    content = fp.read()
+    if not content: return NotebookNode(cells=[], metadata={}, nbformat=4, nbformat_minor=5)
+    return _convert(json.loads(content))
+
+def write(nb, fp):
+    json.dump(nb, fp, indent=1)
