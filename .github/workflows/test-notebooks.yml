@@ -27,7 +27,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       
       - name: Cache pip
-        uses: actions/cache@v4
+        uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -43,21 +43,6 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-          import nbformat
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
           import glob
           import sys
           
@@ -82,21 +67,6 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-          import nbformat
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
           import glob
           
           warnings = []
@@ -123,21 +93,6 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-          import nbformat
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
           import glob
           import re
           
@@ -192,21 +147,6 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-          import nbformat
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
           import glob
           import ast
           import sys
@@ -223,8 +163,12 @@ jobs:
                       if not source.strip():
                           continue
                       
-                      # Skip cells with shell commands or magics
-                      if any(l.strip().startswith(('!', '%')) for l in source.split('\n')):
+                      # Skip cells with shell commands
+                      if source.strip().startswith('!'):
+                          continue
+
+                      # Skip cells with IPython magic
+                      if source.strip().startswith('%'):
                           continue
                       
                       try:
@@ -262,21 +206,6 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-          import nbformat
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
           import glob
           import re
           from collections import defaultdict
@@ -327,7 +256,7 @@ jobs:
           python-version: '3.10'
       
       - name: Cache pip
-        uses: actions/cache@v4
+        uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-notebook-test-${{ hashFiles('**/requirements.txt') }}
@@ -344,21 +273,6 @@ jobs:
           mkdir -p test_outputs
           python - <<'EOF'
           import nbformat
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-          import nbformat
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
           import glob
           import os
           
@@ -377,12 +291,12 @@ jobs:
                   nb = nbformat.read(f, as_version=4)
               
               # Create limited version (first 5 cells only)
-              limited_nb = nbformat_v4.new_notebook()
+              limited_nb = nbformat.v4.new_notebook()
               limited_nb.cells = nb.cells[:min(5, len(nb.cells))]
               
               # Add a final cell to verify execution
               limited_nb.cells.append(
-                  nbformat_v4.new_code_cell('print("✓ Dry-run completed successfully")')
+                  nbformat.v4.new_code_cell('print("✓ Dry-run completed successfully")')
               )
               
               out_path = f"test_outputs/{os.path.basename(nb_path)}"
@@ -428,21 +342,6 @@ jobs:
           # Create minimal test version
           python - <<'EOF'
           import nbformat
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-          import nbformat
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
           
           with open('examples/colab_quickstart.ipynb', 'r') as f:
               nb = nbformat.read(f, as_version=4)
@@ -469,7 +368,7 @@ jobs:
       
       - name: Upload execution results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: executed-notebooks
           path: |
@@ -487,21 +386,6 @@ jobs:
         run: |
           python - <<'EOF'
           import nbformat
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-          import nbformat
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
           import glob
           import json
           

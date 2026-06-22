@@ -59,16 +59,14 @@ class PairUpdate(nn.Module):
             Updated pair: (B, L, L, d_pair)
         """
         h = self.norm(s)
-        left = self.left_proj(h)   # (B, L, d_hidden)
+        left = self.left_proj(h)  # (B, L, d_hidden)
         right = self.right_proj(h)  # (B, L, d_hidden)
 
         # Optimized two-step contraction for outer product + linear projection.
         # Avoids creating the massive (B, L, L, d_hidden^2) intermediate tensor,
         # reducing memory usage and improving speed.
         # Step 1: (B, L, d_hidden) @ (d_pair, d_hidden, d_hidden) -> (B, L, d_pair, d_hidden)
-        w = self.out_proj.weight.view(
-            self.out_proj.out_features, left.shape[-1], right.shape[-1]
-        )
+        w = self.out_proj.weight.view(self.out_proj.out_features, left.shape[-1], right.shape[-1])
         tmp = torch.einsum("bid,pdc->bipc", left, w)
         # Step 2: (B, L, d_pair, d_hidden) @ (B, L, d_hidden) -> (B, L, L, d_pair)
         update = torch.einsum("bipc,bjc->bijp", tmp, right)
@@ -144,9 +142,7 @@ class EvoformerStack(nn.Module):
             [EvoformerBlock(d_model, d_pair, n_heads, dropout) for _ in range(n_blocks)]
         )
 
-    def forward(
-        self, s: Tensor, pair: Tensor, mask: Optional[Tensor] = None
-    ) -> tuple:
+    def forward(self, s: Tensor, pair: Tensor, mask: Optional[Tensor] = None) -> tuple:
         for block in self.blocks:
             s, pair = block(s, pair, mask=mask)
         return s, pair

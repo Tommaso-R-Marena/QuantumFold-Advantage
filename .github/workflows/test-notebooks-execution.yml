@@ -31,10 +31,10 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     
     - name: Set up Python 3.10
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.10'
         cache: 'pip'
@@ -87,21 +87,6 @@ jobs:
       run: |
         python -c "
         import nbformat
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-          import nbformat
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-          import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
-        import nbformat_v4 as nbformat_v4
         import sys
         
         nb_path = '/tmp/executed/${{ matrix.notebook }}'
@@ -143,10 +128,10 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     
     - name: Set up Python 3.10
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.10'
     
@@ -158,11 +143,11 @@ jobs:
     
     - name: Run structure tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookExecution -v
+        pytest tests/test_notebook_execution.py::TestNotebookStructure -v
     
     - name: Run content tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookContentCoverageCoverage -v
+        pytest tests/test_notebook_execution.py::TestNotebookContent -v
   
   test-production-notebook:
     name: Test Production Notebook
@@ -171,10 +156,10 @@ jobs:
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     
     - name: Set up Python 3.10
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.10'
     
@@ -185,7 +170,7 @@ jobs:
     
     - name: Test notebook structure
       run: |
-        pytest tests/test_production_notebook.py::TestNotebookExecution -v
+        pytest tests/test_production_notebook.py::TestNotebookStructure -v
     
     - name: Test configuration cells
       run: |
