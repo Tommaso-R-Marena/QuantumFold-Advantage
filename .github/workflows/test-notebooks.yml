@@ -44,11 +44,19 @@ jobs:
           python - <<'EOF'
           import nbformat
           import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
           import nbformat
           import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
           import glob
           import sys
@@ -75,11 +83,19 @@ jobs:
           python - <<'EOF'
           import nbformat
           import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
           import nbformat
           import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
           import glob
           
@@ -108,11 +124,19 @@ jobs:
           python - <<'EOF'
           import nbformat
           import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
           import nbformat
           import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
           import glob
           import re
@@ -169,11 +193,19 @@ jobs:
           python - <<'EOF'
           import nbformat
           import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
           import nbformat
           import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
           import glob
           import ast
@@ -231,11 +263,19 @@ jobs:
           python - <<'EOF'
           import nbformat
           import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
           import nbformat
           import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
           import glob
           import re
@@ -305,11 +345,19 @@ jobs:
           python - <<'EOF'
           import nbformat
           import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
           import nbformat
           import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
           import glob
           import os
@@ -381,11 +429,19 @@ jobs:
           python - <<'EOF'
           import nbformat
           import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
           import nbformat
           import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
           
           with open('examples/colab_quickstart.ipynb', 'r') as f:
@@ -432,11 +488,19 @@ jobs:
           python - <<'EOF'
           import nbformat
           import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
           import nbformat
           import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
           import glob
           import json

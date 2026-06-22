@@ -90,9 +90,17 @@ jobs:
         import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
           import nbformat
           import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
+          import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4.v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
+        import nbformat_v4 as nbformat_v4
         import nbformat_v4 as nbformat_v4
         import sys
         
@@ -154,7 +162,7 @@ jobs:
     
     - name: Run content tests
       run: |
-        pytest tests/test_notebook_execution.py::TestNotebookContentCoverage -v
+        pytest tests/test_notebook_execution.py::TestNotebookContentCoverageCoverage -v
   
   test-production-notebook:
     name: Test Production Notebook
